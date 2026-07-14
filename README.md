@@ -73,7 +73,24 @@ nexus stop
 | `nexus stop` | Stop bus + bridges |
 | `nexus demo` | Crash/resume demo |
 
-Dashboard URL after start: **http://127.0.0.1:3099/dashboard**
+Dashboard URL after start: printed in the terminal (auto port if 3099 is busy).
+
+### Connect AI subscriptions & phone (MCP)
+
+NEXUS-style setups attach **ChatGPT / Claude / Grok** (and optional **phone memory**) as MCP connectors — your URLs and keys stay local.
+
+| Doc | Contents |
+|-----|----------|
+| [docs/CONNECTORS.md](docs/CONNECTORS.md) | Architecture: remote MCP, machine MCP, phone MCP, bus |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Recipes for each AI app |
+| [connectors/](connectors/) | Copy-paste JSON/env **templates** (placeholders only) |
+
+```text
+ChatGPT / Grok  ──HTTPS MCP──►  your tunnel  ──►  workspace tools on the machine
+Claude Desktop  ──stdio MCP──►  machine-mcp.js  ──►  files + supervised shell
+Phone (optional)──HTTPS MCP──►  tunnel        ──►  personal memory (fail-open)
+Ollama / CLIs   ──event bus──►  nexus start
+```
 
 ---
 
@@ -183,6 +200,8 @@ make test && make smoke
 | [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch day checklist |
 | [docs/X_RELEASE.md](docs/X_RELEASE.md) | How to post on X (your account) |
 | [docs/META_REVIEW.md](docs/META_REVIEW.md) | Launch readiness meta-review |
+| [docs/CONNECTORS.md](docs/CONNECTORS.md) | MCP + AI subscriptions + phone |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | How to attach ChatGPT / Claude / Grok |
 | [docs/GROWTH.md](docs/GROWTH.md) | Research on how high-star repos grow |
 
 ---

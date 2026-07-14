@@ -11,7 +11,8 @@ Ideas for growing NEXUS Core. Order is a suggestion, not a commitment.
 
 ## Medium term
 
-- [ ] MCP resource surface on the bus (`resources/list|read` style)  
+- [ ] Reference Workspace MCP server implementation (SSE) in-repo  
+- [ ] Reference Machine MCP (stdio) skeleton with project jail  
 - [ ] Expanded dashboard (approve button, live step log)  
 - [ ] Routing scores from historical `agent_calls`  
 - [ ] Example Docker Compose: bus + ollama + engine  

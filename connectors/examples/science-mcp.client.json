@@ -1,0 +1,9 @@
+{
+  "$comment": "Optional domain tools — separate process, separate keys.",
+  "name": "science",
+  "type": "sse",
+  "url": "https://<your-host>/science/mcp",
+  "env_hint": [
+    "API keys for literature/data providers belong in the science server env, not in AI app chats."
+  ]
+}

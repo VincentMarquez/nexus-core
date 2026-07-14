@@ -1,0 +1,11 @@
+{
+  "$comment": "Example only — replace URL. Used by web AI apps as a custom MCP connector.",
+  "name": "nexus-workspace",
+  "type": "sse",
+  "url": "https://<your-tunnel-or-host>/mcp",
+  "notes": [
+    "Enable this connector per chat or tools will not appear.",
+    "When sending workspace messages set agent to chatgpt_web | grok_web | claude_web etc.",
+    "Prefer private tailnet or authenticated tunnel over open internet."
+  ]
+}

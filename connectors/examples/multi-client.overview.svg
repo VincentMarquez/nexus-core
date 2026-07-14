@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+  <rect width="960" height="420" fill="#0f1115"/>
+  <text x="24" y="32" fill="#e8eaed" font-family="system-ui,sans-serif" font-size="18" font-weight="700">NEXUS connectors (pattern)</text>
+  <text x="24" y="54" fill="#9aa0a6" font-family="system-ui,sans-serif" font-size="12">AI subscriptions · machine MCP · phone MCP · local bus — no secrets in git</text>
+
+  <rect x="24" y="80" width="200" height="90" rx="10" fill="#1a1d24" stroke="#3c4048"/>
+  <text x="124" y="115" text-anchor="middle" fill="#8ab4f8" font-family="system-ui,sans-serif" font-size="13">ChatGPT / Grok</text>
+  <text x="124" y="140" text-anchor="middle" fill="#9aa0a6" font-family="system-ui,sans-serif" font-size="11">HTTPS MCP connector</text>
+
+  <rect x="250" y="80" width="200" height="90" rx="10" fill="#1a1d24" stroke="#3c4048"/>
+  <text x="350" y="115" text-anchor="middle" fill="#8ab4f8" font-family="system-ui,sans-serif" font-size="13">Claude Desktop</text>
+  <text x="350" y="140" text-anchor="middle" fill="#9aa0a6" font-family="system-ui,sans-serif" font-size="11">stdio Machine MCP</text>
+
+  <rect x="476" y="80" width="200" height="90" rx="10" fill="#1a1d24" stroke="#3c4048"/>
+  <text x="576" y="115" text-anchor="middle" fill="#8ab4f8" font-family="system-ui,sans-serif" font-size="13">CLI / Ollama</text>
+  <text x="576" y="140" text-anchor="middle" fill="#9aa0a6" font-family="system-ui,sans-serif" font-size="11">event bus bridges</text>
+
+  <rect x="702" y="80" width="230" height="90" rx="10" fill="#1a1d24" stroke="#3c4048"/>
+  <text x="817" y="115" text-anchor="middle" fill="#8ab4f8" font-family="system-ui,sans-serif" font-size="13">Phone (optional)</text>
+  <text x="817" y="140" text-anchor="middle" fill="#9aa0a6" font-family="system-ui,sans-serif" font-size="11">memory MCP · fail-open</text>
+
+  <rect x="180" y="220" width="600" height="100" rx="12" fill="#0d3b2e" stroke="#7ddea5"/>
+  <text x="480" y="260" text-anchor="middle" fill="#7ddea5" font-family="system-ui,sans-serif" font-size="16" font-weight="700">Your machine — NEXUS Core</text>
+  <text x="480" y="288" text-anchor="middle" fill="#a8e6c5" font-family="system-ui,sans-serif" font-size="12">bus · dashboard · durable engine · project jail · tunnels you control</text>
+
+  <text x="24" y="380" fill="#5f6368" font-family="system-ui,sans-serif" font-size="11">Placeholders only — use your tunnel URLs and paths. Never commit tokens.</text>
+</svg>

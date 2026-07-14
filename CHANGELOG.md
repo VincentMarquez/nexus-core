@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — 2026-07-14
+
+### Added
+- **Connectors docs**: how ChatGPT / Claude / Grok / phone MCP attach (no personal URLs)
+- `docs/CONNECTORS.md`, `docs/MCP_SETUP.md`
+- `connectors/examples/*` JSON and env templates + architecture SVG
+
 ## 0.3.0 — 2026-07-14
 
 ### Added

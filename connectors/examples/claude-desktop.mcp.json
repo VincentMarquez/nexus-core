@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "nexus-machine": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/your/machine-mcp.js"
+      ],
+      "env": {
+        "NEXUS_PROJECT_ROOT": "/absolute/path/to/your/project",
+        "NEXUS_EXEC_QUEUE": "/absolute/path/to/your/project/.nexus/exec/commands.jsonl"
+      }
+    }
+  }
+}
