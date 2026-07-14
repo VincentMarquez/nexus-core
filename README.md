@@ -6,6 +6,10 @@
 
 **Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
 
+
+![CLI multi-agent tasks: resume after crash + rubric judge](docs/assets/arch-cli-judge-resume.svg)
+
+
 ![Crash → resume demo](docs/assets/demo.gif)
 
 ![Crash → resume flow](docs/assets/demo-flow.svg)

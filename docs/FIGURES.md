@@ -4,6 +4,7 @@ Publication-style diagrams for talks, papers, and the README.
 
 | Figure | File | Description |
 |--------|------|-------------|
+| **CLI + resume + judge (hero)** | [assets/arch-cli-judge-resume.svg](assets/arch-cli-judge-resume.svg) | Terminal CLIs (Claude, Codex, Gemini), crash→resume, presence vs rubric judge |
 | System overview | [assets/arch-overview.svg](assets/arch-overview.svg) | Surface → engine → panel/judge/memory → bus → backends |
 | Multi-agent panel | [assets/arch-multi-agent.svg](assets/arch-multi-agent.svg) | ChatGPT, Codex, Claude, Grok, Gemini, local LLM → NEXUS roles |
 | MCP mesh | [assets/arch-mcp-mesh.svg](assets/arch-mcp-mesh.svg) | AI apps + phone MCP → tunnel → machine |

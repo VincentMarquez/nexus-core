@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="820" viewBox="0 0 1120 820" role="img" aria-label="CLI multi-agent tasks with crash resume and rubric judge">
+  <defs>
+    <linearGradient id="heroBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.35"/>
+    </filter>
+    <filter id="card" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.35"/>
+    </filter>
+    <marker id="warr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+    </marker>
+    <marker id="garr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#4ade80"/>
+    </marker>
+    <marker id="rarr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#f87171"/>
+    </marker>
+  </defs>
+
+  <rect width="1120" height="820" fill="url(#heroBg)"/>
+
+  <!-- Title = product pitch -->
+  <text x="48" y="48" font-family="Georgia, 'Times New Roman', serif" font-size="22" fill="#f8fafc" font-weight="700">Multi-agent tasks that resume after a crash</text>
+  <text x="48" y="78" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" fill="#a5b4fc">with a judge that checks real success criteria — not “the model said OK.”</text>
+  <text x="48" y="104" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#64748b">CLI subscriptions · local models · durable checkpoints · evidence-based verdicts</text>
+
+  <!-- ========== ROW: CLI terminals ========== -->
+  <text x="48" y="145" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700" letter-spacing="0.12em" fill="#64748b">CLI AGENTS (WHAT YOU ALREADY PAY FOR / RUN LOCALLY)</text>
+
+  <!-- terminal window chrome helper: dark card with green prompt -->
+  <!-- Claude CLI -->
+  <g filter="url(#card)">
+    <rect x="40" y="160" width="200" height="110" rx="12" fill="#18181b" stroke="#3f3f46"/>
+    <circle cx="58" cy="178" r="5" fill="#ef4444"/><circle cx="74" cy="178" r="5" fill="#eab308"/><circle cx="90" cy="178" r="5" fill="#22c55e"/>
+    <text x="110" y="182" font-family="ui-monospace, monospace" font-size="11" fill="#a1a1aa">claude --print</text>
+    <text x="56" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#fbbf24">$</text>
+    <text x="72" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#fafafa">plan · review</text>
+    <text x="56" y="232" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#d97706" font-weight="700">Claude CLI</text>
+    <text x="56" y="250" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#71717a">Anthropic subscription</text>
+  </g>
+
+  <!-- Codex -->
+  <g filter="url(#card)">
+    <rect x="260" y="160" width="200" height="110" rx="12" fill="#052e1c" stroke="#14532d"/>
+    <circle cx="278" cy="178" r="5" fill="#ef4444"/><circle cx="294" cy="178" r="5" fill="#eab308"/><circle cx="310" cy="178" r="5" fill="#22c55e"/>
+    <text x="330" y="182" font-family="ui-monospace, monospace" font-size="11" fill="#86efac">codex exec</text>
+    <text x="276" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#4ade80">$</text>
+    <text x="292" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#f0fdf4">implement · patch</text>
+    <text x="276" y="232" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#4ade80" font-weight="700">Codex / GPT CLI</text>
+    <text x="276" y="250" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#86efac">OpenAI · code agent</text>
+  </g>
+
+  <!-- Gemini -->
+  <g filter="url(#card)">
+    <rect x="480" y="160" width="200" height="110" rx="12" fill="#0c1929" stroke="#1d4ed8"/>
+    <circle cx="498" cy="178" r="5" fill="#ef4444"/><circle cx="514" cy="178" r="5" fill="#eab308"/><circle cx="530" cy="178" r="5" fill="#22c55e"/>
+    <text x="550" y="182" font-family="ui-monospace, monospace" font-size="11" fill="#93c5fd">gemini</text>
+    <text x="496" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#60a5fa">$</text>
+    <text x="512" y="210" font-family="ui-monospace, monospace" font-size="12" fill="#eff6ff">research · multimodal</text>
+    <text x="496" y="232" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#60a5fa" font-weight="700">Gemini CLI</text>
+    <text x="496" y="250" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#93c5fd">Google</text>
+  </g>
+
+  <!-- Grok / ChatGPT web via MCP note small -->
+  <g filter="url(#card)">
+    <rect x="700" y="160" width="180" height="110" rx="12" fill="#09090b" stroke="#3f3f46"/>
+    <circle cx="718" cy="178" r="5" fill="#ef4444"/><circle cx="734" cy="178" r="5" fill="#eab308"/><circle cx="750" cy="178" r="5" fill="#22c55e"/>
+    <text x="770" y="182" font-family="ui-monospace, monospace" font-size="10" fill="#a1a1aa">MCP · web</text>
+    <text x="716" y="212" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#fafafa" font-weight="700">Grok · ChatGPT</text>
+    <text x="716" y="234" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#a1a1aa">web connectors</text>
+    <text x="716" y="252" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#71717a">same workspace tools</text>
+  </g>
+
+  <!-- Local / GLM -->
+  <g filter="url(#card)">
+    <rect x="900" y="160" width="180" height="110" rx="12" fill="#2e1065" stroke="#7c3aed"/>
+    <circle cx="918" cy="178" r="5" fill="#ef4444"/><circle cx="934" cy="178" r="5" fill="#eab308"/><circle cx="950" cy="178" r="5" fill="#22c55e"/>
+    <text x="968" y="182" font-family="ui-monospace, monospace" font-size="10" fill="#c4b5fd">local silicon</text>
+    <text x="916" y="212" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#ede9fe" font-weight="700">Ollama · GLM-5.2</text>
+    <text x="916" y="234" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#c4b5fd">colibrì · open weights</text>
+    <text x="916" y="252" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" fill="#a78bfa">nexus start / glm52</text>
+  </g>
+
+  <!-- arrows down to bus -->
+  <path d="M140 270 V300" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#warr)"/>
+  <path d="M360 270 V300" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#warr)"/>
+  <path d="M580 270 V300" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#warr)"/>
+  <path d="M790 270 V300" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#warr)"/>
+  <path d="M990 270 V300" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#warr)"/>
+
+  <!-- BUS strip -->
+  <rect x="40" y="305" width="1040" height="52" rx="12" fill="#0f172a" stroke="#38bdf8" stroke-opacity="0.5" filter="url(#glow)"/>
+  <text x="560" y="328" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" fill="#38bdf8" font-weight="700">EVENT BUS  ·  file-drop bridges  ·  CLI workers  ·  opt-in --with-cli</text>
+  <text x="560" y="348" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#94a3b8">nexus start wires local LLM automatically · real CLIs only when you approve</text>
+
+  <path d="M560 357 V385" stroke="#94a3b8" stroke-width="2" marker-end="url(#warr)"/>
+
+  <!-- DURABLE ENGINE + CRASH -->
+  <rect x="40" y="390" width="520" height="200" rx="16" fill="#172554" stroke="#3b82f6" filter="url(#card)"/>
+  <text x="60" y="422" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#93c5fd">① DURABLE MULTI-AGENT TASK</text>
+  <text x="60" y="448" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#bfdbfe">10-step pipeline · CLI agents run plan / implement / review</text>
+
+  <!-- mini timeline -->
+  <rect x="60" y="470" width="70" height="36" rx="6" fill="#1e3a8a"/>
+  <text x="95" y="492" text-anchor="middle" fill="#dbeafe" font-family="ui-monospace, monospace" font-size="10">1–3</text>
+  <path d="M135 488 H155" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="155" y="470" width="90" height="36" rx="6" fill="#7f1d1d" stroke="#f87171"/>
+  <text x="200" y="492" text-anchor="middle" fill="#fecaca" font-family="ui-monospace, monospace" font-size="10">kill -9</text>
+  <path d="M250 488 H270" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="270" y="470" width="100" height="36" rx="6" fill="#1e3a8a"/>
+  <text x="320" y="492" text-anchor="middle" fill="#dbeafe" font-family="ui-monospace, monospace" font-size="10">disk save</text>
+  <path d="M375 488 H395" stroke="#4ade80" stroke-width="2" marker-end="url(#garr)"/>
+  <rect x="395" y="470" width="130" height="36" rx="6" fill="#14532d" stroke="#4ade80"/>
+  <text x="460" y="492" text-anchor="middle" fill="#bbf7d0" font-family="ui-monospace, monospace" font-size="10">resume → 10/10</text>
+
+  <text x="60" y="540" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#93c5fd">Checkpoint after every step. Process death does not erase progress.</text>
+  <text x="60" y="562" font-family="ui-monospace, monospace" font-size="11" fill="#64748b">.nexus_state/tasks/&lt;id&gt;.json</text>
+
+  <!-- JUDGE -->
+  <rect x="580" y="390" width="500" height="200" rx="16" fill="#1c1917" stroke="#f59e0b" filter="url(#card)"/>
+  <text x="600" y="422" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#fbbf24">② RUBRIC JUDGE  ≠  “model said OK”</text>
+
+  <!-- bad path -->
+  <rect x="600" y="445" width="220" height="70" rx="10" fill="#450a0a" stroke="#f87171"/>
+  <text x="710" y="470" text-anchor="middle" fill="#fca5a5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Presence check</text>
+  <text x="710" y="490" text-anchor="middle" fill="#fecaca" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">agent returned JSON</text>
+  <text x="710" y="508" text-anchor="middle" fill="#f87171" font-family="ui-monospace, monospace" font-size="12">→ fake PASS</text>
+
+  <!-- good path -->
+  <rect x="840" y="445" width="220" height="70" rx="10" fill="#052e16" stroke="#4ade80"/>
+  <text x="950" y="470" text-anchor="middle" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Rubric judge</text>
+  <text x="950" y="490" text-anchor="middle" fill="#bbf7d0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">file meets criteria?</text>
+  <text x="950" y="508" text-anchor="middle" fill="#4ade80" font-family="ui-monospace, monospace" font-size="12">→ real PASS/FAIL</text>
+
+  <text x="600" y="545" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#fcd34d">Checks success_criteria + artifact evidence on disk.</text>
+  <text x="600" y="565" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#a8a29e">Prefer judge vendor ≠ implementer (Claude judges Codex, etc.)</text>
+
+  <!-- bottom CTA strip -->
+  <rect x="40" y="620" width="1040" height="150" rx="16" fill="#020617" stroke="#334155"/>
+  <text x="60" y="655" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#e2e8f0">See it on your machine</text>
+  <rect x="60" y="675" width="480" height="70" rx="10" fill="#0f172a" stroke="#22d3ee"/>
+  <text x="80" y="705" font-family="ui-monospace, monospace" font-size="14" fill="#22d3ee">$ make install &amp;&amp; make start</text>
+  <text x="80" y="728" font-family="ui-monospace, monospace" font-size="14" fill="#67e8f9">$ make demo          # crash → resume</text>
+
+  <rect x="560" y="675" width="500" height="70" rx="10" fill="#0f172a" stroke="#a78bfa"/>
+  <text x="580" y="705" font-family="ui-monospace, monospace" font-size="13" fill="#c4b5fd">$ make demo-judge    # presence vs rubric</text>
+  <text x="580" y="728" font-family="ui-monospace, monospace" font-size="13" fill="#c4b5fd">$ nexus start -y --with-cli</text>
+
+  <text x="48" y="800" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" fill="#475569">Figure · CLI multi-agent · resume · rubric judge · NEXUS Core · github.com/VincentMarquez/nexus-core</text>
+</svg>
