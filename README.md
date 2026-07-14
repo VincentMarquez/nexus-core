@@ -165,6 +165,8 @@ make test && make smoke
 | [docs/SHOW_HN.md](docs/SHOW_HN.md) | Ready-to-post Show HN |
 | [docs/SOCIAL_POSTS.md](docs/SOCIAL_POSTS.md) | X / LinkedIn / Reddit copy |
 | [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch day checklist |
+| [docs/X_RELEASE.md](docs/X_RELEASE.md) | How to post on X (your account) |
+| [docs/META_REVIEW.md](docs/META_REVIEW.md) | Launch readiness meta-review |
 | [docs/GROWTH.md](docs/GROWTH.md) | Research on how high-star repos grow |
 
 ---

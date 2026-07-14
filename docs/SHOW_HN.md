@@ -53,6 +53,8 @@ MIT. Feedback welcome — especially on the judge/resume design.
 
 ---
 
+Launch discussion: https://github.com/VincentMarquez/nexus-core/discussions/4
+
 ## Posting checklist
 
 - [ ] `make release-check` green on a clean clone  
