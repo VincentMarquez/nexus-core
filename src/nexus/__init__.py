@@ -5,6 +5,8 @@ from .engine import DurableEngine, Task, TaskStatus
 from .cascade import CascadeIndex
 from .memory import MemorySpine
 from .steps import StepPolicy
+from .bus_client import BusClient
+from .agents import AgentPanel
 
 __version__ = "0.1.0"
 __all__ = [
@@ -15,4 +17,6 @@ __all__ = [
     "CascadeIndex",
     "MemorySpine",
     "StepPolicy",
+    "BusClient",
+    "AgentPanel",
 ]

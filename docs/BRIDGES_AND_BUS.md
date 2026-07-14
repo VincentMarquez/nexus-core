@@ -180,6 +180,20 @@ curl -s -X POST http://127.0.0.1:3099/api/message \
   -d '{"agent":"claude","prompt":"Say hello from the stub bridge"}'
 ```
 
+### Local LLM (Ollama)
+
+```bash
+./bridges/ollama-http.sh local gemma2
+# details: examples/ollama_local.md
+```
+
+### Python engine on the bus
+
+```bash
+python examples/run_with_bus.py --task-id bus-demo
+# uses nexus.bus_client.BusClient + AgentPanel.from_bus
+```
+
 Replace `mock-bridge.sh` with a real CLI bridge once you have `claude` / `codex` installed locally.
 
 ---

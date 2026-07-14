@@ -25,11 +25,27 @@ curl -s -X POST http://127.0.0.1:3099/api/message \
   -d '{"agent":"claude","prompt":"ping"}' | jq .
 ```
 
+## Local LLM (Ollama — no cloud keys)
+
+```bash
+# ollama serve && ollama pull gemma2
+./bridges/ollama-http.sh local gemma2
+```
+
+Guide: [examples/ollama_local.md](../examples/ollama_local.md)
+
 ## Real CLI (example pattern — you provide the CLI)
 
 ```bash
 # only if `claude` is installed and logged in on YOUR machine
-NEXUS_BRIDGE_AGENT=claude ./bridges/cli-bridge.sh claude --print
+./bridges/cli-bridge.sh claude claude --print
 ```
 
 Auth stays with the CLI or your local env — never commit keys.
+
+## Python
+
+```bash
+python ../examples/call_bus.py --agent local
+python ../examples/run_with_bus.py   # durable engine via bus
+```

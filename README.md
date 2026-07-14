@@ -152,6 +152,19 @@ python ../examples/call_bus.py  # terminal 3 — smoke call
 Real CLIs: use `./bridges/cli-bridge.sh claude claude --print` **on your machine**  
 (auth via your local CLI login / env — **never commit API keys**).
 
+**Local LLM (Ollama):** [examples/ollama_local.md](examples/ollama_local.md)
+
+```bash
+# terminal 1–2: bus + ollama bridge
+cd bridge && npm start
+./bridges/ollama-http.sh local gemma2
+
+# optional: engine uses the bus (falls back to mocks if a slot is offline)
+python examples/run_with_bus.py --task-id ollama-demo
+```
+
+Python bus helper: `nexus.bus_client.BusClient` · panel: `AgentPanel.from_bus(...)`.
+
 ---
 
 ## What is *not* in this repo
