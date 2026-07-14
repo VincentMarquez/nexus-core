@@ -1,9 +1,9 @@
 # How to wire a multi-agent bus + CLI bridges
 
-This document describes the **pattern** used in a full NEXUS-style lab.  
-The public kit includes **stubs only** under [`bridge/`](../bridge/) — no API keys, no personal paths, no real vendor SDKs.
+This document describes how to wire a **multi-agent event bus** and **CLI / local-LLM workers**.
 
-The Python durable engine (`nexus.engine`) does **not** require this stack. Bridges are how you connect **real** CLI agents when you outgrow mock agents.
+Reference implementation: [`bridge/`](../bridge/).  
+The Python durable engine (`nexus.engine`) runs with mock agents on its own; the bus is how you attach real CLIs and local models.
 
 ---
 
@@ -31,8 +31,8 @@ The Python durable engine (`nexus.engine`) does **not** require this stack. Brid
                                            (auth is YOUR local CLI login)
 ```
 
-**Key idea:** the bus never embeds your API keys.  
-Each **bridge process** runs next to a CLI that is already logged in (`claude`, `codex`, etc.), or reads keys only from **your** environment (`ANTHROPIC_API_KEY`, …) that you never commit.
+**Key idea:** the bus stays credential-agnostic.  
+Each **bridge process** uses a local CLI session (`claude`, `codex`, …) or environment variables supplied by the operator.
 
 ---
 
@@ -149,15 +149,14 @@ Keep keys **out** of Python if the bridge owns auth.
 
 ---
 
-## Security checklist (public repos)
+## Configuration checklist
 
-| Do | Don’t |
-|----|--------|
-| Document env var **names** | Commit `.env` or real keys |
-| Use `/tmp` or configurable `BRIDGE_DIR` | Hardcode `/home/you/...` |
-| Singleton lock per bridge | Run two bridges on the same files |
-| Timeouts on CLI calls | Hang forever on a stuck model |
-| Fail open on memory search | Fail open on **auth** (never) |
+| Prefer | Avoid |
+|--------|--------|
+| Env vars for configuration | Hardcoded machine paths |
+| Configurable `BRIDGE_DIR` | Two bridges fighting the same files |
+| Timeouts on CLI calls | Unbounded waits |
+| Fail open on memory search | Treating offline agents as healthy |
 
 ---
 
@@ -198,10 +197,10 @@ Replace `mock-bridge.sh` with a real CLI bridge once you have `claude` / `codex`
 
 ---
 
-## What we intentionally omit
+## Extensions
 
-- Real Anthropic/OpenAI/xAI HTTP clients with baked-in keys  
-- Personal project directories, Gmail, medical tools  
-- Production systemd units and dashboards  
+- Native HTTP SDKs for cloud providers (bring your own keys via env)  
+- systemd / process supervisors for always-on bridges  
+- Larger dashboards on top of `/api/tasks` and `/api/events`  
 
-Those stay in a **private** lab. This doc + `bridge/` stubs are the **how-to**.
+See [ROADMAP.md](ROADMAP.md).

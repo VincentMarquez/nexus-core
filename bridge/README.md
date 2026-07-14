@@ -1,19 +1,14 @@
-# Bridge stubs (no secrets)
+# Event bus and agent bridges
 
-Minimal **event bus** + **file-drop bridges** so you can see the multi-agent wiring pattern.
+HTTP bus + file-drop workers for multi-CLI / local-LLM agents.
 
-- **No API keys** in this tree  
-- **No personal paths**  
-- Mock bridge returns canned text; swap the shell script for a real CLI when ready  
-
-Full design notes: [docs/BRIDGES_AND_BUS.md](../docs/BRIDGES_AND_BUS.md)
+Design notes: [docs/BRIDGES_AND_BUS.md](../docs/BRIDGES_AND_BUS.md)
 
 ## Quick start
 
 ```bash
-# from repo root
 cd bridge
-npm start                 # bus on :3099 (override NEXUS_BUS_PORT)
+npm start                 # bus on :3099  → dashboard at /dashboard
 
 # another terminal
 ./bridges/mock-bridge.sh claude
@@ -25,7 +20,7 @@ curl -s -X POST http://127.0.0.1:3099/api/message \
   -d '{"agent":"claude","prompt":"ping"}' | jq .
 ```
 
-## Local LLM (Ollama — no cloud keys)
+## Local LLM (Ollama)
 
 ```bash
 # ollama serve && ollama pull gemma2
@@ -34,14 +29,14 @@ curl -s -X POST http://127.0.0.1:3099/api/message \
 
 Guide: [examples/ollama_local.md](../examples/ollama_local.md)
 
-## Real CLI (example pattern — you provide the CLI)
+## Real CLI agents
 
 ```bash
-# only if `claude` is installed and logged in on YOUR machine
+# example: Claude Code CLI already installed and authenticated
 ./bridges/cli-bridge.sh claude claude --print
 ```
 
-Auth stays with the CLI or your local env — never commit keys.
+Credentials stay in your local CLI session or shell environment.
 
 ## Python
 
@@ -49,3 +44,12 @@ Auth stays with the CLI or your local env — never commit keys.
 python ../examples/call_bus.py --agent local
 python ../examples/run_with_bus.py   # durable engine via bus
 ```
+
+## Environment
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `NEXUS_BUS_PORT` | `3099` | HTTP port |
+| `NEXUS_BRIDGE_DIR` | `$TMPDIR/nexus-bridges` | prompt/response/status files |
+| `NEXUS_AGENTS` | `claude,gpt,gemini,local` | known agent slots |
+| `NEXUS_STATE_DIR` | `../.nexus_state` | task JSON for dashboard |
