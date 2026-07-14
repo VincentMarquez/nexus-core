@@ -17,6 +17,8 @@ cd nexus-core && make install && make demo
 
 That runs steps 1–3, simulates a crash, resumes from disk, and finishes **10/10**.
 
+> If this saves you a failed overnight agent run, a star helps others find it.
+
 ---
 
 ## Why it exists
@@ -154,10 +156,16 @@ make test && make smoke
 
 ---
 
-## Star growth (for maintainers)
+## Learn more
 
-How high-star repos actually grow (research + plan): **[docs/GROWTH.md](docs/GROWTH.md)**  
-Ready-to-post Show HN: **[docs/SHOW_HN.md](docs/SHOW_HN.md)**
+| Doc | Purpose |
+|-----|---------|
+| [docs/COMPARE.md](docs/COMPARE.md) | vs DIY / chat agents / graph runners |
+| [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md) | 60s product video + lab story video |
+| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Ready-to-post Show HN |
+| [docs/SOCIAL_POSTS.md](docs/SOCIAL_POSTS.md) | X / LinkedIn / Reddit copy |
+| [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch day checklist |
+| [docs/GROWTH.md](docs/GROWTH.md) | Research on how high-star repos grow |
 
 ---
 

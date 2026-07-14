@@ -47,6 +47,8 @@ make bus
 ```
 
 Repo: https://github.com/VincentMarquez/nexus-core  
+Demo assets: crash→resume GIF in the README; optional screen recording welcome.
+
 MIT. Feedback welcome — especially on the judge/resume design.
 
 ---

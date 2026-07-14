@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-07-14
+
+### Added
+- Launch pack: VIDEO_SCRIPT, COMPARE, SOCIAL_POSTS, LAUNCH_CHECKLIST
+- Soft star CTA in README
+- Positioning docs for distribution
+
 ## 0.2.0 — 2026-07-14
 
 ### Added
