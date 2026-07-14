@@ -1,6 +1,6 @@
-# Hook a local LLM (Ollama) — no cloud API keys
+# Hook a local LLM (Ollama)
 
-This walks through connecting **Ollama** to the public bus stub, then optionally to the Python engine.
+Connect **Ollama** to the event bus, then optionally to the Python engine.
 
 ## Prerequisites
 
@@ -133,8 +133,7 @@ Never commit API keys. Prefer CLI login or shell env private to your session.
 
 ---
 
-## Security
+## Notes
 
-- No secrets in this repo  
-- Ollama stays on localhost by default  
-- Do not expose the bus port to the public internet without auth  
+- Ollama defaults to localhost  
+- Prefer not exposing the bus port without authentication  
