@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="720" viewBox="0 0 1100 720" role="img" aria-label="NEXUS Core system architecture">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="720" fill="url(#bg)"/>
+  <text x="40" y="42" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#0f172a">NEXUS Core — System Architecture</text>
+  <text x="40" y="68" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#64748b">Durable multi-agent research workflows · resume · rubric judge · local + cloud models</text>
+
+  <!-- Surface -->
+  <rect x="40" y="95" width="1020" height="70" rx="12" fill="#fff" stroke="#cbd5e1" filter="url(#s)"/>
+  <text x="60" y="125" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#6366f1">SURFACE</text>
+  <text x="60" y="148" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" fill="#0f172a">CLI · Dashboard · MCP clients · Task cards · Human approval</text>
+
+  <path d="M550 165 V190" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Engine -->
+  <rect x="300" y="195" width="500" height="100" rx="12" fill="#312e81" filter="url(#s)"/>
+  <text x="550" y="235" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#c7d2fe">DURABLE ENGINE</text>
+  <text x="550" y="258" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" fill="#e0e7ff">10-step pipeline · checkpoint after each step · resume after crash</text>
+  <text x="550" y="278" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a5b4fc">goal → plan → challenge → implement → test → review → log → meta → approve → deliver</text>
+
+  <!-- arrows down -->
+  <path d="M400 295 V320" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M550 295 V320" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M700 295 V320" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- three pillars -->
+  <rect x="80" y="325" width="280" height="120" rx="12" fill="#fff" stroke="#86efac" filter="url(#s)"/>
+  <text x="220" y="355" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#166534">AGENT PANEL</text>
+  <text x="220" y="380" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">health · fallbacks · vendors</text>
+  <text x="220" y="400" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">circuit breakers · role map</text>
+  <text x="220" y="420" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#64748b">Cloud CLIs · Ollama · GLM-5.2</text>
+
+  <rect x="410" y="325" width="280" height="120" rx="12" fill="#fff" stroke="#fcd34d" filter="url(#s)"/>
+  <text x="550" y="355" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#92400e">RUBRIC JUDGE</text>
+  <text x="550" y="380" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">success_criteria + evidence</text>
+  <text x="550" y="400" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">prefer cross-vendor seat</text>
+  <text x="550" y="420" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#64748b">presence ≠ success</text>
+
+  <rect x="740" y="325" width="280" height="120" rx="12" fill="#fff" stroke="#7dd3fc" filter="url(#s)"/>
+  <text x="880" y="355" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#075985">MEMORY SPINE</text>
+  <text x="880" y="380" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">namespaces · FTS / RRF</text>
+  <text x="880" y="400" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#334155">fail-open retrieval</text>
+  <text x="880" y="420" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#64748b">cascade index first</text>
+
+  <path d="M220 445 V475" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M880 445 V475" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- bus -->
+  <rect x="80" y="480" width="940" height="80" rx="12" fill="#0f172a" filter="url(#s)"/>
+  <text x="550" y="515" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="700" fill="#e2e8f0">EVENT BUS  ·  file-drop protocol  ·  SSE  ·  dashboard</text>
+  <text x="550" y="540" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#94a3b8">nexus start → auto hardware detect · free port · open browser</text>
+
+  <path d="M200 560 V585" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M400 560 V585" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M600 560 V585" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M800 560 V585" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- backends -->
+  <rect x="90" y="590" width="180" height="70" rx="10" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="180" y="620" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#065f46">Ollama</text>
+  <text x="180" y="640" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#047857">local LLM</text>
+
+  <rect x="300" y="590" width="180" height="70" rx="10" fill="#eff6ff" stroke="#60a5fa"/>
+  <text x="390" y="620" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">CLI agents</text>
+  <text x="390" y="640" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#1d4ed8">Claude · Codex · Gemini</text>
+
+  <rect x="510" y="590" width="180" height="70" rx="10" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="600" y="620" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#5b21b6">GLM-5.2</text>
+  <text x="600" y="640" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#6d28d9">colibrì serve</text>
+
+  <rect x="720" y="590" width="280" height="70" rx="10" fill="#fff7ed" stroke="#fb923c"/>
+  <text x="860" y="620" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#9a3412">MCP connectors</text>
+  <text x="860" y="640" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#c2410c">ChatGPT · Grok · Claude · phone</text>
+
+  <text x="40" y="700" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#94a3b8">NEXUS Core · MIT · github.com/VincentMarquez/nexus-core</text>
+</svg>

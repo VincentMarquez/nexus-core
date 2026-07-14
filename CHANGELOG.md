@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 — 2026-07-14
+
+### Added
+- Research-style architecture figures (multi-agent, MCP mesh, GLM-5.2, pipeline)
+- docs/FIGURES.md catalog
+
 ## 0.3.2 — 2026-07-14
 
 ### Added

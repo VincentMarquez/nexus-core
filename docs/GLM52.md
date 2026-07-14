@@ -15,6 +15,8 @@ CACHE_ROUTE (opt-in routing): https://github.com/JustVugg/colibri/pull/199
 
 ## Roles GLM-5.2 can play
 
+![GLM-5.2 on NEXUS](assets/arch-glm-pipeline.svg)
+
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │  NEXUS durable pipeline (plan → implement → test → approve) │

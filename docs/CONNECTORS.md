@@ -8,6 +8,10 @@ This is the **architecture pattern**. Every URL, token, and hostname stays in **
 
 ## Big picture
 
+![MCP mesh](assets/arch-mcp-mesh.svg)
+
+![Multi-agent panel](assets/arch-multi-agent.svg)
+
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  AI apps (subscriptions you already pay for)                         │

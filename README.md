@@ -111,24 +111,18 @@ Measurements / CACHE_ROUTE notes: [VincentMarquez/glm52-gb10-colibri](https://gi
 
 ## Architecture
 
-```
-Surface (CLI / dashboard)
-        │
-        ▼
-Durable engine ── checkpoint · resume · human gate
-        │
-   ┌────┼────────────┐
-   ▼    ▼            ▼
-Agents  Judge      Memory (FTS / RRF)
-   │
-   ▼
-Event bus · CLI bridges · Ollama
-   │
-   ▼
-Cascade index (read the map first)
-```
+![System overview](docs/assets/arch-overview.svg)
 
-Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [MEMORY](docs/MEMORY.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md) · [ROADMAP](docs/ROADMAP.md)
+![Multi-agent research panel — ChatGPT, Codex, Claude, Grok, Gemini, local LLMs](docs/assets/arch-multi-agent.svg)
+
+![MCP connector mesh](docs/assets/arch-mcp-mesh.svg)
+
+![GLM-5.2 / colibrì with NEXUS](docs/assets/arch-glm-pipeline.svg)
+
+![10-step adversarial pipeline](docs/assets/arch-pipeline-10.svg)
+
+All figures: [docs/FIGURES.md](docs/FIGURES.md)  
+Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [CONNECTORS](docs/CONNECTORS.md) · [GLM-5.2](docs/GLM52.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md)
 
 ---
 

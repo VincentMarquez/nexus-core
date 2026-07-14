@@ -1,6 +1,8 @@
 # Architecture
 
-## Problem
+![System overview](assets/arch-overview.svg)
+
+Problem
 
 Multi-agent research systems fail in predictable ways:
 
