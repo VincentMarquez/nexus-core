@@ -68,6 +68,9 @@ def main() -> int:
     for n, out in sorted(task.outputs.items()):
         v = (out.get("_verdict") or {}).get("decision")
         print(f"  step {n}: keys={list(k for k in out if k != '_verdict')[:5]} verdict={v}")
+    # intentional partial run (kill-after) exits 0 so demos/scripts can chain to --resume
+    if task.status.value == "running" and args.kill_after > 0:
+        return 0
     return 0 if task.status.value == "completed" else 1
 
 

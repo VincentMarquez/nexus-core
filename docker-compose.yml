@@ -1,0 +1,38 @@
+# Optional stack: event bus + (optional) Ollama-side notes.
+# Engine still runs on the host with: python examples/run_with_bus.py
+#
+#   docker compose up bus
+#   open http://localhost:3099/dashboard
+
+services:
+  bus:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./bridge:/app
+      - nexus_bridge_files:/tmp/nexus-bridges
+      - ./.nexus_state:/state
+    environment:
+      NEXUS_BUS_PORT: "3099"
+      NEXUS_BRIDGE_DIR: /tmp/nexus-bridges
+      NEXUS_STATE_DIR: /state
+      NEXUS_AGENTS: claude,gpt,gemini,local
+    ports:
+      - "3099:3099"
+    command: ["node", "server.js"]
+
+  # Optional: run a mock agent worker next to the bus
+  mock-claude:
+    image: python:3.12-alpine
+    working_dir: /app
+    volumes:
+      - ./bridge:/app
+      - nexus_bridge_files:/tmp/nexus-bridges
+    environment:
+      NEXUS_BRIDGE_DIR: /tmp/nexus-bridges
+    depends_on:
+      - bus
+    command: ["sh", "-c", "apk add --no-cache bash >/dev/null && bash bridges/mock-bridge.sh claude"]
+
+volumes:
+  nexus_bridge_files:

@@ -13,6 +13,8 @@ build/
 .env
 .env.*
 .DS_Store
+results/
+.venv/
 .nexus_state/
 results/*_artifact.txt
 .nexus_state/
