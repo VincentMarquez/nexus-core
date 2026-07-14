@@ -29,6 +29,17 @@ curl -s -X POST http://127.0.0.1:3099/api/message \
 
 Guide: [examples/ollama_local.md](../examples/ollama_local.md)
 
+## GLM-5.2 (colibrì)
+
+```bash
+# terminal: coli serve  (COLI_MODEL=…, OpenAI-compatible :8000/v1)
+export COLI_OPENAI_BASE=http://127.0.0.1:8000/v1
+export COLI_OPENAI_MODEL=glm-5.2-colibri
+./bridges/colibri-glm.sh glm52
+```
+
+Guide: [docs/GLM52.md](../docs/GLM52.md) · [examples/glm52_nexus.md](../examples/glm52_nexus.md)
+
 ## Real CLI agents
 
 ```bash

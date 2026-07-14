@@ -90,7 +90,22 @@ ChatGPT / Grok  ──HTTPS MCP──►  your tunnel  ──►  workspace tool
 Claude Desktop  ──stdio MCP──►  machine-mcp.js  ──►  files + supervised shell
 Phone (optional)──HTTPS MCP──►  tunnel        ──►  personal memory (fail-open)
 Ollama / CLIs   ──event bus──►  nexus start
+GLM-5.2 colibrì ──event bus──►  colibri-glm bridge (coli serve)
 ```
+
+### GLM-5.2 (colibrì) as a NEXUS agent
+
+On a large box (high RAM / GB10-class), run **colibrì** next to NEXUS and attach GLM as agent `glm52`:
+
+```bash
+# coli serve …  (your COLI_MODEL)
+nexus start -y
+./bridge/bridges/colibri-glm.sh glm52
+python examples/run_with_bus.py --map planner=glm52,implementer=glm52,tester=local
+```
+
+Guide: **[docs/GLM52.md](docs/GLM52.md)** · quick start: [examples/glm52_nexus.md](examples/glm52_nexus.md)  
+Measurements / CACHE_ROUTE notes: [VincentMarquez/glm52-gb10-colibri](https://github.com/VincentMarquez/glm52-gb10-colibri)
 
 ---
 

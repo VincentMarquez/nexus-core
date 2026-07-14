@@ -52,7 +52,8 @@ This is the **architecture pattern**. Every URL, token, and hostname stays in **
 | **Machine MCP (local stdio)** | stdio JSON-RPC | Claude Desktop / Claude Code | Shell queue, local files, tighter machine control |
 | **Science / tools MCP** | HTTPS or stdio | Any MCP client | Domain tools (papers, APIs) with their own auth |
 | **Phone memory MCP** | HTTPS via tunnel | Any MCP client | Personal context on your phone; best-effort |
-| **Event bus bridges** | HTTP + file-drop | NEXUS Core `bridge/` | CLI agents + Ollama (not MCP, but same “attach subscriptions” idea) |
+| **Event bus bridges** | HTTP + file-drop | NEXUS Core `bridge/` | CLI agents + Ollama + **GLM-5.2/colibrì** |
+| **Heavy local MoE** | OpenAI-compatible HTTP or CLI | colibrì `coli serve` | GLM-5.2 as agent `glm52` — see [GLM52.md](GLM52.md) |
 
 NEXUS Core ships the **bus + local LLM path** in-repo.  
 MCP servers are **patterns + example configs** you host yourself.

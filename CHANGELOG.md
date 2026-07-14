@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — 2026-07-14
+
+### Added
+- **GLM-5.2 / colibrì integration**: `docs/GLM52.md`, `examples/glm52_nexus.md`
+- Bus bridge `bridge/bridges/colibri-glm.sh` (OpenAI-compatible `coli serve` + optional CLI)
+
 ## 0.3.1 — 2026-07-14
 
 ### Added

@@ -26,3 +26,13 @@ Friendly, factual positioning — not a dunk on other projects.
 ## Coexistence
 
 NEXUS Core is complementary: use it as the **task OS** (durability + policy + judge) and plug model providers through the bus or your own runners.
+
+### GLM-5.2 / colibrì
+
+| Layer | Project |
+|-------|---------|
+| Orchestration, resume, judge, dashboard | **NEXUS Core** (this repo) |
+| MoE inference, CUDA/disk, CACHE_ROUTE | **colibrì** + your model snap |
+| Lab numbers on GB10 | [glm52-gb10-colibri](https://github.com/VincentMarquez/glm52-gb10-colibri) |
+
+See [GLM52.md](GLM52.md).
