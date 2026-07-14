@@ -4,20 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-core"
-version = "0.2.1"
-description = "Clean multi-agent research workflow architecture (cascade, durable engine, judge, memory)"
+version = "0.3.0"
+description = "Multi-agent tasks that resume after a crash — local LLM, bus, dashboard, one-command start"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Vincent Marquez" }]
-keywords = ["multi-agent", "orchestration", "research", "workflow", "memory"]
+keywords = ["multi-agent", "orchestration", "research", "workflow", "memory", "ollama", "agents"]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
 
+[project.scripts]
+nexus = "nexus.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/VincentMarquez/nexus-core"
+Repository = "https://github.com/VincentMarquez/nexus-core"
+Issues = "https://github.com/VincentMarquez/nexus-core/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

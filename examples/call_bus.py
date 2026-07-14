@@ -11,10 +11,29 @@ import urllib.request
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="http://127.0.0.1:3099")
+    ap.add_argument(
+        "--base",
+        default=None,
+        help="bus base URL (default: http://127.0.0.1:$NEXUS_BUS_PORT or :3099)",
+    )
     ap.add_argument("--agent", default="claude")
     ap.add_argument("--prompt", default="Hello from nexus-core")
     args = ap.parse_args()
+    if not args.base:
+        import os
+
+        port = os.environ.get("NEXUS_BUS_PORT", "3099")
+        # prefer last_start.json if present
+        try:
+            from pathlib import Path
+            import json as _json
+
+            snap = Path(".nexus_state/last_start.json")
+            if snap.exists():
+                port = str(_json.loads(snap.read_text()).get("runtime", {}).get("bus_port") or port)
+        except Exception:
+            pass
+        args.base = f"http://127.0.0.1:{port}"
 
     for path in ("/health", "/api/status"):
         try:

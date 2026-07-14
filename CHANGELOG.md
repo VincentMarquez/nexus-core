@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-07-14
+
+### Added
+- **`nexus` CLI**: `start` / `stop` / `status` / `doctor` / `demo`
+- Hardware auto-detect (CPU, RAM, GPU/unified, Ollama, CLI tools)
+- Auto Ollama serve + model pick/pull (safe defaults; heavy models avoided on low RAM)
+- Auto start JS bus + open dashboard in browser
+- Auto local LLM bridge; CLI bridges only with `--with-cli` or interactive approve
+- `make start` / `make stop` / `make doctor`
+
 ## 0.2.1 — 2026-07-14
 
 ### Added

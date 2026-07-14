@@ -12,10 +12,24 @@
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
-cd nexus-core && make install && make demo
+cd nexus-core && make install && make start
 ```
 
-That runs steps 1–3, simulates a crash, resumes from disk, and finishes **10/10**.
+**What `make start` / `nexus start` does automatically:**
+
+1. Detects CPU / RAM / GPU (and unified memory)  
+2. Starts **Ollama** if installed and picks a safe local model (pulls one if you approve / `-y`)  
+3. Starts the **JS event bus** + opens the **dashboard in your browser**  
+4. Wires a **local LLM bridge** (or mock if Ollama is missing)  
+5. Keeps real **CLI agents off** until you pass `--with-cli` or approve the prompt  
+
+Then:
+
+```bash
+make demo          # crash → resume proof
+nexus status       # what's running
+nexus stop         # tear down
+```
 
 > If this saves you a failed overnight agent run, a star helps others find it.
 
@@ -39,25 +53,27 @@ Multi-agent systems fail in the same boring ways:
 
 ```bash
 make install
+make start         # hardware + bus + dashboard + local LLM
 make demo          # crash → resume → completed
 make demo-judge    # presence trap vs rubric judge
 make smoke         # full eval suite
+nexus stop
 ```
 
-Optional bus + dashboard:
+### CLI cheatsheet
 
-```bash
-make bus
-# http://127.0.0.1:3099/dashboard
-```
+| Command | Does |
+|---------|------|
+| `nexus doctor` | Print hardware + tool detection |
+| `nexus start` | Full auto stack (prompts for model pull / CLI) |
+| `nexus start -y` | Non-interactive defaults |
+| `nexus start -y --with-cli` | Also enable installed CLIs (claude/codex/…) |
+| `nexus start --model gemma4:e4b` | Force a model |
+| `nexus status` | PIDs + bus health |
+| `nexus stop` | Stop bus + bridges |
+| `nexus demo` | Crash/resume demo |
 
-Local LLM:
-
-```bash
-# ollama serve && ollama pull gemma2
-cd bridge && ./bridges/ollama-http.sh local gemma2
-python examples/run_with_bus.py
-```
+Dashboard URL after start: **http://127.0.0.1:3099/dashboard**
 
 ---
 

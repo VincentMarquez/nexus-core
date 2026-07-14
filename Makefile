@@ -1,4 +1,4 @@
-.PHONY: install test smoke demo demo-resume demo-judge scoreboard bus dashboard release-check clean
+.PHONY: install test smoke demo demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
 
 install:
 	python3 -m venv .venv || true
@@ -22,16 +22,33 @@ demo-judge:
 scoreboard:
 	. .venv/bin/activate && python evals/scoreboard.py
 
+# One-command local stack: hardware detect → bus → dashboard → Ollama
+start:
+	. .venv/bin/activate && nexus start -y
+
+start-cli:
+	. .venv/bin/activate && nexus start -y --with-cli
+
+stop:
+	. .venv/bin/activate && nexus stop
+
+status:
+	. .venv/bin/activate && nexus status
+
+doctor:
+	. .venv/bin/activate && nexus doctor
+
 bus:
 	cd bridge && NEXUS_STATE_DIR=../.nexus_state npm start
 
 dashboard:
-	@echo "Start the bus, then open: http://127.0.0.1:3099/dashboard"
-	@echo "  make bus"
+	@echo "Run: make start   (opens dashboard automatically)"
+	@echo "Or:  http://127.0.0.1:3099/dashboard"
 
 release-check: install test smoke
 	@echo "OK — ready to tag a release"
 
 clean:
+	. .venv/bin/activate && nexus stop 2>/dev/null || true
 	rm -rf .nexus_state .pytest_cache src/*.egg-info dist build
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
