@@ -8,8 +8,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from .circuits import CircuitBreaker
 
 
 @dataclass
@@ -18,6 +20,7 @@ class BusClient:
 
     base_url: str = "http://127.0.0.1:3099"
     timeout_s: float = 300.0
+    circuits: CircuitBreaker = field(default_factory=CircuitBreaker)
 
     def _url(self, path: str) -> str:
         return self.base_url.rstrip("/") + path
@@ -68,13 +71,31 @@ class BusClient:
         *,
         timeout_ms: Optional[int] = None,
     ) -> str:
-        """POST /api/message → response text."""
+        """POST /api/message → response text (circuit-aware)."""
+        if not self.circuits.can_execute(agent):
+            raise RuntimeError(f"circuit OPEN for agent {agent}")
         body: dict[str, Any] = {"agent": agent, "prompt": prompt}
         if timeout_ms is not None:
             body["timeout_ms"] = timeout_ms
-        out = self._post("/api/message", body, timeout=(timeout_ms or int(self.timeout_s * 1000)) / 1000.0 + 5)
-        if isinstance(out, dict) and "text" in out:
-            return str(out["text"])
-        if isinstance(out, dict) and "error" in out:
-            raise RuntimeError(out["error"])
-        raise RuntimeError(f"unexpected bus response: {out!r}")
+        try:
+            out = self._post(
+                "/api/message",
+                body,
+                timeout=(timeout_ms or int(self.timeout_s * 1000)) / 1000.0 + 5,
+            )
+            if isinstance(out, dict) and "text" in out:
+                self.circuits.record_success(agent)
+                return str(out["text"])
+            if isinstance(out, dict) and "error" in out:
+                raise RuntimeError(out["error"])
+            raise RuntimeError(f"unexpected bus response: {out!r}")
+        except Exception as e:
+            self.circuits.record_failure(agent, str(e))
+            raise
+
+    def list_tasks(self) -> list[dict[str, Any]]:
+        try:
+            out = self._get("/api/tasks", timeout=5)
+            return list(out.get("tasks") or [])
+        except Exception:
+            return []

@@ -1,0 +1,16 @@
+{
+  "claude": "anthropic",
+  "gpt": "openai",
+  "gpt2": "openai",
+  "gemini": "google",
+  "grok": "xai",
+  "local": "local",
+  "ollama": "local",
+  "operator": "human",
+  "planner": "openai",
+  "adversary": "xai",
+  "implementer": "openai",
+  "tester": "openai",
+  "reviewer": "anthropic",
+  "logger": "local"
+}

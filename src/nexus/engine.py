@@ -138,8 +138,18 @@ class DurableEngine:
                 f"Memory hits: {len(ctx['memory'])}\n"
             )
 
-            # Human gate
+            # Human gate — pause before running the approval step body
             if step.human and not self.auto_approve:
+                # if already recorded an approval output (resume --approve), apply it
+                if step.number in task.outputs and "approved" in task.outputs[step.number]:
+                    if not task.outputs[step.number].get("approved"):
+                        task.status = TaskStatus.failed
+                        task.meta["error"] = "rejected by human"
+                        self.save(task)
+                        return task
+                    task.current_step = step.number
+                    self.save(task)
+                    continue
                 task.status = TaskStatus.waiting_human
                 task.meta["waiting_step"] = step.number
                 self.save(task)
@@ -155,7 +165,10 @@ class DurableEngine:
                     "success_criteria": task.success_criteria,
                     "constraints": task.constraints,
                     "last_output": task.meta.get("last_output"),
-                    "_artifact_path": task.meta.get("_artifact_path", f"results/{task.task_id}_artifact.txt"),
+                    "_artifact_path": task.meta.get(
+                        "_artifact_path", f"results/{task.task_id}_artifact.txt"
+                    ),
+                    "task_id": task.task_id,
                 }
                 output = self.panel.run(agent_name, prompt, step=step, task=run_task)
             except Exception as e:
@@ -214,8 +227,36 @@ class DurableEngine:
         task = self.load(task_id)
         if task.status == TaskStatus.waiting_human and approve is not None:
             step_n = int(task.meta.get("waiting_step") or 9)
-            task.outputs[step_n] = {"approved": bool(approve), "feedback": "cli"}
-            task.current_step = step_n
+            task.outputs[step_n] = {
+                "approved": bool(approve),
+                "feedback": "cli",
+            }
+            # do NOT advance current_step yet — run() consumes approval at gate
             task.status = TaskStatus.running
             self.save(task)
+            if not approve:
+                task.status = TaskStatus.failed
+                task.meta["error"] = "rejected by human"
+                self.save(task)
+                return task
         return self.run(task)
+
+    def list_tasks(self) -> list[dict[str, Any]]:
+        d = self.settings.state_dir / "tasks"
+        if not d.is_dir():
+            return []
+        out = []
+        for p in sorted(d.glob("*.json")):
+            try:
+                t = Task.from_dict(json.loads(p.read_text(encoding="utf-8")))
+                out.append(
+                    {
+                        "task_id": t.task_id,
+                        "status": t.status.value,
+                        "current_step": t.current_step,
+                        "objective": t.objective[:120],
+                    }
+                )
+            except Exception:
+                continue
+        return out

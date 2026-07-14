@@ -38,10 +38,26 @@ cd nexus-core
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
+python evals/smoke.py          # durability + human gate + autonomy
 python examples/run_demo_task.py
+python evals/scoreboard.py
 ```
 
 Python **3.10+**. No cloud API keys required for the demo (mock agents).
+
+### Closing the gap (v0.2)
+
+Beyond the original spine, this public kit now also includes:
+
+- **SQLite FTS memory** (`--sqlite-memory`)
+- **Circuit breakers** on bus calls
+- **SSE events** + **task list** on the bus
+- **Minimal dashboard** at `http://127.0.0.1:3099/dashboard`
+- **Human approve** path (`--no-auto-approve` + `examples/approve_task.py`)
+- **Smoke evals + scoreboard**
+- **Vendor / routing tables** under `data/`
+
+What’s still only in a private lab (and stays out of git): production MCP bus, full React UI, domain tools, personal data. See [docs/CLOSING_THE_GAP.md](docs/CLOSING_THE_GAP.md).
 
 ---
 

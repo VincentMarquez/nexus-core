@@ -19,10 +19,21 @@ def main() -> int:
     ap.add_argument("--resume", metavar="TASK_ID", help="resume an existing task id")
     ap.add_argument("--task-id", default="demo-task-1")
     ap.add_argument("--kill-after", type=int, default=0, help="stop after N new steps (simulate crash)")
+    ap.add_argument("--no-auto-approve", action="store_true", help="stop at human approval step")
+    ap.add_argument("--sqlite-memory", action="store_true", help="use SQLite FTS memory")
     args = ap.parse_args()
 
     settings = Settings(autonomy=False, state_dir=Path(".nexus_state"))
-    engine = DurableEngine(settings=settings, auto_approve=True)
+    memory = None
+    if args.sqlite_memory:
+        from nexus.memory_sqlite import SqliteMemory
+
+        memory = SqliteMemory.demo(settings.state_dir / "memory.db")
+    engine = DurableEngine(
+        settings=settings,
+        auto_approve=not args.no_auto_approve,
+        memory=memory,
+    )
 
     if args.resume:
         task = engine.resume(args.resume)

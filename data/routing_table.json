@@ -1,0 +1,19 @@
+{
+  "comment": "Static routing preferences for pipeline roles → preferred bus/agent slots (first healthy wins).",
+  "roles": {
+    "planner": ["claude", "gpt", "local"],
+    "adversary": ["grok", "local", "claude"],
+    "implementer": ["gpt", "claude", "local"],
+    "tester": ["local", "gpt", "claude"],
+    "reviewer": ["claude", "gpt", "local"],
+    "logger": ["local"],
+    "operator": ["operator"]
+  },
+  "fallbacks": {
+    "claude": "local",
+    "gpt": "local",
+    "gemini": "local",
+    "grok": "local",
+    "local": null
+  }
+}

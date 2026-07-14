@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NEXUS Core — dashboard</title>
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, sans-serif; color: #e8eaed; background: #0f1115; }
+    body { margin: 0; padding: 1.25rem; max-width: 960px; margin-inline: auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
+    .sub { color: #9aa0a6; font-size: 0.9rem; margin-bottom: 1.25rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    section { background: #1a1d24; border: 1px solid #2a2f3a; border-radius: 10px; padding: 1rem; }
+    h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9aa0a6; margin: 0 0 0.75rem; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; margin: 0.15rem; }
+    .online { background: #0d3b2e; color: #7ddea5; }
+    .offline { background: #3b1515; color: #f5a8a8; }
+    .busy { background: #3b2f0d; color: #f0d77d; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    td, th { text-align: left; padding: 0.35rem 0.25rem; border-bottom: 1px solid #2a2f3a; vertical-align: top; }
+    #log { font-family: ui-monospace, monospace; font-size: 0.75rem; max-height: 220px; overflow: auto; white-space: pre-wrap; color: #bdc1c6; }
+    a { color: #8ab4f8; }
+    .err { color: #f28b82; }
+  </style>
+</head>
+<body>
+  <h1>NEXUS Core dashboard</h1>
+  <p class="sub">Local stub UI — no cloud keys. Polls <code>/api/status</code> + <code>/api/tasks</code>, streams <code>/api/events</code>.</p>
+
+  <div class="grid">
+    <section>
+      <h2>Agents</h2>
+      <div id="agents">loading…</div>
+    </section>
+    <section>
+      <h2>Bus</h2>
+      <div id="bus">loading…</div>
+    </section>
+  </div>
+
+  <section style="margin-top:1rem">
+    <h2>Tasks <small style="font-weight:normal;color:#9aa0a6">(from NEXUS_STATE_DIR)</small></h2>
+    <table>
+      <thead><tr><th>id</th><th>status</th><th>step</th><th>objective</th></tr></thead>
+      <tbody id="tasks"></tbody>
+    </table>
+  </section>
+
+  <section style="margin-top:1rem">
+    <h2>Live events (SSE)</h2>
+    <div id="log"></div>
+  </section>
+
+  <script>
+    const logEl = document.getElementById('log');
+    function log(line) {
+      logEl.textContent = `[${new Date().toISOString().slice(11,19)}] ${line}\n` + logEl.textContent;
+    }
+
+    async function refresh() {
+      try {
+        const st = await fetch('/api/status').then(r => r.json());
+        const ag = document.getElementById('agents');
+        ag.innerHTML = (st.agents || []).map(a => {
+          const cls = a.status === 'online' ? 'online' : a.status === 'busy' ? 'busy' : 'offline';
+          return `<span class="pill ${cls}">${a.agent}: ${a.status}</span>`;
+        }).join(' ') || '<span class="err">no agents</span>';
+        document.getElementById('bus').innerHTML =
+          `<div>bridge_dir: <code>${st.bridge_dir || ''}</code></div>` +
+          `<div>task files seen: ${st.tasks ?? '?'}</div>`;
+      } catch (e) {
+        document.getElementById('agents').innerHTML = `<span class="err">${e}</span>`;
+      }
+      try {
+        const t = await fetch('/api/tasks').then(r => r.json());
+        const tb = document.getElementById('tasks');
+        const rows = t.tasks || [];
+        tb.innerHTML = rows.length ? rows.map(x =>
+          `<tr><td>${x.task_id}</td><td>${x.status}</td><td>${x.current_step ?? ''}</td><td>${(x.objective||'').replace(/</g,'&lt;')}${x.error ? ' <span class="err">'+x.error+'</span>' : ''}</td></tr>`
+        ).join('') : '<tr><td colspan="4">No tasks yet — run <code>python examples/run_demo_task.py</code></td></tr>';
+      } catch (e) {
+        document.getElementById('tasks').innerHTML = `<tr><td colspan="4" class="err">${e}</td></tr>`;
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+
+    try {
+      const es = new EventSource('/api/events');
+      es.addEventListener('hello', ev => log('hello ' + ev.data.slice(0, 120)));
+      es.addEventListener('ping', () => {});
+      es.addEventListener('message_queued', ev => log('queued ' + ev.data));
+      es.addEventListener('message_done', ev => log('done ' + ev.data));
+      es.addEventListener('message_timeout', ev => log('timeout ' + ev.data));
+      es.addEventListener('bus_started', ev => log('bus_started ' + ev.data));
+      es.onerror = () => log('SSE connection issue (is the bus up?)');
+    } catch (e) {
+      log('SSE failed: ' + e);
+    }
+  </script>
+</body>
+</html>

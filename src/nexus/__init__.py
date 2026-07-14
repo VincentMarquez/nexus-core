@@ -7,8 +7,10 @@ from .memory import MemorySpine
 from .steps import StepPolicy
 from .bus_client import BusClient
 from .agents import AgentPanel
+from .circuits import CircuitBreaker
+from .memory_sqlite import SqliteMemory
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "Settings",
     "DurableEngine",
@@ -16,7 +18,9 @@ __all__ = [
     "TaskStatus",
     "CascadeIndex",
     "MemorySpine",
+    "SqliteMemory",
     "StepPolicy",
     "BusClient",
     "AgentPanel",
+    "CircuitBreaker",
 ]
