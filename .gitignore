@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+# runtime state from demos
+.nexus_state/
+*.db
+.env
+.env.*
+.DS_Store
+.nexus_state/
+results/*_artifact.txt
