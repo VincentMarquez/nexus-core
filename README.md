@@ -124,19 +124,33 @@ Policy table: [docs/PIPELINE.md](docs/PIPELINE.md)
 ## Package layout
 
 ```
-src/nexus/
-  cascade.py    # D*-style cascade index
-  steps.py      # step policy + capabilities
-  agents.py     # panel, health, fallbacks (mock + protocol)
-  engine.py     # durable checkpointed runner
-  judge.py      # rubric judge
-  memory.py     # hybrid RRF memory + namespaces
-  trust.py      # provenance + verdict records
-  config.py     # knobs (autonomy default off)
+src/nexus/          # Python architecture (engine, judge, memory, …)
+bridge/             # HOWTO stubs: event bus + file-drop bridges (no keys)
+  server.js
+  bridges/mock-bridge.sh
+  bridges/cli-bridge.sh
 docs/
+  BRIDGES_AND_BUS.md   # how to wire real CLIs without committing secrets
 examples/
 tests/
 ```
+
+### Multi-agent bus + CLI bridges (no secrets)
+
+The durable Python engine works offline with **mock agents**.  
+To learn how a **real** multi-CLI lab wires agents:
+
+1. Read **[docs/BRIDGES_AND_BUS.md](docs/BRIDGES_AND_BUS.md)**  
+2. Run the stubs:
+
+```bash
+cd bridge && npm start          # terminal 1 — bus on :3099
+./bridges/mock-bridge.sh claude # terminal 2 — fake agent
+python ../examples/call_bus.py  # terminal 3 — smoke call
+```
+
+Real CLIs: use `./bridges/cli-bridge.sh claude claude --print` **on your machine**  
+(auth via your local CLI login / env — **never commit API keys**).
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "name": "nexus-core-bridge-stubs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stub event bus for NEXUS-style multi-agent wiring (no API keys)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
