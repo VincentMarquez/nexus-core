@@ -57,4 +57,4 @@ nexus platforms doctor --fix
 python -c "from nexus.mcp_server import call_tool; print(call_tool('list_platforms',{}))"
 ```
 
-Full docs: [docs/PLATFORMS.md](../docs/PLATFORMS.md)
+Full docs: [docs/PLATFORMS.md](../PLATFORMS.md)

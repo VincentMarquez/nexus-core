@@ -63,7 +63,7 @@ Repo secrets:
 | `HEALTHCHECK_API_KEY` | Optional API key header |
 | `NOTIFY_WEBHOOK` | Optional Discord/Slack webhook |
 
-Workflow: [`.github/workflows/deadman.yml`](../.github/workflows/deadman.yml)  
+Workflow: [`deadman.yml` on GitHub](https://github.com/VincentMarquez/nexus-core/blob/main/.github/workflows/deadman.yml)  
 Runs every 15 minutes; if status is `down`, opens/comments a GitHub issue and fires the webhook.
 
 ### 3. Local recovery (opt-in)

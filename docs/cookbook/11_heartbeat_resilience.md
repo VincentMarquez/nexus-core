@@ -28,4 +28,4 @@ nexus recovery wifi --allow-reconnect   # opt-in nmcli
 
 ## Full docs
 
-[docs/RESILIENCE.md](../docs/RESILIENCE.md)
+[docs/RESILIENCE.md](../RESILIENCE.md)

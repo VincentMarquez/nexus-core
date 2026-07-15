@@ -72,4 +72,4 @@ nexus github loop 1
 
 ## Full doc
 
-[docs/GITHUB_COMMUNITY.md](../docs/GITHUB_COMMUNITY.md)
+[docs/GITHUB_COMMUNITY.md](../GITHUB_COMMUNITY.md)
