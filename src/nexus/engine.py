@@ -22,6 +22,12 @@ Provenance / integrity (P4):
   (PROV-AGENT shape; routa/mission-control trace export).
 - ``verify(task_id)`` — checkpoint ↔ journal consistency checks
   (fault-tolerant durability / integrity gate).
+
+Budget + call-graph (P5):
+- ``meta.max_tokens`` hard-stop after each step (cycgraph / open-multi-agent
+  maxTokenBudget / mission-control spend cap shape; may overshoot by one step).
+- ``graph(task_id)`` — agent call-graph + space-time sequence from journal
+  (MAS call-graph / space-time profiling papers; routa trace shape).
 """
 
 from __future__ import annotations
@@ -45,6 +51,32 @@ from .usage import estimate_tokens
 
 # Review step verdicts that hard-fail the pipeline (edict fail-closed audit).
 REVIEW_VETO_VERDICTS = frozenset({"reject", "veto", "fail", "deny", "blocked"})
+
+
+def task_max_tokens(task: "Task") -> Optional[int]:
+    """Resolve per-task token hard-cap from meta or constraints (None = unlimited).
+
+    Sources (first match wins):
+    - ``task.meta["max_tokens"]`` (int / numeric string)
+    - constraint strings like ``max_tokens=5000`` or ``max_tokens: 5000``
+    """
+    raw = (task.meta or {}).get("max_tokens")
+    if raw is not None and raw != "":
+        try:
+            n = int(raw)
+            return n if n > 0 else None
+        except (TypeError, ValueError):
+            pass
+    for c in task.constraints or []:
+        s = str(c).strip().lower().replace(" ", "")
+        for prefix in ("max_tokens=", "max_tokens:"):
+            if s.startswith(prefix):
+                try:
+                    n = int(s[len(prefix) :])
+                    return n if n > 0 else None
+                except ValueError:
+                    break
+    return None
 
 
 class TaskStatus(str, Enum):
@@ -230,6 +262,34 @@ class DurableEngine:
             if max_steps is not None and step.number > (start_step + max_steps):
                 stopped_early = True
                 break
+
+            # Pre-step budget gate (already spent ≥ cap → refuse further work)
+            cap = task_max_tokens(task)
+            spent = int(task.meta.get("tokens_total") or 0)
+            if cap is not None and spent >= cap:
+                task.status = TaskStatus.failed
+                task.meta["error"] = (
+                    f"task budget exceeded: tokens_total={spent} max_tokens={cap}"
+                )
+                task.meta["budget_exhausted"] = True
+                self.save(task)
+                self.record_event(
+                    task.task_id, "budget",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={
+                        "max_tokens": cap,
+                        "tokens_total": spent,
+                        "remaining": 0,
+                        "phase": "pre_step",
+                    },
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
 
             agent_name = self.panel.resolve(step)
             # Swarm-style handoff when control transfers to a different agent
@@ -418,6 +478,35 @@ class DurableEngine:
                 },
             )
 
+            # Post-step budget hard-stop (open-multi-agent: may overshoot by 1 turn)
+            cap = task_max_tokens(task)
+            spent = int(task.meta.get("tokens_total") or 0)
+            if cap is not None and spent > cap:
+                task.status = TaskStatus.failed
+                task.meta["error"] = (
+                    f"task budget exceeded: tokens_total={spent} max_tokens={cap}"
+                )
+                task.meta["budget_exhausted"] = True
+                self.save(task)
+                self.record_event(
+                    task.task_id, "budget",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={
+                        "max_tokens": cap,
+                        "tokens_total": spent,
+                        "remaining": 0,
+                        "phase": "post_step",
+                        "step_tokens": step_tokens,
+                    },
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
+
         if stopped_early:
             task.status = TaskStatus.running
             self.save(task)
@@ -605,6 +694,14 @@ class DurableEngine:
             ledger = {}
 
         avg_score = round(sum(scores) / len(scores), 4) if scores else None
+        cap = task_max_tokens(task)
+        remaining: Optional[int]
+        if cap is None:
+            remaining = None
+            exhausted = bool(task.meta.get("budget_exhausted"))
+        else:
+            remaining = max(0, cap - total_tokens)
+            exhausted = bool(task.meta.get("budget_exhausted")) or total_tokens > cap
         return {
             "task_id": task.task_id,
             "found": True,
@@ -621,6 +718,10 @@ class DurableEngine:
             "by_step": by_step,
             "steps": step_rows,
             "ledger": ledger,
+            # P5: per-task hard budget (None = unlimited)
+            "max_tokens": cap,
+            "remaining_tokens": remaining,
+            "budget_exhausted": exhausted,
         }
 
     def explain(self, task_id: str) -> dict[str, Any]:
@@ -1223,4 +1324,176 @@ class DurableEngine:
             "journal_tokens": journal_tokens,
             "meta_tokens": meta_tokens,
             "max_step_complete": max_complete,
+        }
+
+    def graph(self, task_id: str) -> dict[str, Any]:
+        """Agent call-graph + space-time sequence from the journal (MAS profiling).
+
+        Read-only export inspired by call-graph / space-time diagram papers and
+        routa/mission-control trace boards:
+
+        - **nodes** — agents with step counts + token spend
+        - **edges** — handoff edges (from→to) with multiplicity
+        - **sequence** — ordered (step, agent, event) space-time spine
+        - **mermaid** — compact flowchart string for docs/dashboards
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": "nexus.graph/v1",
+                "error": f"task not found: {task_id}",
+            }
+
+        events = self.events(task_id)
+        nodes: dict[str, dict[str, Any]] = {}
+        edge_counts: dict[tuple[str, str], int] = {}
+        sequence: list[dict[str, Any]] = []
+
+        def _node(name: str) -> dict[str, Any]:
+            row = nodes.setdefault(
+                name,
+                {
+                    "id": name,
+                    "type": "agent",
+                    "vendor": self.panel.vendor_of.get(name, "unknown"),
+                    "steps": [],
+                    "n_starts": 0,
+                    "n_completes": 0,
+                    "tokens": 0,
+                },
+            )
+            return row
+
+        for e in events:
+            ev = str(e.get("event") or "")
+            agent = str(e.get("agent") or "").strip()
+            sn = e.get("step")
+            sn_i = int(sn) if sn is not None else None
+
+            if ev == "handoff":
+                src = str(e.get("from_agent") or "").strip()
+                dst = str(e.get("to_agent") or agent).strip()
+                if src:
+                    _node(src)
+                if dst:
+                    _node(dst)
+                if src and dst:
+                    edge_counts[(src, dst)] = edge_counts.get((src, dst), 0) + 1
+                sequence.append(
+                    {
+                        "event": "handoff",
+                        "step": sn_i,
+                        "from_agent": src,
+                        "to_agent": dst,
+                        "ts": e.get("ts"),
+                    }
+                )
+                continue
+
+            if agent:
+                node = _node(agent)
+                if sn_i is not None and sn_i not in node["steps"]:
+                    node["steps"].append(sn_i)
+                if ev == "step_start":
+                    node["n_starts"] += 1
+                    sequence.append(
+                        {
+                            "event": "step_start",
+                            "step": sn_i,
+                            "agent": agent,
+                            "name": e.get("detail") or "",
+                            "ts": e.get("ts"),
+                        }
+                    )
+                elif ev == "step_complete":
+                    node["n_completes"] += 1
+                    try:
+                        node["tokens"] += int(e.get("tokens") or 0)
+                    except (TypeError, ValueError):
+                        pass
+                    sequence.append(
+                        {
+                            "event": "step_complete",
+                            "step": sn_i,
+                            "agent": agent,
+                            "name": e.get("detail") or "",
+                            "decision": e.get("decision") or "",
+                            "tokens": e.get("tokens"),
+                            "score": e.get("score"),
+                            "ts": e.get("ts"),
+                        }
+                    )
+                elif ev in {"budget", "veto", "failed", "waiting_human", "completed"}:
+                    sequence.append(
+                        {
+                            "event": ev,
+                            "step": sn_i,
+                            "agent": agent,
+                            "detail": e.get("detail") or "",
+                            "ts": e.get("ts"),
+                        }
+                    )
+            elif ev in {"budget", "failed", "completed", "status", "resume", "checkpoint"}:
+                sequence.append(
+                    {
+                        "event": ev,
+                        "step": sn_i,
+                        "agent": "",
+                        "detail": e.get("detail") or "",
+                        "ts": e.get("ts"),
+                    }
+                )
+
+        edges = [
+            {
+                "from": a,
+                "to": b,
+                "count": c,
+                "kind": "handoff",
+            }
+            for (a, b), c in sorted(edge_counts.items(), key=lambda x: (-x[1], x[0][0], x[0][1]))
+        ]
+
+        # Mermaid flowchart for quick operator paste
+        mermaid_lines = ["flowchart LR"]
+        if not nodes and not edges:
+            mermaid_lines.append("  empty[no agents yet]")
+        else:
+            for n in sorted(nodes.values(), key=lambda x: x["id"]):
+                safe = n["id"].replace('"', "")
+                label = f'{safe}\\ntok={n["tokens"]} steps={len(n["steps"])}'
+                mermaid_lines.append(f'  {safe}["{label}"]')
+            for e in edges:
+                frm = str(e["from"]).replace('"', "")
+                to = str(e["to"]).replace('"', "")
+                cnt = e["count"]
+                arrow = f"|x{cnt}|" if cnt > 1 else ""
+                mermaid_lines.append(f"  {frm} -->{arrow} {to}")
+        mermaid = "\n".join(mermaid_lines)
+
+        cost_sum = self.cost(task_id)
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "schema": "nexus.graph/v1",
+            "status": task.status.value,
+            "current_step": task.current_step,
+            "objective": task.objective,
+            "nodes": sorted(nodes.values(), key=lambda x: x["id"]),
+            "edges": edges,
+            "sequence": sequence,
+            "n_handoffs": sum(e["count"] for e in edges),
+            "n_agents": len(nodes),
+            "mermaid": mermaid,
+            "cost": {
+                "total_tokens": cost_sum.get("total_tokens", 0),
+                "max_tokens": cost_sum.get("max_tokens"),
+                "remaining_tokens": cost_sum.get("remaining_tokens"),
+                "budget_exhausted": cost_sum.get("budget_exhausted", False),
+                "by_agent": cost_sum.get("by_agent") or {},
+            },
+            "n_events": len(events),
         }

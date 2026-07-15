@@ -181,3 +181,46 @@ def test_task_prov_and_verify_cli(tmp_path: Path, capsys):
     assert rc == 1
     rc = main(["task", "verify", "missing", "--state-dir", state])
     assert rc == 1
+
+
+def test_task_graph_and_budget_cost_cli(tmp_path: Path, capsys):
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli5",
+        objective="cli graph budget",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={"max_tokens": 500_000},  # high enough to complete
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    state = str(settings.state_dir)
+
+    rc = main(["task", "graph", "cli5", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "graph cli5" in out
+    assert "nodes:" in out
+    assert "sequence:" in out or "edges:" in out
+
+    rc = main(["task", "graph", "cli5", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"schema"' in out
+    assert "nexus.graph/v1" in out
+    assert "cli5" in out
+
+    rc = main(["task", "graph", "cli5", "--state-dir", state, "--mermaid"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "mermaid:" in out
+    assert "flowchart" in out
+
+    rc = main(["task", "cost", "cli5", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "budget:" in out
+    assert "max=500000" in out or "max=500_000" in out or "500000" in out
+
+    rc = main(["task", "graph", "missing", "--state-dir", state])
+    assert rc == 1

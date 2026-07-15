@@ -1214,7 +1214,7 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events + replay/explain/cost/prov/verify."""
+    """Operator surface: list/show/events + replay/explain/cost/prov/verify/graph."""
     from .engine import DurableEngine
 
     settings = _task_settings(args)
@@ -1404,6 +1404,13 @@ def cmd_task(args: argparse.Namespace) -> int:
         print(f"total_tokens: {rep.get('total_tokens', 0)}")
         print(f"steps:        {rep.get('request_count', 0)}  avg/step={rep.get('avg_tokens_per_step', 0)}")
         print(f"avg_score:    {rep.get('avg_score')}")
+        cap = rep.get("max_tokens")
+        if cap is not None:
+            rem = rep.get("remaining_tokens")
+            exh = "EXHAUSTED" if rep.get("budget_exhausted") else "ok"
+            print(f"budget:       max={cap}  remaining={rem}  {exh}")
+        else:
+            print("budget:       unlimited")
         if thr:
             print(f"thresholds:   pass>={thr.get('pass')}  revise>={thr.get('revise')}")
         if rep.get("by_agent"):
@@ -1424,6 +1431,77 @@ def cmd_task(args: argparse.Namespace) -> int:
                     f"score={s.get('score')}  "
                     f"dec={s.get('decision') or '-'}"
                 )
+        return 0
+
+    if sub == "graph":
+        # MAS call-graph / space-time profile (read-only)
+        rep = engine.graph(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        print(f"# graph {rep['task_id']}  schema={rep.get('schema')}")
+        print(
+            f"status:       {rep.get('status')}  step={rep.get('current_step')}  "
+            f"agents={rep.get('n_agents', 0)}  handoffs={rep.get('n_handoffs', 0)}"
+        )
+        print(f"objective:    {rep.get('objective', '')}")
+        cost = rep.get("cost") or {}
+        if cost:
+            budget_s = ""
+            if cost.get("max_tokens") is not None:
+                budget_s = (
+                    f"  budget={cost.get('max_tokens')} "
+                    f"rem={cost.get('remaining_tokens')}"
+                )
+                if cost.get("budget_exhausted"):
+                    budget_s += " EXHAUSTED"
+            print(f"cost:         tokens={cost.get('total_tokens', 0)}{budget_s}")
+        nodes = rep.get("nodes") or []
+        if nodes:
+            print("nodes:")
+            for n in nodes:
+                print(
+                    f"  {n.get('id')}: vendor={n.get('vendor')}  "
+                    f"starts={n.get('n_starts', 0)}  "
+                    f"completes={n.get('n_completes', 0)}  "
+                    f"tokens={n.get('tokens', 0)}  "
+                    f"steps={n.get('steps')}"
+                )
+        edges = rep.get("edges") or []
+        if edges:
+            print("edges:")
+            for e in edges:
+                cnt = e.get("count") or 1
+                mult = f" x{cnt}" if cnt > 1 else ""
+                print(f"  {e.get('from')} -> {e.get('to')}{mult}  ({e.get('kind')})")
+        seq = rep.get("sequence") or []
+        if seq:
+            print(f"sequence:     ({len(seq)} events)")
+            for s in seq[:40]:
+                step = s.get("step")
+                step_s = f"s{step}" if step is not None else "  "
+                ev = s.get("event") or "?"
+                if ev == "handoff":
+                    detail = f"{s.get('from_agent')}->{s.get('to_agent')}"
+                elif s.get("agent"):
+                    detail = f"agent={s.get('agent')}"
+                    if s.get("name"):
+                        detail += f" {s.get('name')}"
+                    if s.get("decision"):
+                        detail += f" dec={s.get('decision')}"
+                    if s.get("tokens") is not None:
+                        detail += f" tok={s.get('tokens')}"
+                else:
+                    detail = (s.get("detail") or "")[:60]
+                print(f"  {step_s:>3}  {ev:<14}  {detail}")
+            if len(seq) > 40:
+                print(f"  … +{len(seq) - 40} more (use --json)")
+        if getattr(args, "mermaid", False) and rep.get("mermaid"):
+            print("mermaid:")
+            print(rep["mermaid"])
         return 0
 
     if sub == "prov":
@@ -2464,6 +2542,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_verify.add_argument("--json", action="store_true", help="emit JSON report")
     tk_verify.add_argument("--state-dir", default=None)
     tk_verify.set_defaults(func=cmd_task)
+    tk_graph = tk_sub.add_parser(
+        "graph",
+        help="agent call-graph + space-time sequence (MAS profiling; read-only)",
+    )
+    tk_graph.add_argument("task_id")
+    tk_graph.add_argument("--json", action="store_true", help="emit full JSON document")
+    tk_graph.add_argument(
+        "--mermaid",
+        action="store_true",
+        help="also print mermaid flowchart block",
+    )
+    tk_graph.add_argument("--state-dir", default=None)
+    tk_graph.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

@@ -2,7 +2,7 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 40_
+_Rows: 50_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
@@ -46,3 +46,13 @@ _Rows: 40_
 | 2508.02866 | PROV-AGENT: Unified Provenance for Tracking AI Agent Interactions in A | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
 | 2606.09840 | Envisioning Sensemaking in Multi-Human, Multi-Agent Collaborative Know | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
 | 2606.14130 | Contract-Based Compositional Shielding for Safe Multi-Agent Reinforcem | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 1508.02674 | Space-Time Diagram Generation for Profiling Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 1508.02677 | Call Graph Profiling for Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 1708.02361 | Verification & Validation of Agent Based Simulations using the VOMAS ( | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2107.13252 | Multi Agent System for Machine Learning Under Uncertainty in Cyber Phy | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2111.01762 | AIRCC-Clim: a user-friendly tool for generating regional probabilistic | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2209.14239 | How to solve a classification problem using a cooperative tiling Multi | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2404.01131 | GOV-REK: Governed Reward Engineering Kernels for Designing Robust Mult | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2512.21309 | A Plan Reuse Mechanism for LLM-Driven Agent | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2606.20023 | When Lower Privileges Suffice: Investigating Over-Privileged Tool Sele | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
+| 2606.20485 | Optimal Order of Multi-Agent and General Many-Body Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |

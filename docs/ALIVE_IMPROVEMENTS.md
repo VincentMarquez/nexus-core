@@ -124,3 +124,20 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-beb4144b26.md`
+
+## Cycle 2026-07-15 hard-apply P5 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (cycgraph / mission-control / open-multi-agent / MisterSmith / routa / rojak / …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-7afb87b115.md` (+ prior rx-beb4144b26 / rx-5b885ba84d / …)
+- apply slice (P5 task budget hard-stop + call-graph — First apply this session):
+  - `src/nexus/engine.py` — `task_max_tokens()`; pre/post `max_tokens` gate; journal `budget` event; `graph()` nodes/edges/sequence/mermaid; cost budget fields
+  - `src/nexus/cli.py` — `nexus task graph` (+ `--json` / `--mermaid`); cost shows budget line
+  - tests: `tests/test_engine.py` (budget + graph), `tests/test_task_cli.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook budget/graph inspect
+- patterns: cycgraph/open-multi-agent maxTokenBudget, mission-control spend, MisterSmith hard-cap, MAS call-graph/space-time papers, routa traces
+- evidence: `PYTHONPATH=src python3 -m pytest -q`
+
+## Cycle 2026-07-15 18:28:53Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-7afb87b115.md`

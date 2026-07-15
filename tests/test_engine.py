@@ -290,3 +290,71 @@ def test_verify_checkpoint_journal_ok_and_drift(tmp_path: Path):
     missing = engine.verify("does-not-exist")
     assert missing["found"] is False
     assert missing["ok"] is False
+
+
+def test_task_budget_hard_stop(tmp_path: Path):
+    """P5: meta.max_tokens fails closed after overshoot (open-multi-agent shape)."""
+    from nexus.engine import task_max_tokens
+
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="bud1",
+        objective="budget gate demo",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={"max_tokens": 1},  # tiny cap → fail after first step tokens
+    )
+    assert task_max_tokens(task) == 1
+    task = engine.run(task)
+    assert task.status == TaskStatus.failed
+    assert task.meta.get("budget_exhausted") is True
+    assert "budget exceeded" in (task.meta.get("error") or "")
+    events = engine.events("bud1")
+    assert any(e.get("event") == "budget" for e in events)
+    assert any(e.get("event") == "failed" for e in events)
+    # at least one step may have completed before overshoot
+    assert task.current_step >= 1
+
+    rep = engine.cost("bud1")
+    assert rep["found"] is True
+    assert rep["max_tokens"] == 1
+    assert rep["budget_exhausted"] is True
+    assert rep["remaining_tokens"] == 0
+
+    # constraints form also resolves
+    t2 = Task(task_id="x", objective="y", constraints=["max_tokens=42"])
+    assert task_max_tokens(t2) == 42
+    assert task_max_tokens(Task(task_id="z", objective="y")) is None
+
+
+def test_call_graph_profile(tmp_path: Path):
+    """P5: graph() builds agent nodes, handoff edges, and space-time sequence."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="g1",
+        objective="call graph demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+
+    g = engine.graph("g1")
+    assert g["found"] is True
+    assert g["schema"] == "nexus.graph/v1"
+    assert g["n_agents"] >= 1
+    assert g["nodes"]
+    assert any(n.get("n_completes", 0) > 0 for n in g["nodes"])
+    # default multi-agent pipeline should hand off at least once
+    assert g["n_handoffs"] >= 1
+    assert g["edges"]
+    for e in g["edges"]:
+        assert e.get("from") and e.get("to") and e.get("kind") == "handoff"
+    assert g["sequence"]
+    assert any(s.get("event") == "step_complete" for s in g["sequence"])
+    assert "flowchart" in (g.get("mermaid") or "")
+    assert g["cost"]["total_tokens"] > 0
+
+    missing = engine.graph("nope")
+    assert missing["found"] is False
+

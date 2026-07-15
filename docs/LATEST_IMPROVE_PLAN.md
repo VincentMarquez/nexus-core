@@ -1,107 +1,67 @@
 # Latest improve plan (from full self-improve cycle)
 
-Model: Grok 4.5 · 10 repos graded · 10 arXiv papers · hard apply
+_Generated 2026-07-15 · Grok 4.5 hard-apply worker · 10 repos + 10 arXiv_
 
-## Status
+## Evidence
 
-| Slice | Status |
-|-------|--------|
-| **P0 First apply** — atomic checkpoints + event journal + opt-in memory decay | **Landed** |
-| **P1** — operator CLI + handoff events + journal context + review veto | **Landed** |
-| **P2** — replay timeline + causal explain + `why` on step_complete | **Landed** |
-| **P3** — task cost rollup + judge value thresholds | **Landed** |
-| **P4 First apply** — provenance export + checkpoint/journal verify | **Landed** (this session) |
-| **P5** — OTel counters / dashboard timeline / resume hard-gate | Backlog |
+| Source | Path / notes |
+|--------|----------------|
+| Repo mine plan | `.nexus_state/repo_mine/IMPROVE_OURS.md` (mission-control, cycgraph, rojak, MisterSmith, routa, AgenticGoKit, …) |
+| Latest USE | `.nexus_state/repo_mine/USE_LATEST.md` |
+| arXiv (tool-use / MAS) | `.nexus_state/arxiv_improve/improve-rx-7afb87b115.md` |
+| Prior papers (durability/CEMA/PROV) | `improve-rx-beb4144b26`, `rx-5b885ba84d`, `rx-703f35888a`, … |
+| Prior slices landed | P0 atomic journal → P1 handoff/veto/CLI → P2 replay/explain → P3 cost/thresholds → P4 prov/verify |
 
-## First apply slice (this session — P4)
+## Graded priorities
 
-**Goal:** Operator-grade **unified provenance** and **durability integrity** without re-running agents.
+### P0 — already shipped (durability core)
+Atomic write-then-rename checkpoints, JSONL event journal, trust flush, optional memory decay.
 
-Patterns: PROV-AGENT (2508.02866), fault-tolerant checkpointing (2310.12670), mission-control activity timeline, routa traces, MisterSmith/EDDI audit, AgenticGoKit structured telemetry schemas.
+### P1 — already shipped (multi-agent communication)
+Handoff events, review veto, journal context on resume, `nexus task list|show|events`.
 
-1. **`DurableEngine.provenance(task_id)`** — PROV-style document:
-   - **agents** (id, vendor, steps, tokens)
-   - **activities** (per-step name/decision/score/tokens/why)
-   - **entities** (task, artifact, journal)
-   - **relations** (`wasAssociatedWith`, `used`, `generated`, `wasInformedBy`, handoff `wasDerivedFrom`)
-   - merges explain/cost + optional `trust.json` rows
-2. **`DurableEngine.verify(task_id)`** — checkpoint ↔ journal consistency:
-   - parseable checkpoint/journal
-   - step alignment, status terminal events, agent/token soft checks
-   - returns `ok`, `issues[]` (error|warn), `checks{}`
-3. **CLI** — `nexus task prov` / `nexus task verify` (+ `--json`); `task list` shows **TOK** column.
-4. **Tests** — healthy completed run is `ok`; injected status drift fails.
+### P2 — already shipped (operator observability)
+`replay()`, `explain()`, `why` on step_complete.
 
-## Prior slices (already in tree)
+### P3 — already shipped (cost + value)
+`cost()`, score/tokens/thresholds on journal, judge threshold constants.
 
-### P0
+### P4 — already shipped (provenance + integrity)
+`provenance()` PROV-AGENT export, `verify()` checkpoint↔journal gate.
 
-1. Atomic durable checkpoints (`os.replace` write-then-rename).
-2. Append-only task event journal (`tasks/<id>.events.jsonl`).
-3. Optional decay-aware SQLite memory.
+### P5 — First apply this session (budget hard-stop + call-graph)
+**Why:** mined repos (cycgraph budgets, open-multi-agent `maxTokenBudget`, mission-control spend caps, MisterSmith budget enforcer) + arXiv (call-graph / space-time profiling for MAS; governed reward / tool privilege themes). Cost rollup (P3) was observational only — production agents need a per-task hard stop and a readable agent interaction graph.
 
-### P1
+| Change | Detail |
+|--------|--------|
+| `task.meta["max_tokens"]` / constraint `max_tokens=N` | Hard-fail after step when spend exceeds cap (may overshoot by one step) |
+| Journal `budget` event | Audit row with phase pre_step/post_step |
+| `cost()` budget fields | `max_tokens`, `remaining_tokens`, `budget_exhausted` |
+| `graph(task_id)` | Nodes/edges/sequence + mermaid flowchart (`nexus.graph/v1`) |
+| CLI | `nexus task graph [--json] [--mermaid]`; cost shows budget line |
 
-1. `nexus task list|show|events`.
-2. Swarm-style handoff events.
-3. Journal snippet on resume.
-4. Edict review veto (fail-closed).
-5. `events(limit=N)` is tail.
+### P6 — later (do not expand this session)
+- Least-privilege tool selection gate (arXiv 2606.20023)
+- Plan reuse store for successful step skeletons (arXiv 2512.21309)
+- Soft budget / model downgrade (MisterSmith SoftCap)
 
-### P2
+## First apply slice (this session)
 
-1. `engine.replay` / `engine.explain`.
-2. `why` on `step_complete`.
-3. CLI `nexus task replay|explain`.
-
-### P3
-
-1. `engine.cost` + score/tokens/thresholds on events.
-2. `usage.by_task` / judge threshold constants.
-3. CLI `nexus task cost`.
-
-## File map (P4)
-
-| Item | Files | Tests |
-|------|-------|-------|
-| provenance / verify | `src/nexus/engine.py` | `tests/test_engine.py` |
-| CLI | `src/nexus/cli.py` | `tests/test_task_cli.py` |
-| Plans / log | this file, `docs/SELF_IMPROVE_CYCLE.md`, `docs/ALIVE_IMPROVEMENTS.md` | — |
-| Cookbook | `cookbook/01_crash_resume.md` | — |
-
-## Next (P5 backlog)
-
-| Priority | Change | Module |
-|----------|--------|--------|
-| P5 | Optional Prometheus/OTel counters | `nexus.usage` / extra |
-| P5 | Dashboard event timeline HTML | `bridge/dashboard` |
-| P5 | Preference learning over judge thresholds | `nexus.judge` |
-| P5 | Real provider usage injection (not estimate) | `nexus.usage` + bridges |
-| P5 | Optional hard-gate: refuse resume if `verify` errors | `engine.resume` |
-
-## Evidence sources (this cycle)
-
-- **Repos:** mission-control, MisterSmith, routa, EDDI, AgenticGoKit, maestro-flow, solace-agent-mesh, AssetOpsBench, wshobson/agents, claude-mpm.
-- **arXiv:** PROV-AGENT (2508.02866), fault-tolerant checkpointing (2310.12670), securing agentic workflows (2506.17266), compositional shielding (2606.14130), plus prior communication/CEMA/value-system papers.
-
-## Done criteria
-
-- `pytest` green
-- Full pipeline still completes and resumes mid-run
-- `nexus task prov` emits schema `nexus.prov/v1` with agents + relations
-- `nexus task verify` returns OK on healthy completed task; non-zero on integrity errors
-- No vendored upstream trees; no secrets committed
+1. `src/nexus/engine.py` — `task_max_tokens()`, pre/post budget gates, `graph()`, cost budget fields  
+2. `src/nexus/cli.py` — `nexus task graph`  
+3. Tests — `tests/test_engine.py`, `tests/test_task_cli.py`  
+4. Docs — this plan, `SELF_IMPROVE_CYCLE.md`, `ALIVE_IMPROVEMENTS.md`, cookbook crash-resume  
 
 ## Commands
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-nexus task list
-nexus task prov <task_id>
-nexus task prov <task_id> --json
-nexus task verify <task_id>
-nexus task verify <task_id> --json
-nexus task cost <task_id>
-nexus task explain <task_id>
-nexus task replay <task_id>
+nexus task cost <id>
+nexus task graph <id> --mermaid
 ```
+
+## Out of scope
+
+- Vendoring scout_repos trees  
+- Force-push / secrets  
+- Global usage budget rewrite (already in `usage.py` / `alive`)  
