@@ -1595,6 +1595,51 @@ def cmd_task(args: argparse.Namespace) -> int:
             print(rep["mermaid"])
         return 0
 
+    if sub == "context":
+        # P1.4 bounded multi-source context pack (arXiv 2508.08322)
+        rep = engine.context_pack(
+            args.task_id,
+            include_research=bool(getattr(args, "research", False)),
+            include_repo_digests=bool(getattr(args, "repos", False)),
+            journal_limit=int(getattr(args, "journal_limit", 8) or 8),
+        )
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        out_path = getattr(args, "out", None)
+        if out_path:
+            from .persist import atomic_write_json
+
+            atomic_write_json(Path(out_path), rep)
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        if getattr(args, "prompt", False):
+            print(rep.get("prompt") or "")
+            return 0
+        print(f"# context {rep['task_id']}  schema={rep.get('schema')}")
+        print(
+            f"status:       {rep.get('status')}  step={rep.get('current_step')}  "
+            f"chars={rep.get('total_chars')}/{rep.get('total_budget')}  "
+            f"~tokens={rep.get('est_tokens')}"
+        )
+        print(f"objective:    {rep.get('objective', '')}")
+        sections = rep.get("sections") or []
+        if sections:
+            print("sections:")
+            for s in sections:
+                flag = "*" if s.get("truncated") else " "
+                print(
+                    f"  {flag}{s.get('name')}: chars={s.get('chars')}  "
+                    f"src={s.get('source') or '-'}"
+                )
+        trunc = rep.get("truncated_sections") or []
+        if trunc:
+            print(f"truncated:   {', '.join(str(t) for t in trunc)}")
+        if out_path:
+            print(f"wrote:        {out_path}")
+        return 0
+
     if sub == "consensus":
         # P1.3 multi-grader consensus (gossipcat findings + trust weights)
         rep = engine.consensus(args.task_id)
@@ -3060,6 +3105,40 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     tk_cons.add_argument("--state-dir", default=None)
     tk_cons.set_defaults(func=cmd_task)
+    tk_ctx = tk_sub.add_parser(
+        "context",
+        help="bounded multi-source context pack (goal/journal/memory; P1.4)",
+    )
+    tk_ctx.add_argument("task_id")
+    tk_ctx.add_argument("--json", action="store_true", help="emit full JSON document")
+    tk_ctx.add_argument(
+        "--prompt",
+        action="store_true",
+        help="emit markdown prompt block only (for agent injection)",
+    )
+    tk_ctx.add_argument(
+        "--research",
+        action="store_true",
+        help="include latest arXiv improve notes from .nexus_state/arxiv_improve",
+    )
+    tk_ctx.add_argument(
+        "--repos",
+        action="store_true",
+        help="include mined repo digests from IMPROVE_OURS / USE_LATEST",
+    )
+    tk_ctx.add_argument(
+        "--journal-limit",
+        type=int,
+        default=8,
+        help="last-N journal events in pack (default 8)",
+    )
+    tk_ctx.add_argument(
+        "--out",
+        default=None,
+        help="write JSON pack to path (atomic write-then-rename)",
+    )
+    tk_ctx.add_argument("--state-dir", default=None)
+    tk_ctx.set_defaults(func=cmd_task)
     tk_evd = tk_sub.add_parser(
         "evidence",
         help="portable evidence pack (norms + gates + timeline + cost + prov + graph)",

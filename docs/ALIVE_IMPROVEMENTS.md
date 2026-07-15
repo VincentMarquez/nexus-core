@@ -325,3 +325,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-6b7f9afae8.md`
+
+## Cycle 2026-07-15 hard-apply P1.4 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (routa / mission-control / zenith / wshobson / EDDI / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-a2984ea421.md`; context engineering **2508.08322**, communication **2203.08975**, Thucy **2512.03278**)
+- apply slice (P1.4 formal context pack stage — **First apply slice** this session):
+  - `src/nexus/context_pack.py` — bounded multi-source pack (`nexus.context_pack/v1`): goal/grade/research/repo_digest/journal/memory/prior; per-section + total char budgets; IMPROVE_OURS + USE_LATEST parsers; arxiv_improve loader; `prompt_block()`
+  - `src/nexus/improve_apply.py` — `ensure_context_packed` uses formal builder; writes `context_pack.json` + `context_pack.prompt.md`
+  - `src/nexus/engine.py` — `context_pack(task_id)`; mid-run prompt inject when journal / `meta.context_pack`
+  - `src/nexus/cli.py` — `nexus task context` (+ `--json` / `--prompt` / `--research` / `--repos` / `--out`)
+  - `src/nexus/mcp_server.py` — tool `context_pack`
+  - tests: `tests/test_context_pack.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook crash-resume context inspect
+- patterns: arXiv 2508.08322 context engineering; routa/mission-control export; zenith bound context; wshobson digests (pattern only, no tree vendor)
+- next open: P1.5 vault / supervised alive · AssetOpsBench domain MCP · packaging/OpenAPI
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 250 passed
+
+## Cycle 2026-07-15 20:24:24Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a2984ea421.md`

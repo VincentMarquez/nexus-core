@@ -245,6 +245,42 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "context_pack",
+        "description": (
+            "Build a bounded multi-source context pack (goal/grade/research/"
+            "repo digests/journal) — P1.4 context engineering. "
+            "Pass task_id for a durable task, or grade+notes for ad-hoc."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Durable task id (optional)",
+                },
+                "research": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Include latest arXiv improve notes",
+                },
+                "repos": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Include mined repo digests",
+                },
+                "prompt": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Return markdown prompt only",
+                },
+                "objective": {
+                    "type": "string",
+                    "description": "Ad-hoc objective when no task_id",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -471,6 +507,68 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 "audit": status.get("audit"),
             }
             return _tool_result(json.dumps(slim, indent=2, default=str))
+
+        if name == "context_pack":
+            from .config import Settings
+            from .context_pack import build_context_pack
+            from .engine import DurableEngine
+
+            root = _root()
+            task_id = args.get("task_id") or None
+            want_prompt = bool(args.get("prompt", False))
+            include_research = bool(args.get("research", True))
+            include_repos = bool(args.get("repos", True))
+            if task_id:
+                settings = Settings(state_dir=root / ".nexus_state", autonomy=False)
+                engine = DurableEngine(settings=settings, auto_approve=True)
+                rep = engine.context_pack(
+                    str(task_id),
+                    include_research=include_research,
+                    include_repo_digests=include_repos,
+                )
+                if not rep.get("found"):
+                    return _tool_result(
+                        rep.get("error") or f"task not found: {task_id}",
+                        is_error=True,
+                    )
+                if want_prompt:
+                    return _tool_result(str(rep.get("prompt") or ""))
+                slim = {
+                    k: rep.get(k)
+                    for k in (
+                        "schema",
+                        "task_id",
+                        "status",
+                        "total_chars",
+                        "total_budget",
+                        "est_tokens",
+                        "n_sections",
+                        "truncated_sections",
+                        "summary",
+                        "prompt",
+                    )
+                }
+                slim["sections"] = [
+                    {
+                        "name": s.get("name"),
+                        "chars": s.get("chars"),
+                        "source": s.get("source"),
+                        "truncated": s.get("truncated"),
+                    }
+                    for s in (rep.get("sections") or [])
+                ]
+                return _tool_result(json.dumps(slim, indent=2, default=str))
+            # Ad-hoc pack from workdir sources
+            pack = build_context_pack(
+                workdir=root,
+                objective=str(args.get("objective") or "context pack"),
+                include_research=include_research,
+                include_repo_digests=include_repos,
+                meta={"source": "mcp"},
+            )
+            if want_prompt:
+                return _tool_result(pack.prompt_block())
+            return _tool_result(json.dumps(pack.to_dict(), indent=2, default=str)[:12000])
 
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError

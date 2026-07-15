@@ -1,50 +1,46 @@
 # Self-improve cycle — Grok 4.5
 
-_Updated 2026-07-15 (hard-apply P1.3)_
+_Generated / restored 2026-07-15 (P1.4 hard-apply session)_
 
-Model: `grok-4.5` · mine: IMPROVE_OURS top repos · arXiv notes under `.nexus_state/arxiv_improve/`
-
----
-
-## Reasoning plan (operator)
-
-1. **Read evidence** — `docs/LATEST_IMPROVE_PLAN.md`, `.nexus_state/repo_mine/IMPROVE_OURS.md`, latest arXiv improve notes.  
-2. **Pick first apply slice** — smallest PR-sized change with tests; prefer P0/P1 open rows.  
-3. **Port patterns only** — from `.nexus_workspaces/scout_repos/`; do not vendor trees.  
-4. **Hard apply** — code + tests; keep `pytest` green.  
-5. **Document** — update this file, `docs/LATEST_IMPROVE_PLAN.md`, `docs/ALIVE_IMPROVEMENTS.md`.  
-6. **Do not** force-push, commit secrets, or expand scope into P2 packaging unless asked.
+Model: `grok-4.5` · repos≥10 · arXiv≥10
 
 ---
 
-## This cycle — First apply: P1.3 consensus grading
+## Reasoning plan (how this worker applies)
 
-| Deliverable | Path |
-|-------------|------|
-| Consensus module (findings, trust, aggregate) | `src/nexus/consensus.py` |
-| Engine multi-grader + journal + export | `src/nexus/engine.py`, `src/nexus/config.py` |
-| Operator CLI | `nexus task consensus` in `src/nexus/cli.py` |
-| Tests | `tests/test_consensus.py`, `tests/test_task_cli.py` |
+1. **Read evidence** — `IMPROVE_OURS.md`, latest `USE_LATEST.md`, newest `.nexus_state/arxiv_improve/improve-rx-*.md`.
+2. **Pick first open slice** — from `docs/LATEST_IMPROVE_PLAN.md` status table (P0 → P1.x in order).
+3. **Port patterns only** — small modules + tests from scout clones under `.nexus_workspaces/scout_repos/`; never vendor whole trees.
+4. **Hard apply** — implement, wire CLI/MCP when operator-facing, keep `pytest` green.
+5. **Document** — update `docs/LATEST_IMPROVE_PLAN.md` + append `docs/ALIVE_IMPROVEMENTS.md`.
 
-**Evidence drivers**
+---
 
-- Mine: gossipcat-ai (consensus + trust), mission-control / routa (operator export), IMPROVE_OURS top 20  
-- arXiv: communication survey **2203.08975**, principles **2502.07165**, context pack **2508.08322** (next)  
-- Prior landed: P0 improve-apply FSM, P1.1 ops spend, P1.2 task DAG, durability package  
+## This session — First apply slice: **P1.4 context pack stage**
 
-**Commands**
+Prior sessions landed P0 durability, improve-apply FSM, ops plane (P1.1), task DAG (P1.2), consensus grading (P1.3). **P1.4** formalizes the bounded multi-source context pack used by improve-apply and task operators.
+
+### Evidence drivers
+
+| Source | Signal |
+|--------|--------|
+| arXiv **2508.08322** | Context engineering for multi-agent LLM code assistants |
+| arXiv **2203.08975** / **2512.03278** | Communication + evidence-linked claims |
+| IMPROVE_OURS top repos | routa traces, mission-control export, zenith replan context, wshobson digests |
+| Scout: Denis2054 Context-Engineering… | Sectioned context shape (pattern only) |
+
+### Implementation summary
+
+- New module `src/nexus/context_pack.py` (`nexus.context_pack/v1`)
+- improve_apply `context_packed` phase uses formal builder
+- `DurableEngine.context_pack()` + `nexus task context` + MCP `context_pack`
+- Tests in `tests/test_context_pack.py`
+
+### Commands
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli task consensus <id> --findings
+PYTHONPATH=src python3 -m nexus.cli task context <id> --prompt --research --repos
 ```
 
-**Next open:** P1.4 context pack stage
-
----
-
-## Cycle hygiene
-
-- Prefer small, tested changes; `make test` / `pytest` green.  
-- Restore plan docs if a full-cycle job truncates them.  
-- Append every hard-apply to `docs/ALIVE_IMPROVEMENTS.md`.
+See `docs/LATEST_IMPROVE_PLAN.md` for acceptance checklist and next open items.

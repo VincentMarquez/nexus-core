@@ -77,6 +77,12 @@ Consensus grading (P1.3 — gossipcat independent findings + trust weights):
 - ``Settings.consensus_judge`` (default on) runs multi-grader ``ConsensusJudge``.
 - Per-step verdict carries ``findings`` / ``agreement_ratio`` / ``counts``.
 - Journal ``consensus`` events; ``consensus(task_id)`` operator export.
+
+Context pack stage (P1.4 — arXiv 2508.08322 context engineering):
+- ``context_pack(task_id)`` — bounded multi-source pack (goal + journal + memory
+  + optional research/repo digests) as ``nexus.context_pack/v1``.
+- Step prompts inject ``prompt_block()`` when pack is non-empty (mid-run / resume).
+- CLI: ``nexus task context``; improve_apply phase reuses same builder.
 """
 
 from __future__ import annotations
@@ -93,6 +99,10 @@ from .cascade import CascadeIndex
 from .config import Settings
 from .durability import RunBudget, budget_from_env, budget_from_meta
 from .consensus import ConsensusJudge, SCHEMA as CONSENSUS_SCHEMA
+from .context_pack import (
+    SCHEMA as CONTEXT_PACK_SCHEMA,
+    build_context_pack,
+)
 from .judge import RubricJudge, decision_thresholds
 from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
@@ -864,6 +874,23 @@ class DurableEngine:
             journal_blk = ""
             if task.current_step > 0:
                 journal_blk = self.journal_context(task.task_id, limit=8)
+            # P1.4: bounded multi-source pack (goal/journal/memory/prior; optional
+            # research+repo digests when workdir state is present).
+            pack_blk = ""
+            if task.current_step > 0 or task.meta.get("context_pack"):
+                try:
+                    pack_rep = self.context_pack(
+                        task.task_id,
+                        include_research=bool(task.meta.get("context_research")),
+                        include_repo_digests=bool(task.meta.get("context_repos")),
+                        journal_limit=6,
+                    )
+                    if pack_rep.get("found") and pack_rep.get("prompt"):
+                        pack_blk = str(pack_rep["prompt"])
+                        task.meta["context_pack_chars"] = pack_rep.get("total_chars")
+                        task.meta["context_pack_est_tokens"] = pack_rep.get("est_tokens")
+                except Exception:
+                    pack_blk = ""
             prompt = (
                 f"Step {step.number} {step.name}: {step.description}\n"
                 f"Objective: {task.objective}\n"
@@ -871,7 +898,9 @@ class DurableEngine:
                 f"{ctx['cascade']}\n"
                 f"Memory hits: {len(ctx['memory'])}\n"
             )
-            if journal_blk:
+            if pack_blk:
+                prompt += pack_blk
+            elif journal_blk:
                 prompt += journal_blk
 
             # Human gate — pause before running the approval step body
@@ -2142,6 +2171,113 @@ class DurableEngine:
             }
         )
         return snap
+
+    def context_pack(
+        self,
+        task_id: str,
+        *,
+        include_research: bool = False,
+        include_repo_digests: bool = False,
+        journal_limit: int = 8,
+        total_budget: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """Bounded multi-source context pack for a task (P1.4).
+
+        Assembles goal, constraints, journal, memory hits, and dependency-scoped
+        prior outputs. Optionally pulls arXiv research notes + mined repo digests
+        from ``settings.state_dir`` parent / workdir (operator opt-in).
+
+        Schema: ``nexus.context_pack/v1``.
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": CONTEXT_PACK_SCHEMA,
+                "error": f"task not found: {task_id}",
+            }
+        # Workdir: parent of state_dir when it looks like .nexus_state
+        state_dir = Path(self.settings.state_dir)
+        workdir = state_dir.parent if state_dir.name == ".nexus_state" else state_dir.parent
+        # Prefer explicit meta.workdir
+        if task.meta.get("workdir"):
+            workdir = Path(str(task.meta["workdir"]))
+
+        journal_blk = ""
+        if self.journal and journal_limit > 0:
+            journal_blk = self.journal_context(task_id, limit=journal_limit)
+
+        mem_hits: list[Any] = []
+        try:
+            mem_hits = list(
+                self.memory.search(task.objective, ns=task.namespace, k=3) or []
+            )
+        except Exception:
+            mem_hits = []
+
+        # Dependency-scoped prior when possible
+        prior: dict[str, Any] = {}
+        try:
+            # Current or next ready step for prior scope
+            done = completed_set(task.outputs, current_step=task.current_step)
+            ready = self.policy.ready(done)
+            if ready:
+                keys = self.policy.prior_keys(ready[0])
+                prior = {n: task.outputs.get(n) for n in keys if n in task.outputs}
+            elif task.outputs:
+                # last few outputs as fallback
+                for n in sorted(task.outputs.keys())[-3:]:
+                    prior[n] = task.outputs[n]
+        except Exception:
+            prior = dict(list(task.outputs.items())[-3:]) if task.outputs else {}
+
+        grade = task.meta.get("grade") if isinstance(task.meta.get("grade"), dict) else None
+        budget = total_budget
+        if budget is None and task.meta.get("context_budget"):
+            try:
+                budget = int(task.meta["context_budget"])
+            except (TypeError, ValueError):
+                budget = None
+        if budget is None:
+            from .context_pack import DEFAULT_TOTAL_CHARS
+
+            budget = DEFAULT_TOTAL_CHARS
+
+        pack = build_context_pack(
+            workdir=workdir,
+            objective=task.objective,
+            success_criteria=task.success_criteria,
+            constraints=task.constraints,
+            grade=grade,
+            journal_block=journal_blk,
+            memory_hits=mem_hits,
+            prior=prior,
+            include_research=include_research
+            or bool(task.meta.get("context_research")),
+            include_repo_digests=include_repo_digests
+            or bool(task.meta.get("context_repos")),
+            total_budget=int(budget),
+            meta={
+                "task_id": task.task_id,
+                "status": task.status.value,
+                "current_step": task.current_step,
+            },
+        )
+        doc = pack.to_dict()
+        doc.update(
+            {
+                "task_id": task.task_id,
+                "found": True,
+                "status": task.status.value,
+                "current_step": task.current_step,
+                "objective": task.objective,
+                "prompt": pack.prompt_block(),
+                "summary": pack.summary_lines(),
+            }
+        )
+        return doc
 
     def consensus(self, task_id: str) -> dict[str, Any]:
         """Multi-grader consensus export (gossipcat findings + trust weights).

@@ -426,7 +426,12 @@ class ImproveApplyRun:
         return self.phase
 
     def ensure_context_packed(self) -> str:
-        """Phase 1: write bounded context pack under run dir."""
+        """Phase 1: write bounded multi-source context pack under run dir.
+
+        P1.4 formal stage: grade + research notes + repo digests with hard
+        char budgets (arXiv 2508.08322 context engineering). Uses
+        ``nexus.context_pack`` builder; schema remains ``nexus.context_pack/v1``.
+        """
         if PHASE_INDEX[self.phase] > PHASE_INDEX["context_packed"]:
             return self.phase
         if self.phase == "context_packed" and self.context_pack_path:
@@ -434,29 +439,48 @@ class ImproveApplyRun:
         self.ensure_briefed()
         self.transition("context_packed")
 
-        pack = {
-            "schema": "nexus.context_pack/v1",
-            "run_id": self.run_id,
-            "repo": self.grade.get("repo"),
-            "arxiv_id": self.grade.get("arxiv_id"),
-            "score": self.grade.get("score"),
-            "idea": self.grade.get("idea"),
-            "skill": self.grade.get("skill"),
-            "method": self.grade.get("method") or DEFAULT_METHOD,
-            "pattern": self.grade.get("pattern"),
-            "notes": str(self.grade.get("notes") or "")[:2000],
-            "source": "improve_apply",
-            "ts": time.time(),
-        }
+        from .context_pack import pack_from_grade
+
+        built = pack_from_grade(self.workdir, self.grade)
+        # Preserve flat grade fields for older consumers + tests
+        pack = built.to_dict()
+        pack.update(
+            {
+                "run_id": self.run_id,
+                "repo": self.grade.get("repo"),
+                "arxiv_id": self.grade.get("arxiv_id"),
+                "score": self.grade.get("score"),
+                "idea": self.grade.get("idea"),
+                "skill": self.grade.get("skill"),
+                "method": self.grade.get("method") or DEFAULT_METHOD,
+                "pattern": self.grade.get("pattern"),
+                "notes": str(self.grade.get("notes") or "")[:2000],
+                "source": "improve_apply",
+                "prompt": built.prompt_block(),
+            }
+        )
         pack_path = self.run_dir / "context_pack.json"
         assert_under_workspace(self.workdir, pack_path)
         atomic_write_json(pack_path, pack)
+        # also keep a prompt-only artifact for operators
+        prompt_path = self.run_dir / "context_pack.prompt.md"
+        assert_under_workspace(self.workdir, prompt_path)
+        prompt_path.write_text(built.prompt_block(), encoding="utf-8")
         # relative evidence path from workdir
         rel = str(pack_path.relative_to(self.workdir))
         self.context_pack_path = rel
         if rel not in self.files_touched:
             self.files_touched.append(rel)
-        self._log("context_packed", rel)
+        rel_prompt = str(prompt_path.relative_to(self.workdir))
+        if rel_prompt not in self.files_touched:
+            self.files_touched.append(rel_prompt)
+        self.meta["context_pack_chars"] = built.total_chars
+        self.meta["context_pack_est_tokens"] = built.est_tokens
+        self.meta["context_pack_sections"] = [s.name for s in built.sections]
+        self._log(
+            "context_packed",
+            f"{rel} chars={built.total_chars} sections={len(built.sections)}",
+        )
         self.save()
         return self.phase
 

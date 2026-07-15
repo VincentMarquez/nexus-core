@@ -14,62 +14,64 @@
 | P0.x | Budgets, taint, state slice, eval memory, stop, verify-promote | **done** (`durability/`) |
 | P1.1 | Task/spend ops plane | **done** (`ops_store.py` + `nexus ops`) |
 | P1.2 | Multi-agent task DAG | **done** (`steps.py` / `engine.dag`) |
-| **P1.3** | **Consensus / multi-grader path (gossipcat)** | **done this session** |
-| P1.4 | Formal context pack stage (arXiv 2508.08322) | open |
+| P1.3 | Consensus / multi-grader path (gossipcat) | **done** (`consensus.py`) |
+| **P1.4** | **Formal context pack stage (arXiv 2508.08322)** | **done this session** |
 | P1.5+ | Vault, agent single-source, supervised alive, board traces | open |
 | P2 | Packaging, OpenAPI, anti-collusion, domain MCP demos | later |
 
 ---
 
-## First apply slice this session — P1.3 consensus grading
+## First apply slice this session — P1.4 context pack stage
 
-**Goal:** Independent multi-grader findings with trust weights before hard-apply / step promote, gossipcat-style (patterns only).
+**Goal:** Bound research notes + repo digests + grade + journal/memory into a single hard-budgeted pack *before* apply / mid-run prompts (context engineering, not full-tree dumps).
 
 ### Landed
 
 | Surface | What |
 |---------|------|
-| `src/nexus/consensus.py` | `Finding`, `AgentTrust`, `ConsensusVerdict`, `ConsensusJudge`, role lenses, weighted aggregate, agreement signals (`nexus.consensus/v1`) |
-| `src/nexus/config.py` | `consensus_judge` (default on), `consensus_min_graders`, `consensus_max_graders` |
-| `src/nexus/engine.py` | Uses `ConsensusJudge` when enabled; journal `consensus` events; `consensus(task_id)` export |
-| `src/nexus/cli.py` | `nexus task consensus [--json] [--findings]` |
-| tests | `tests/test_consensus.py`, `tests/test_task_cli.py::test_task_consensus_cli` |
+| `src/nexus/context_pack.py` | Sections, char budgets, total trim, research/repo loaders, `build_context_pack`, `prompt_block`, `nexus.context_pack/v1` |
+| `src/nexus/improve_apply.py` | `ensure_context_packed` uses formal builder; writes `context_pack.json` + `.prompt.md` |
+| `src/nexus/engine.py` | `context_pack(task_id)`; mid-run prompt inject when journal/meta set |
+| `src/nexus/cli.py` | `nexus task context [--json\|--prompt\|--research\|--repos\|--out]` |
+| `src/nexus/mcp_server.py` | tool `context_pack` |
+| tests | `tests/test_context_pack.py` |
 
 ### Acceptance
 
-- [x] ≥2 independent graders when panel has capacity (else degraded flag)
-- [x] Role lenses produce deterministic score divergence (adversary vs tester)
-- [x] Trust weights nudge after agreement/disagreement
-- [x] Step `_verdict` carries `findings` + `agreement_ratio` + `counts`
-- [x] Operator `task consensus` + JSON pack
-- [x] Opt-out via `Settings.consensus_judge=False` (single RubricJudge)
+- [x] Multi-source pack: goal / grade / research / repo_digest / journal / memory / prior
+- [x] Per-section + total char budgets (default 10k chars) with truncate markers
+- [x] IMPROVE_OURS + USE_LATEST digest parsers
+- [x] Latest arXiv improve notes loader
+- [x] improve_apply phase reuses builder; flat grade fields preserved
+- [x] Operator CLI + JSON + prompt export
+- [x] MCP parity tool
 - [x] Full pytest green
 
 ### Patterns (no tree vendor)
 
-- **gossipcat-ai/gossipcat-ai** — consensus signals, findings, adaptive trust
-- **openai/swarm** — multi-agent coordination without shared brain
-- **arXiv 2203.08975** — multi-agent communication / agreement
-- **arXiv 2502.07165** — principle-based multi-agent prompting
-- NEXUS cross-vendor judge preference
+- **arXiv 2508.08322** — context engineering for multi-agent LLM assistants
+- **Denis2054/Context-Engineering-for-Multi-Agent-Systems** — sectioned context shape
+- **phodal/routa** — evidence/context board export
+- **Intelligent-Internet/zenith** — bound context before replan
+- **wshobson/agents** — digests as reusable building blocks
+- **mission-control** — operator inspect + export
 
 ### Demo
 
 ```bash
-PYTHONPATH=src python3 -m nexus.cli task list
-# after any durable run:
-PYTHONPATH=src python3 -m nexus.cli task consensus <task_id>
-PYTHONPATH=src python3 -m nexus.cli task consensus <task_id> --json
-PYTHONPATH=src python3 -m nexus.cli task consensus <task_id> --findings
+PYTHONPATH=src python3 -m nexus.cli task context <task_id>
+PYTHONPATH=src python3 -m nexus.cli task context <task_id> --json
+PYTHONPATH=src python3 -m nexus.cli task context <task_id> --prompt --research --repos
+PYTHONPATH=src python3 -m nexus.cli demo self-improve-slice --fixture
 ```
 
 ---
 
 ## Next open (after this slice)
 
-1. **P1.4** Context pack stage (bound research + digest + grades before apply)  
+1. **P1.5** Secrets vault / supervised alive stop board auto-seed from IMPROVE_OURS  
 2. Modularize MCP domains + eval CLI (AssetOpsBench)  
-3. Packaging / OpenAPI / secrets vault (P1.5 / P2)
+3. Packaging / OpenAPI (P2)
 
 ---
 
@@ -78,7 +80,7 @@ PYTHONPATH=src python3 -m nexus.cli task consensus <task_id> --findings
 - No vendoring of scout_repos trees  
 - No force-push / secrets in commits  
 - No full mission-control UI rewrite  
-- No live multi-LLM call matrix in unit tests (offline role lenses)
+- No unbounded dump of full paper PDFs or entire repos into prompts
 
 ---
 
