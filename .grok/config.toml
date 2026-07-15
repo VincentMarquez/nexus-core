@@ -1,0 +1,15 @@
+# Project-scoped NEXUS mesh (Grok CLI --scope project)
+# Loaded when you run grok inside this repo.
+
+[mcp_servers.nexus-workspace]
+command = "/path/to/nexus-core/.venv/bin/python"
+args = [
+    "-m",
+    "nexus.mcp_server"
+]
+enabled = true
+startup_timeout_sec = 45
+
+[mcp_servers.nexus-workspace.env]
+NEXUS_PROJECT_ROOT = "/path/to/nexus-core"
+PYTHONPATH = "/path/to/nexus-core/src"

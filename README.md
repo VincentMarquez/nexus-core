@@ -316,7 +316,12 @@ grok                          # enable MCP server nexus-workspace if prompted
 # Claude Desktop: merge connectors/examples/claude-desktop.nexus.json
 ```
 
-**Rule:** the local LLM does not get a second-class API — when it runs **inside Grok CLI** (or any MCP host) with `nexus-workspace` enabled, it can call the **same tools** as cloud agents (`read/write` project files, workspace handoff, `run_project_checks`, bus status, platforms list, …). Agents flow in with distinct ids (`grok_cli`, `cursor`, `claude`, `local`, …) via `send_to_workspace` / `read_workspace_chat`.
+**Rule:** the local LLM is not second-class. **(1)** Inside **Grok CLI** (or Cursor) with `nexus-workspace` MCP, it uses the same tools as cloud models. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
+
+```bash
+nexus platforms doctor          # mesh health
+nexus start -y                 # bus local agent + tools
+```
 
 Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md)
 
