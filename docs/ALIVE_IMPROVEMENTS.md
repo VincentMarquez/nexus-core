@@ -107,3 +107,20 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5b885ba84d.md`
+
+## Cycle 2026-07-15 hard-apply P4 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (mission-control / MisterSmith / routa / EDDI / AgenticGoKit / maestro-flow / …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-beb4144b26.md` (+ prior rx-5b885ba84d / rx-703f35888a / …)
+- apply slice (P4 provenance + integrity — First apply this session):
+  - `src/nexus/engine.py` — `provenance()` PROV-style export; `verify()` checkpoint↔journal integrity; list board `tokens`
+  - `src/nexus/cli.py` — `nexus task prov|verify` (+ `--json`); list TOK column
+  - tests: `tests/test_engine.py` (prov/verify), `tests/test_task_cli.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook crash-resume inspect
+- patterns: PROV-AGENT (2508.02866), fault-tolerant checkpointing (2310.12670), mission-control timeline, routa traces, MisterSmith/EDDI audit
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 104 passed
+
+## Cycle 2026-07-15 18:21:25Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-beb4144b26.md`

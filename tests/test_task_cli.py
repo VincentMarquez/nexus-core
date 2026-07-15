@@ -135,3 +135,49 @@ def test_task_cost_cli(tmp_path: Path, capsys):
 
     rc = main(["task", "cost", "missing", "--state-dir", state])
     assert rc == 1
+
+
+def test_task_prov_and_verify_cli(tmp_path: Path, capsys):
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli4",
+        objective="cli prov verify",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    state = str(settings.state_dir)
+
+    rc = main(["task", "prov", "cli4", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "provenance cli4" in out
+    assert "agents:" in out
+    assert "activities:" in out
+    assert "relations:" in out or "entities:" in out
+
+    rc = main(["task", "prov", "cli4", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"schema"' in out
+    assert "nexus.prov/v1" in out
+    assert "cli4" in out
+
+    rc = main(["task", "verify", "cli4", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "verify cli4" in out
+    assert "OK" in out
+    assert "checks:" in out
+
+    rc = main(["task", "verify", "cli4", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"ok"' in out
+    assert "true" in out.lower()
+
+    rc = main(["task", "prov", "missing", "--state-dir", state])
+    assert rc == 1
+    rc = main(["task", "verify", "missing", "--state-dir", state])
+    assert rc == 1

@@ -16,6 +16,12 @@ Operator observability (P2):
 Ops / cost (P3):
 - ``cost(task_id)`` — task-level token + score rollup from journal (mission-control shape).
 - ``score`` / ``tokens`` / ``thresholds`` on step_complete — value-system + spend audit.
+
+Provenance / integrity (P4):
+- ``provenance(task_id)`` — unified PROV-style agents/activities/entities/relations
+  (PROV-AGENT shape; routa/mission-control trace export).
+- ``verify(task_id)`` — checkpoint ↔ journal consistency checks
+  (fault-tolerant durability / integrity gate).
 """
 
 from __future__ import annotations
@@ -484,6 +490,7 @@ class DurableEngine:
                         last_event = str(rows[-1].get("event") or "")
                         if not last_agent:
                             last_agent = str(rows[-1].get("agent") or "")
+                tokens = int(t.meta.get("tokens_total") or 0)
                 out.append(
                     {
                         "task_id": t.task_id,
@@ -493,6 +500,7 @@ class DurableEngine:
                         "events": n_events,
                         "last_event": last_event,
                         "last_agent": last_agent,
+                        "tokens": tokens,
                     }
                 )
             except Exception:
@@ -750,4 +758,469 @@ class DurableEngine:
             "steps": steps,
             "story": " | ".join(story_bits) if story_bits else "(no steps recorded)",
             "cost": cost_brief,
+        }
+
+    def provenance(self, task_id: str) -> dict[str, Any]:
+        """Unified PROV-style document of agent interactions (PROV-AGENT shape).
+
+        Emits agents, activities (steps), entities (task + artifacts), and
+        relations (wasAssociatedWith / used / generated / wasInformedBy /
+        wasDerivedFrom handoffs). Read-only; merges checkpoint, journal, and
+        optional trust-log rows for this task.
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": "nexus.prov/v1",
+                "error": f"task not found: {task_id}",
+            }
+
+        events = self.events(task_id)
+        explained = self.explain(task_id)
+        cost_sum = self.cost(task_id)
+
+        # --- agents (PROV Agent) ---
+        agents_map: dict[str, dict[str, Any]] = {}
+        for e in events:
+            name = str(e.get("agent") or "").strip()
+            if not name:
+                continue
+            row = agents_map.setdefault(
+                name,
+                {
+                    "id": name,
+                    "type": "agent",
+                    "steps": [],
+                    "vendor": self.panel.vendor_of.get(name, "unknown"),
+                    "tokens": 0,
+                },
+            )
+            sn = e.get("step")
+            if sn is not None and int(sn) not in row["steps"]:
+                row["steps"].append(int(sn))
+            if e.get("event") == "step_complete" and e.get("tokens") is not None:
+                try:
+                    row["tokens"] += int(e.get("tokens") or 0)
+                except (TypeError, ValueError):
+                    pass
+        for h in explained.get("handoffs") or []:
+            for key in ("from_agent", "to_agent"):
+                name = str(h.get(key) or "").strip()
+                if name and name not in agents_map:
+                    agents_map[name] = {
+                        "id": name,
+                        "type": "agent",
+                        "steps": [],
+                        "vendor": self.panel.vendor_of.get(name, "unknown"),
+                        "tokens": 0,
+                    }
+
+        # --- activities (PROV Activity = pipeline steps) ---
+        activities: list[dict[str, Any]] = []
+        act_ids: list[str] = []
+        for s in explained.get("steps") or []:
+            sn = int(s.get("step") or 0)
+            act_id = f"act-{sn}"
+            act_ids.append(act_id)
+            activities.append(
+                {
+                    "id": act_id,
+                    "type": "activity",
+                    "step": sn,
+                    "name": s.get("name") or "",
+                    "agent": s.get("agent") or "",
+                    "decision": s.get("decision") or "",
+                    "score": s.get("score"),
+                    "tokens": s.get("tokens"),
+                    "why": (s.get("why") or "")[:200],
+                }
+            )
+        # include veto/fail terminal activities not already in step_complete
+        for v in explained.get("vetoes") or []:
+            sn = v.get("step")
+            if sn is None:
+                continue
+            act_id = f"act-{int(sn)}"
+            if act_id not in act_ids:
+                act_ids.append(act_id)
+                activities.append(
+                    {
+                        "id": act_id,
+                        "type": "activity",
+                        "step": int(sn),
+                        "name": "review",
+                        "agent": v.get("agent") or "",
+                        "decision": "veto",
+                        "score": None,
+                        "tokens": None,
+                        "why": str(v.get("verdict") or "")[:200],
+                    }
+                )
+
+        # --- entities (PROV Entity) ---
+        task_entity_id = f"task:{task.task_id}"
+        entities: list[dict[str, Any]] = [
+            {
+                "id": task_entity_id,
+                "type": "task",
+                "objective": task.objective,
+                "status": task.status.value,
+                "current_step": task.current_step,
+                "namespace": task.namespace,
+            }
+        ]
+        art_path = task.meta.get("_artifact_path") or ""
+        art_id = ""
+        if art_path:
+            art_id = f"artifact:{Path(str(art_path)).name}"
+            entities.append(
+                {
+                    "id": art_id,
+                    "type": "artifact",
+                    "path": str(art_path),
+                }
+            )
+        # journal as durable entity
+        journal_path = self._events_path(task_id)
+        if journal_path.is_file():
+            entities.append(
+                {
+                    "id": f"journal:{task.task_id}",
+                    "type": "journal",
+                    "path": str(journal_path),
+                    "n_events": len(events),
+                }
+            )
+
+        # --- relations ---
+        relations: list[dict[str, Any]] = []
+        for act in activities:
+            aid = act["id"]
+            agent = act.get("agent") or ""
+            if agent:
+                relations.append(
+                    {
+                        "type": "wasAssociatedWith",
+                        "activity": aid,
+                        "agent": agent,
+                    }
+                )
+            relations.append(
+                {
+                    "type": "used",
+                    "activity": aid,
+                    "entity": task_entity_id,
+                }
+            )
+            if art_id and (act.get("name") in {"implement", "test", "review"} or act.get("decision")):
+                relations.append(
+                    {
+                        "type": "generated",
+                        "activity": aid,
+                        "entity": art_id,
+                    }
+                )
+        # sequential wasInformedBy (activity chain)
+        for i in range(1, len(act_ids)):
+            relations.append(
+                {
+                    "type": "wasInformedBy",
+                    "activity": act_ids[i],
+                    "informed_by": act_ids[i - 1],
+                }
+            )
+        # handoffs as wasDerivedFrom control transfer
+        for h in explained.get("handoffs") or []:
+            relations.append(
+                {
+                    "type": "wasDerivedFrom",
+                    "agent": h.get("to_agent") or "",
+                    "derived_from": h.get("from_agent") or "",
+                    "step": h.get("step"),
+                    "kind": "handoff",
+                }
+            )
+
+        # --- trust-log rows for this task (if present) ---
+        trust_rows: list[dict[str, Any]] = []
+        try:
+            trust_path = self.settings.state_dir / "trust.json"
+            if trust_path.is_file():
+                raw = json.loads(trust_path.read_text(encoding="utf-8"))
+                for p in raw.get("provenance") or []:
+                    if str(p.get("task_id") or "") == task.task_id:
+                        trust_rows.append(p)
+                for v in raw.get("verdicts") or []:
+                    if str(v.get("task_id") or "") == task.task_id:
+                        trust_rows.append({"kind": "verdict", **v})
+        except Exception:
+            trust_rows = []
+
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "schema": "nexus.prov/v1",
+            "status": task.status.value,
+            "current_step": task.current_step,
+            "objective": task.objective,
+            "agents": sorted(agents_map.values(), key=lambda a: a["id"]),
+            "activities": activities,
+            "entities": entities,
+            "relations": relations,
+            "handoffs": explained.get("handoffs") or [],
+            "vetoes": explained.get("vetoes") or [],
+            "failures": explained.get("failures") or [],
+            "trust": trust_rows,
+            "story": explained.get("story") or "",
+            "cost": {
+                "total_tokens": cost_sum.get("total_tokens", 0),
+                "avg_score": cost_sum.get("avg_score"),
+                "by_agent": cost_sum.get("by_agent") or {},
+                "thresholds": cost_sum.get("thresholds") or decision_thresholds(),
+            },
+            "n_events": len(events),
+        }
+
+    def verify(self, task_id: str) -> dict[str, Any]:
+        """Checkpoint ↔ journal integrity checks (fault-tolerant durability).
+
+        Detects partial writes, missing journals, step/status drift, and
+        token meta mismatches. Read-only; returns ``ok`` plus structured
+        ``issues`` (severity: error|warn) and a ``checks`` map.
+        """
+        issues: list[dict[str, str]] = []
+        checks: dict[str, bool] = {}
+
+        path = self._task_path(task_id)
+        if not path.is_file():
+            return {
+                "task_id": task_id,
+                "found": False,
+                "ok": False,
+                "error": f"task not found: {task_id}",
+                "issues": [{"severity": "error", "code": "no_checkpoint", "msg": f"missing {path}"}],
+                "checks": {"checkpoint_exists": False},
+            }
+
+        try:
+            task = self.load(task_id)
+            checks["checkpoint_parseable"] = True
+        except Exception as e:
+            return {
+                "task_id": task_id,
+                "found": True,
+                "ok": False,
+                "error": f"checkpoint corrupt: {e}",
+                "issues": [
+                    {
+                        "severity": "error",
+                        "code": "checkpoint_corrupt",
+                        "msg": str(e),
+                    }
+                ],
+                "checks": {"checkpoint_exists": True, "checkpoint_parseable": False},
+            }
+
+        checks["checkpoint_exists"] = True
+        jpath = self._events_path(task_id)
+        journal_exists = jpath.is_file()
+        checks["journal_exists"] = journal_exists
+
+        events: list[dict[str, Any]] = []
+        if journal_exists:
+            try:
+                events = self.events(task_id)
+                checks["journal_parseable"] = True
+            except Exception as e:
+                checks["journal_parseable"] = False
+                issues.append(
+                    {
+                        "severity": "error",
+                        "code": "journal_corrupt",
+                        "msg": str(e),
+                    }
+                )
+        else:
+            checks["journal_parseable"] = False
+            if task.current_step > 0 or task.status != TaskStatus.pending:
+                issues.append(
+                    {
+                        "severity": "error",
+                        "code": "journal_missing",
+                        "msg": f"no journal at {jpath} but status={task.status.value} step={task.current_step}",
+                    }
+                )
+            else:
+                issues.append(
+                    {
+                        "severity": "warn",
+                        "code": "journal_missing",
+                        "msg": f"no journal yet for pending task ({jpath})",
+                    }
+                )
+
+        # Max step_complete vs checkpoint current_step
+        complete_steps = [
+            int(e["step"])
+            for e in events
+            if e.get("event") == "step_complete" and e.get("step") is not None
+        ]
+        max_complete = max(complete_steps) if complete_steps else 0
+        checks["step_alignment"] = True
+        if complete_steps and max_complete > task.current_step:
+            checks["step_alignment"] = False
+            issues.append(
+                {
+                    "severity": "error",
+                    "code": "step_ahead",
+                    "msg": (
+                        f"journal max step_complete={max_complete} > "
+                        f"checkpoint current_step={task.current_step}"
+                    ),
+                }
+            )
+        elif (
+            task.current_step > 0
+            and complete_steps
+            and max_complete < task.current_step
+            and task.status
+            not in (TaskStatus.waiting_human, TaskStatus.failed)
+        ):
+            # waiting_human may pause before step_complete; failed may veto mid-step
+            checks["step_alignment"] = False
+            issues.append(
+                {
+                    "severity": "warn",
+                    "code": "step_behind",
+                    "msg": (
+                        f"journal max step_complete={max_complete} < "
+                        f"checkpoint current_step={task.current_step}"
+                    ),
+                }
+            )
+        elif task.current_step > 0 and not complete_steps and journal_exists:
+            checks["step_alignment"] = False
+            issues.append(
+                {
+                    "severity": "warn",
+                    "code": "no_step_complete",
+                    "msg": f"checkpoint at step {task.current_step} but no step_complete in journal",
+                }
+            )
+
+        # Terminal status consistency
+        event_names = {str(e.get("event") or "") for e in events}
+        checks["status_alignment"] = True
+        if task.status == TaskStatus.completed:
+            if "completed" not in event_names:
+                checks["status_alignment"] = False
+                issues.append(
+                    {
+                        "severity": "error",
+                        "code": "missing_completed_event",
+                        "msg": "status=completed but journal has no completed event",
+                    }
+                )
+        elif task.status == TaskStatus.failed:
+            if "failed" not in event_names and "veto" not in event_names:
+                checks["status_alignment"] = False
+                issues.append(
+                    {
+                        "severity": "error",
+                        "code": "missing_failed_event",
+                        "msg": "status=failed but journal has no failed/veto event",
+                    }
+                )
+        elif task.status == TaskStatus.waiting_human:
+            if "waiting_human" not in event_names:
+                checks["status_alignment"] = False
+                issues.append(
+                    {
+                        "severity": "warn",
+                        "code": "missing_waiting_event",
+                        "msg": "status=waiting_human but journal has no waiting_human event",
+                    }
+                )
+
+        # last_agent consistency
+        checks["agent_alignment"] = True
+        meta_agent = str(task.meta.get("last_agent") or "")
+        last_complete_agent = ""
+        for e in reversed(events):
+            if e.get("event") == "step_complete" and e.get("agent"):
+                last_complete_agent = str(e.get("agent") or "")
+                break
+        if meta_agent and last_complete_agent and meta_agent != last_complete_agent:
+            checks["agent_alignment"] = False
+            issues.append(
+                {
+                    "severity": "warn",
+                    "code": "agent_mismatch",
+                    "msg": (
+                        f"meta.last_agent={meta_agent!r} != "
+                        f"last step_complete agent={last_complete_agent!r}"
+                    ),
+                }
+            )
+
+        # token meta vs journal sum
+        checks["token_alignment"] = True
+        journal_tokens = 0
+        for e in events:
+            if e.get("event") == "step_complete" and e.get("tokens") is not None:
+                try:
+                    journal_tokens += int(e.get("tokens") or 0)
+                except (TypeError, ValueError):
+                    pass
+        meta_tokens = int(task.meta.get("tokens_total") or 0)
+        if journal_tokens and meta_tokens and journal_tokens != meta_tokens:
+            # allow small drift only if equal; any mismatch is a warn
+            checks["token_alignment"] = False
+            issues.append(
+                {
+                    "severity": "warn",
+                    "code": "token_mismatch",
+                    "msg": (
+                        f"meta.tokens_total={meta_tokens} != "
+                        f"journal step_complete sum={journal_tokens}"
+                    ),
+                }
+            )
+
+        # outputs keys should not exceed current_step
+        checks["outputs_bounded"] = True
+        for k in (task.outputs or {}):
+            try:
+                if int(k) > task.current_step and task.status != TaskStatus.waiting_human:
+                    checks["outputs_bounded"] = False
+                    issues.append(
+                        {
+                            "severity": "warn",
+                            "code": "output_ahead",
+                            "msg": f"output for step {k} but current_step={task.current_step}",
+                        }
+                    )
+            except (TypeError, ValueError):
+                continue
+
+        n_errors = sum(1 for i in issues if i.get("severity") == "error")
+        n_warns = sum(1 for i in issues if i.get("severity") == "warn")
+        ok = n_errors == 0
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "ok": ok,
+            "status": task.status.value,
+            "current_step": task.current_step,
+            "n_events": len(events),
+            "n_errors": n_errors,
+            "n_warns": n_warns,
+            "issues": issues,
+            "checks": checks,
+            "journal_tokens": journal_tokens,
+            "meta_tokens": meta_tokens,
+            "max_step_complete": max_complete,
         }

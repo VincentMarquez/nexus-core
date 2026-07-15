@@ -216,3 +216,77 @@ def test_step_complete_score_tokens_and_cost(tmp_path: Path):
 
     missing = engine.cost("nope")
     assert missing["found"] is False
+
+
+def test_provenance_export(tmp_path: Path):
+    """P4: PROV-AGENT style agents/activities/entities/relations export."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="prov1",
+        objective="provenance export demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+
+    doc = engine.provenance("prov1")
+    assert doc["found"] is True
+    assert doc["schema"] == "nexus.prov/v1"
+    assert doc["status"] == "completed"
+    assert doc["agents"], "expected at least one agent"
+    assert doc["activities"], "expected step activities"
+    assert any(a.get("id") for a in doc["activities"])
+    assert doc["entities"]
+    ent_types = {e.get("type") for e in doc["entities"]}
+    assert "task" in ent_types
+    assert "journal" in ent_types
+    rel_types = {r.get("type") for r in doc["relations"]}
+    assert "wasAssociatedWith" in rel_types
+    assert "used" in rel_types
+    assert "wasInformedBy" in rel_types
+    assert doc["cost"]["total_tokens"] > 0
+    assert "COMPLETED" in (doc.get("story") or "") or "completed" in doc["status"]
+
+    missing = engine.provenance("nope")
+    assert missing["found"] is False
+
+
+def test_verify_checkpoint_journal_ok_and_drift(tmp_path: Path):
+    """P4: verify() passes on healthy run; flags status/step drift."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="vfy1",
+        objective="verify integrity demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+
+    rep = engine.verify("vfy1")
+    assert rep["found"] is True
+    assert rep["ok"] is True
+    assert rep["n_errors"] == 0
+    assert rep["checks"].get("checkpoint_exists") is True
+    assert rep["checks"].get("journal_exists") is True
+    assert rep["checks"].get("status_alignment") is True
+    assert rep["max_step_complete"] == task.current_step
+
+    # Inject status drift: mark completed without completed event removed
+    # (simulate checkpoint ahead of journal terminal)
+    import json as _json
+
+    tpath = settings.state_dir / "tasks" / "vfy1.json"
+    data = _json.loads(tpath.read_text(encoding="utf-8"))
+    data["status"] = "failed"
+    data["meta"]["error"] = "injected drift"
+    tpath.write_text(_json.dumps(data), encoding="utf-8")
+    bad = engine.verify("vfy1")
+    assert bad["ok"] is False
+    codes = {i["code"] for i in bad["issues"]}
+    assert "missing_failed_event" in codes
+
+    missing = engine.verify("does-not-exist")
+    assert missing["found"] is False
+    assert missing["ok"] is False

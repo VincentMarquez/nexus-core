@@ -1214,7 +1214,7 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events + replay/explain/cost (mission-control inspect)."""
+    """Operator surface: list/show/events + replay/explain/cost/prov/verify."""
     from .engine import DurableEngine
 
     settings = _task_settings(args)
@@ -1228,12 +1228,13 @@ def cmd_task(args: argparse.Namespace) -> int:
             return 0
         print(
             f"{'TASK_ID':<24} {'STATUS':<14} {'STEP':>4} {'EVENTS':>6} "
-            f"{'LAST':<14} {'AGENT':<12}  OBJECTIVE"
+            f"{'TOK':>6} {'LAST':<14} {'AGENT':<12}  OBJECTIVE"
         )
         for r in rows:
             print(
                 f"{r['task_id']:<24} {r['status']:<14} {r['current_step']:>4} "
-                f"{r.get('events', 0):>6} {str(r.get('last_event') or '')[:14]:<14} "
+                f"{r.get('events', 0):>6} {int(r.get('tokens') or 0):>6} "
+                f"{str(r.get('last_event') or '')[:14]:<14} "
                 f"{str(r.get('last_agent') or '')[:12]:<12}  {r.get('objective', '')}"
             )
         return 0
@@ -1424,6 +1425,110 @@ def cmd_task(args: argparse.Namespace) -> int:
                     f"dec={s.get('decision') or '-'}"
                 )
         return 0
+
+    if sub == "prov":
+        # PROV-AGENT style unified provenance export (read-only)
+        rep = engine.provenance(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        print(f"# provenance {rep['task_id']}  schema={rep.get('schema')}")
+        print(f"status:       {rep.get('status')}  step={rep.get('current_step')}  events={rep.get('n_events')}")
+        print(f"objective:    {rep.get('objective', '')}")
+        print(f"story:        {rep.get('story', '')}")
+        cost = rep.get("cost") or {}
+        if cost:
+            print(
+                f"cost:         tokens={cost.get('total_tokens', 0)}  "
+                f"avg_score={cost.get('avg_score')}"
+            )
+        agents = rep.get("agents") or []
+        if agents:
+            print(f"agents:       {len(agents)}")
+            for a in agents:
+                print(
+                    f"  {a.get('id')}: vendor={a.get('vendor')}  "
+                    f"steps={a.get('steps')}  tokens={a.get('tokens', 0)}"
+                )
+        acts = rep.get("activities") or []
+        if acts:
+            print(f"activities:   {len(acts)}")
+            for a in acts:
+                print(
+                    f"  {a.get('id')}: {a.get('name') or '?'}  "
+                    f"agent={a.get('agent') or '-'}  "
+                    f"dec={a.get('decision') or '-'}  "
+                    f"score={a.get('score')}  tok={a.get('tokens')}"
+                )
+        ents = rep.get("entities") or []
+        if ents:
+            print(f"entities:     {len(ents)}")
+            for e in ents:
+                extra = e.get("path") or e.get("objective") or e.get("status") or ""
+                if isinstance(extra, str) and len(extra) > 60:
+                    extra = extra[:60] + "…"
+                print(f"  {e.get('id')}: type={e.get('type')}  {extra}")
+        rels = rep.get("relations") or []
+        if rels:
+            print(f"relations:    {len(rels)}")
+            for r in rels[:24]:
+                bits = [f"type={r.get('type')}"]
+                for k in (
+                    "activity", "agent", "entity", "informed_by",
+                    "derived_from", "kind", "step",
+                ):
+                    if r.get(k) not in (None, ""):
+                        bits.append(f"{k}={r[k]}")
+                print("  " + " ".join(bits))
+            if len(rels) > 24:
+                print(f"  … +{len(rels) - 24} more (use --json)")
+        if rep.get("handoffs"):
+            print(f"handoffs:     {len(rep['handoffs'])}")
+        if rep.get("trust"):
+            print(f"trust_rows:   {len(rep['trust'])}")
+        return 0
+
+    if sub == "verify":
+        # checkpoint ↔ journal integrity (fault-tolerant durability)
+        rep = engine.verify(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0 if rep.get("ok") else 1
+        status = "OK" if rep.get("ok") else "FAIL"
+        print(f"# verify {rep['task_id']}  {status}")
+        print(
+            f"status:       {rep.get('status')}  step={rep.get('current_step')}  "
+            f"events={rep.get('n_events')}"
+        )
+        print(
+            f"tokens:       journal={rep.get('journal_tokens', 0)}  "
+            f"meta={rep.get('meta_tokens', 0)}  "
+            f"max_step_complete={rep.get('max_step_complete', 0)}"
+        )
+        print(f"errors:       {rep.get('n_errors', 0)}  warns={rep.get('n_warns', 0)}")
+        checks = rep.get("checks") or {}
+        if checks:
+            print("checks:")
+            for k, v in checks.items():
+                mark = "pass" if v else "FAIL"
+                print(f"  {k}: {mark}")
+        issues = rep.get("issues") or []
+        if issues:
+            print("issues:")
+            for i in issues:
+                print(
+                    f"  [{i.get('severity', '?')}] {i.get('code', '?')}: "
+                    f"{i.get('msg', '')}"
+                )
+        else:
+            print("issues:       (none)")
+        return 0 if rep.get("ok") else 1
 
     print(f"unknown task subcommand: {sub}", file=sys.stderr)
     return 2
@@ -2343,6 +2448,22 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_cost.add_argument("--json", action="store_true", help="emit JSON object")
     tk_cost.add_argument("--state-dir", default=None)
     tk_cost.set_defaults(func=cmd_task)
+    tk_prov = tk_sub.add_parser(
+        "prov",
+        help="PROV-style provenance export (agents/activities/entities/relations)",
+    )
+    tk_prov.add_argument("task_id")
+    tk_prov.add_argument("--json", action="store_true", help="emit full JSON document")
+    tk_prov.add_argument("--state-dir", default=None)
+    tk_prov.set_defaults(func=cmd_task)
+    tk_verify = tk_sub.add_parser(
+        "verify",
+        help="checkpoint ↔ journal integrity checks (durability gate)",
+    )
+    tk_verify.add_argument("task_id")
+    tk_verify.add_argument("--json", action="store_true", help="emit JSON report")
+    tk_verify.add_argument("--state-dir", default=None)
+    tk_verify.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

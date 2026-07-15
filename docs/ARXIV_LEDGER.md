@@ -2,7 +2,7 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 30_
+_Rows: 40_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
@@ -36,3 +36,13 @@ _Rows: 30_
 | 2602.04418 | SPEAR: An Engineering Case Study of Multi-Agent Coordination for Smart | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
 | 2603.15054 | Interference-Aware K-Step Reachable Communication in Multi-Agent Reinf | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
 | 2604.09703 | Cayley Graph Optimization for Scalable Multi-Agent Communication Topol | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 1410.2632 | Evaluation of a Conversation Management Toolkit for Multi Agent Progra | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 1807.02648 | How game complexity affects the playing behavior of synthetic agents | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 1809.07124 | Pommerman: A Multi-Agent Playground | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2102.08370 | Quantifying the effects of environment and population diversity in mul | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2303.14061 | Learning Reward Machines in Cooperative Multi-Agent Tasks | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2310.12670 | Fault-Tolerant Hybrid-Parallel Training at Scale with Reliable and Eff | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2506.17266 | Securing Generative AI Agentic Workflows: Risks, Mitigation, and a Pro | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2508.02866 | PROV-AGENT: Unified Provenance for Tracking AI Agent Interactions in A | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2606.09840 | Envisioning Sensemaking in Multi-Human, Multi-Agent Collaborative Know | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
+| 2606.14130 | Contract-Based Compositional Shielding for Safe Multi-Agent Reinforcem | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
