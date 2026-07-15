@@ -1,36 +1,48 @@
-# NEXUS Core
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="NEXUS Core — multi-agent tasks that resume after a crash" width="100%">
+</p>
 
-[![CI](https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml/badge.svg)](https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://vincentmarquez.github.io/nexus-core/)
-[![PyPI](https://img.shields.io/badge/PyPI-nexus--multi--agent-blue)](https://pypi.org/project/nexus-multi-agent/)
+<p align="center">
+  <a href="https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml"><img src="https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+"></a>
+  <a href="https://vincentmarquez.github.io/nexus-core/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-indigo" alt="Docs"></a>
+  <a href="https://pypi.org/project/nexus-multi-agent/"><img src="https://img.shields.io/badge/PyPI-nexus--multi--agent-blue" alt="PyPI"></a>
+  <a href="https://github.com/VincentMarquez/nexus-core/releases"><img src="https://img.shields.io/github/v/release/VincentMarquez/nexus-core?display_name=tag&sort=semver" alt="Release"></a>
+  <a href="https://github.com/VincentMarquez/nexus-core/stargazers"><img src="https://img.shields.io/github/stars/VincentMarquez/nexus-core?style=social" alt="Stars"></a>
+</p>
 
-**Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
+<p align="center">
+  <b>Multi-agent tasks that resume after a crash</b> — with a judge that checks real success criteria, not “the model said OK.”
+</p>
 
+<p align="center">
+  <a href="https://vincentmarquez.github.io/nexus-core/"><b>Docs</b></a> ·
+  <a href="https://vincentmarquez.github.io/nexus-core/getting-started/"><b>Get started</b></a> ·
+  <a href="https://vincentmarquez.github.io/nexus-core/cookbooks/"><b>Cookbooks</b></a> ·
+  <a href="#architecture"><b>Architecture</b></a> ·
+  <a href="https://github.com/VincentMarquez/nexus-core/releases"><b>Releases</b></a>
+</p>
 
-![CLI multi-agent tasks: resume after crash + rubric judge](docs/assets/arch-cli-judge-resume.svg)
+---
 
-
-![Crash → resume demo](docs/assets/demo.gif)
-
-![Crash → resume flow](docs/assets/demo-flow.svg)
+## Quick start
 
 ```bash
-# from source
 git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core && make install && make start
 
-# or (when published): pip install nexus-multi-agent && nexus start -y
+# after PyPI publish:
+# pip install nexus-multi-agent && nexus start -y
 ```
 
-**What `make start` / `nexus start` does automatically:**
+**What `make start` / `nexus start` does automatically**
 
 1. Detects CPU / RAM / GPU (and unified memory)  
-2. Starts **Ollama** if installed and picks a safe local model (pulls one if you approve / `-y`)  
-3. Starts the **JS event bus** + opens the **dashboard in your browser**  
+2. Starts **Ollama** if installed and picks a safe local model  
+3. Starts the **JS event bus** + opens the **dashboard**  
 4. Wires a **local LLM bridge** (or mock if Ollama is missing)  
-5. Keeps real **CLI agents off** until you pass `--with-cli` or approve the prompt  
+5. Keeps real **CLI agents off** until `--with-cli` or you approve  
 
 Then:
 
@@ -44,9 +56,23 @@ nexus stop         # tear down
 
 ---
 
-## Why it exists
+## Crash → resume (the point)
 
-Multi-agent systems fail in the same boring ways:
+<p align="center">
+  <img src="docs/assets/demo-flow.svg" alt="Crash → resume flow: steps, kill -9, state on disk, resume completed" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Crash → resume demo animation" width="100%">
+</p>
+
+```bash
+make install && make start && make demo && make demo-judge && make smoke
+```
+
+---
+
+## Why it exists
 
 | Failure mode | NEXUS Core response |
 |--------------|---------------------|
@@ -58,73 +84,60 @@ Multi-agent systems fail in the same boring ways:
 
 ---
 
-## 60-second proof
-
-```bash
-make install
-make start         # hardware + bus + dashboard + local LLM
-make demo          # crash → resume → completed
-make demo-judge    # presence trap vs rubric judge
-make smoke         # full eval suite
-nexus stop
-```
-
-### CLI cheatsheet
+## CLI cheatsheet
 
 | Command | Does |
 |---------|------|
-| `nexus doctor` | Print hardware + tool detection |
-| `nexus start` | Full auto stack (prompts for model pull / CLI) |
+| `nexus doctor` | Hardware + tool detection |
+| `nexus start` | Full auto stack |
 | `nexus start -y` | Non-interactive defaults |
-| `nexus start -y --with-cli` | Also enable installed CLIs (claude/codex/…) |
+| `nexus start -y --with-cli` | Also enable installed CLIs |
 | `nexus start --model gemma4:e4b` | Force a model |
-| `nexus status` | PIDs + bus health |
-| `nexus stop` | Stop bus + bridges |
-| `nexus demo` | Crash/resume demo |
-| `nexus mcp --http` | Workspace MCP tools API |
+| `nexus status` / `nexus stop` | Status / tear down |
+| `nexus demo` | Crash → resume demo |
 | `nexus mcp` | Stdio MCP (Claude Desktop) |
+| `nexus mcp --http` | Workspace MCP tools API |
 
-Dashboard URL after start: printed in the terminal (auto port if 3099 is busy).
+Dashboard URL is printed after start (auto port if 3099 is busy).
 
-### Connect AI subscriptions & phone (MCP)
+---
 
-NEXUS-style setups attach **ChatGPT / Claude / Grok** (and optional **phone memory**) as MCP connectors — your URLs and keys stay local.
+## Connect AI apps & phone (MCP)
 
 | Doc | Contents |
 |-----|----------|
-| [docs/CONNECTORS.md](docs/CONNECTORS.md) | Architecture: remote MCP, machine MCP, phone MCP, bus |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | Recipes for each AI app |
-| [connectors/](connectors/) | Copy-paste JSON/env **templates** (placeholders only) |
+| [docs/CONNECTORS.md](docs/CONNECTORS.md) | Remote MCP · machine MCP · phone · bus |
+| [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | ChatGPT / Claude / Grok recipes |
+| [connectors/](connectors/) | JSON/env **templates** (placeholders only) |
 
 ```text
-ChatGPT / Grok  ──HTTPS MCP──►  your tunnel  ──►  workspace tools on the machine
-Claude Desktop  ──stdio MCP──►  machine-mcp.js  ──►  files + supervised shell
-Phone (optional)──HTTPS MCP──►  tunnel        ──►  personal memory (fail-open)
+ChatGPT / Grok  ──HTTPS MCP──►  tunnel  ──►  workspace tools
+Claude Desktop  ──stdio MCP──►  nexus mcp ──►  files (project jail)
+Phone (optional)──HTTPS MCP──►  tunnel  ──►  personal memory
 Ollama / CLIs   ──event bus──►  nexus start
-GLM-5.2 colibrì ──event bus──►  colibri-glm bridge (coli serve)
+GLM-5.2 colibrì ──event bus──►  colibri-glm bridge
 ```
 
-### GLM-5.2 (colibrì) as a NEXUS agent
-
-On a large box (high RAM / GB10-class), run **colibrì** next to NEXUS and attach GLM as agent `glm52`:
-
-```bash
-# coli serve …  (your COLI_MODEL)
-nexus start -y
-./bridge/bridges/colibri-glm.sh glm52
-python examples/run_with_bus.py --map planner=glm52,implementer=glm52,tester=local
-```
-
-Guide: **[docs/GLM52.md](docs/GLM52.md)** · quick start: [examples/glm52_nexus.md](examples/glm52_nexus.md)  
-Measurements / CACHE_ROUTE notes: [VincentMarquez/glm52-gb10-colibri](https://github.com/VincentMarquez/glm52-gb10-colibri)
+**GLM-5.2:** [docs/GLM52.md](docs/GLM52.md) · [examples/glm52_nexus.md](examples/glm52_nexus.md)
 
 ---
 
 ## Architecture
 
-![System overview](docs/assets/arch-overview.svg)
+<p align="center">
+  <img src="docs/assets/arch-overview.svg" alt="NEXUS Core system overview" width="100%">
+</p>
 
-![Multi-agent research panel — ChatGPT, Codex, Claude, Grok, Gemini, local LLMs](docs/assets/arch-multi-agent.svg)
+<p align="center">
+  <img src="docs/assets/arch-cli-judge-resume.svg" alt="CLI multi-agent + crash resume + rubric judge" width="100%">
+</p>
+
+<details>
+<summary><b>More diagrams</b> (multi-agent panel, MCP mesh, GLM-5.2, 10-step pipeline)</summary>
+
+<br>
+
+![Multi-agent research panel](docs/assets/arch-multi-agent.svg)
 
 ![MCP connector mesh](docs/assets/arch-mcp-mesh.svg)
 
@@ -132,12 +145,11 @@ Measurements / CACHE_ROUTE notes: [VincentMarquez/glm52-gb10-colibri](https://gi
 
 ![10-step adversarial pipeline](docs/assets/arch-pipeline-10.svg)
 
-All figures: [docs/FIGURES.md](docs/FIGURES.md)  
-Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [CONNECTORS](docs/CONNECTORS.md) · [GLM-5.2](docs/GLM52.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md)
+</details>
 
----
+Full catalog: [docs/FIGURES.md](docs/FIGURES.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md)
 
-## 10-step pipeline
+### 10-step pipeline
 
 | # | Step | Role |
 |---|------|------|
@@ -162,7 +174,9 @@ Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [C
 4. [Workspace MCP](cookbook/04_workspace_mcp.md)
 5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)
 
-Docs site: https://vincentmarquez.github.io/nexus-core/
+Docs site: **https://vincentmarquez.github.io/nexus-core/**
+
+---
 
 ## Features
 
@@ -176,10 +190,11 @@ Docs site: https://vincentmarquez.github.io/nexus-core/
 | Event bus + SSE + task API | ✅ |
 | Minimal dashboard | ✅ |
 | Ollama + CLI bridges | ✅ |
+| Workspace MCP (`nexus mcp`) | ✅ |
 | Human approve CLI | ✅ |
 | Smoke evals + scoreboard | ✅ |
 | Docker Compose bus | ✅ |
-| GitHub Actions CI | ✅ |
+| GitHub Actions CI + Pages | ✅ |
 
 ---
 
@@ -194,24 +209,20 @@ make test
 
 **Python 3.10+**. Node 18+ optional (bus/dashboard). Ollama optional (local models).
 
----
-
-## Repository layout
-
 ```
-src/nexus/     engine, judge, memory, bus client, circuits
+src/nexus/     engine, judge, memory, bus client, MCP, circuits
 bridge/        event bus, bridges, dashboard
 examples/      demos
 evals/         smoke suite + scoreboard
-data/          vendor map + routing table
-docs/          architecture + growth notes
+cookbook/      copy-paste recipes
+docs/          architecture + launch notes
 ```
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Design principles stay stable: **presence ≠ success**, **resume over hope**, **autonomy opt-in**.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Design principles: **presence ≠ success**, **resume over hope**, **autonomy opt-in**.
 
 ```bash
 make test && make smoke
@@ -224,17 +235,11 @@ make test && make smoke
 | Doc | Purpose |
 |-----|---------|
 | [docs/COMPARE.md](docs/COMPARE.md) | vs DIY / chat agents / graph runners |
-| [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md) | 60s product video + lab story video |
 | [docs/SHOW_HN.md](docs/SHOW_HN.md) | Ready-to-post Show HN |
 | [docs/SOCIAL_POSTS.md](docs/SOCIAL_POSTS.md) | X / LinkedIn / Reddit copy |
 | [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch day checklist |
-| [docs/X_RELEASE.md](docs/X_RELEASE.md) | How to post on X (your account) |
-| [docs/META_REVIEW.md](docs/META_REVIEW.md) | Launch readiness meta-review |
-| [docs/CONNECTORS.md](docs/CONNECTORS.md) | MCP + AI subscriptions + phone |
-| [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | How to attach ChatGPT / Claude / Grok |
-| [docs/GROWTH.md](docs/GROWTH.md) | Research on how high-star repos grow |
-
----
+| [docs/GROWTH.md](docs/GROWTH.md) | How high-star repos grow |
+| [docs/PYPI.md](docs/PYPI.md) | Publish `nexus-multi-agent` |
 
 ## Citation
 
