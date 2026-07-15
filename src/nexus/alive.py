@@ -72,6 +72,8 @@ class AliveConfig:
     stop_max_cycles: int = 0  # 0 = unlimited (watch max_cycles still applies)
     stop_when_gaps_closed: bool = True
     stop_on_tests_red: bool = False
+    # P1.5: auto-seed gap board from LATEST_IMPROVE_PLAN / IMPROVE_OURS each cycle
+    seed_gaps: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -103,6 +105,7 @@ class AliveConfig:
             stop_max_cycles=int(d.get("stop_max_cycles") or 0),
             stop_when_gaps_closed=bool(d.get("stop_when_gaps_closed", True)),
             stop_on_tests_red=bool(d.get("stop_on_tests_red", False)),
+            seed_gaps=bool(d.get("seed_gaps", True)),
         )
 
 
@@ -469,6 +472,21 @@ def _record_principled_stop(
         stop_on_tests_red=bool(cfg.stop_on_tests_red),
         stop_on_budget=True,
     )
+    # P1.5: seed open backlog ids from LATEST_IMPROVE_PLAN / IMPROVE_OURS
+    seed_info: Optional[dict[str, Any]] = None
+    if bool(getattr(cfg, "seed_gaps", True)):
+        try:
+            from .durability.gap_seed import seed_gap_board
+
+            seed_info = seed_gap_board(stopper, root, reopen_closed=False, close_done=True)
+            report["gap_seed"] = {
+                "n_plan": seed_info.get("n_plan"),
+                "registered": seed_info.get("registered"),
+                "closed": seed_info.get("closed"),
+                "board": seed_info.get("board"),
+            }
+        except Exception as e:
+            report.setdefault("steps", []).append({"step": "gap_seed", "error": str(e)})
     # if apply path ran, stash for progress heuristic
     if any(
         isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok")
@@ -485,7 +503,80 @@ def _record_principled_stop(
         note=f"goal={cfg.goal[:80]}",
     )
     stopper.save(path)
-    return decision.to_dict()
+    out = decision.to_dict()
+    if seed_info is not None:
+        out["gap_seed"] = {
+            "n_plan": seed_info.get("n_plan"),
+            "registered": seed_info.get("registered"),
+            "closed": seed_info.get("closed"),
+            "board": seed_info.get("board"),
+        }
+    return out
+
+
+def seed_gaps(
+    workdir: Optional[Path] = None,
+    *,
+    reopen_closed: bool = False,
+    close_done: bool = True,
+) -> dict[str, Any]:
+    """Operator helper: seed / refresh the gap board from plan docs (no cycle)."""
+    from .durability.gap_seed import board_snapshot, seed_gap_board
+    from .durability.stop import PrincipledStop, StopPolicy, default_stop_path
+
+    root = _root(workdir)
+    cfg = load_config(root)
+    path = default_stop_path(root)
+    stopper = PrincipledStop.load(path)
+    max_cycles = int(cfg.stop_max_cycles or 0) or None
+    stopper.policy = StopPolicy(
+        max_no_progress=max(1, int(cfg.stop_max_no_progress or 3)),
+        max_cycles=max_cycles,
+        stop_when_gaps_closed=bool(cfg.stop_when_gaps_closed),
+        require_registered_gaps=True,
+        stop_on_tests_red=bool(cfg.stop_on_tests_red),
+        stop_on_budget=True,
+    )
+    info = seed_gap_board(
+        stopper,
+        root,
+        reopen_closed=reopen_closed,
+        close_done=close_done,
+    )
+    stopper.save(path)
+    snap = board_snapshot(stopper)
+    return {**info, "snapshot": snap, "path": str(path)}
+
+
+def gap_board(workdir: Optional[Path] = None) -> dict[str, Any]:
+    """Read-only view of the principled-stop gap board."""
+    from .durability.gap_seed import board_snapshot
+    from .durability.stop import PrincipledStop, default_stop_path
+
+    root = _root(workdir)
+    path = default_stop_path(root)
+    stopper = PrincipledStop.load(path)
+    snap = board_snapshot(stopper)
+    snap["path"] = str(path)
+    return snap
+
+
+def close_gap(
+    gap_id: str,
+    workdir: Optional[Path] = None,
+    *,
+    evidence: str = "",
+) -> dict[str, Any]:
+    """Mark a gap closed on the alive stop board."""
+    from .durability.gap_seed import board_snapshot
+    from .durability.stop import PrincipledStop, default_stop_path
+
+    root = _root(workdir)
+    path = default_stop_path(root)
+    stopper = PrincipledStop.load(path)
+    item = stopper.close_gap(gap_id, evidence=evidence or "operator close")
+    stopper.save(path)
+    return {"closed": item.to_dict(), "board": board_snapshot(stopper), "path": str(path)}
 
 
 def watch(

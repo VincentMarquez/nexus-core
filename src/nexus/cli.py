@@ -2111,7 +2111,81 @@ def cmd_alive(args: argparse.Namespace) -> int:
             interval_s=float(getattr(args, "interval", 0) or 0) or None,
             max_cycles=int(getattr(args, "max_cycles", 0) or 0),
         )
-    print("usage: nexus alive init|status|once|watch")
+    if sub == "gaps":
+        # P1.5: supervised gap board — list / seed / close
+        if getattr(args, "close", None):
+            try:
+                out = al.close_gap(
+                    str(args.close),
+                    root,
+                    evidence=str(getattr(args, "evidence", None) or "operator close"),
+                )
+            except KeyError as e:
+                print(f"error: {e}", file=sys.stderr)
+                return 1
+            print(json.dumps(out, indent=2, default=str))
+            return 0
+        if getattr(args, "seed", False):
+            out = al.seed_gaps(
+                root,
+                reopen_closed=bool(getattr(args, "reopen", False)),
+            )
+            print(json.dumps(out, indent=2, default=str))
+            return 0
+        board = al.gap_board(root)
+        if getattr(args, "json", False):
+            print(json.dumps(board, indent=2, default=str))
+            return 0
+        counts = board.get("counts") or {}
+        print(
+            f"gap board  open={counts.get('open', 0)}  "
+            f"closed={counts.get('closed', 0)}  "
+            f"cycle={board.get('cycle', 0)}  "
+            f"streak={board.get('no_progress_streak', 0)}"
+        )
+        print(f"  path: {board.get('path')}")
+        for g in board.get("open") or []:
+            print(f"  [open]   {g.get('id')}: {(g.get('description') or '')[:80]}")
+        for g in board.get("closed") or []:
+            print(f"  [closed] {g.get('id')}: {(g.get('evidence') or '')[:60]}")
+        if not (board.get("open") or board.get("closed")):
+            print("  (empty — run: nexus alive gaps --seed)")
+        return 0
+    print("usage: nexus alive init|status|once|watch|gaps")
+    return 2
+
+
+def cmd_vault(args: argparse.Namespace) -> int:
+    """Secrets vault — presence checks + redaction (never print values)."""
+    from . import vault as vmod
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "vault_cmd", None) or "status"
+    vault = vmod.Vault(workdir=root)
+    if sub == "status":
+        st = vault.status()
+        print(json.dumps(st, indent=2, default=str))
+        return 0
+    if sub == "check":
+        name = str(getattr(args, "key", None) or "").strip()
+        if not name:
+            print("usage: nexus vault check KEY", file=sys.stderr)
+            return 2
+        present = vault.present(name)
+        out = {
+            "key": name,
+            "present": present,
+            "source": vault.source_of(name),
+        }
+        print(json.dumps(out, indent=2))
+        return 0 if present else 1
+    if sub == "redact":
+        text = str(getattr(args, "text", None) or "")
+        if getattr(args, "stdin", False) or text == "-":
+            text = sys.stdin.read()
+        print(vault.redact(text), end="" if text.endswith("\n") else "\n")
+        return 0
+    print("usage: nexus vault status|check|redact", file=sys.stderr)
     return 2
 
 
@@ -2134,6 +2208,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "usage",
         "ops",
         "alive",
+        "vault",
         "procure",
         "arxiv",
         "research",
@@ -2954,7 +3029,41 @@ def main(argv: Optional[list[str]] = None) -> int:
     al_w.add_argument("--interval", type=float, default=0)
     al_w.add_argument("--max-cycles", type=int, default=0)
     al_w.set_defaults(func=cmd_alive)
+    al_g = al_sub.add_parser(
+        "gaps",
+        help="P1.5 principled-stop gap board (list / --seed / --close)",
+    )
+    al_g.add_argument("--path", default=".")
+    al_g.add_argument("--seed", action="store_true", help="seed from LATEST_IMPROVE_PLAN / IMPROVE_OURS")
+    al_g.add_argument(
+        "--reopen",
+        action="store_true",
+        help="with --seed, re-open gaps that were previously closed",
+    )
+    al_g.add_argument("--close", default=None, metavar="ID", help="close a gap id")
+    al_g.add_argument("--evidence", default="", help="evidence when --close")
+    al_g.add_argument("--json", action="store_true")
+    al_g.set_defaults(func=cmd_alive)
     alv.set_defaults(func=cmd_alive, alive_cmd="status")
+
+    vlt = sub.add_parser(
+        "vault",
+        help="secrets vault: presence checks + redaction (never prints values)",
+    )
+    vlt_sub = vlt.add_subparsers(dest="vault_cmd")
+    vlt_st = vlt_sub.add_parser("status", help="which known keys are configured (booleans only)")
+    vlt_st.add_argument("--path", default=".")
+    vlt_st.set_defaults(func=cmd_vault)
+    vlt_ck = vlt_sub.add_parser("check", help="exit 0 if key present")
+    vlt_ck.add_argument("key")
+    vlt_ck.add_argument("--path", default=".")
+    vlt_ck.set_defaults(func=cmd_vault)
+    vlt_rd = vlt_sub.add_parser("redact", help="mask known secret values in text")
+    vlt_rd.add_argument("text", nargs="?", default="", help="text to redact (or - for stdin)")
+    vlt_rd.add_argument("--stdin", action="store_true")
+    vlt_rd.add_argument("--path", default=".")
+    vlt_rd.set_defaults(func=cmd_vault)
+    vlt.set_defaults(func=cmd_vault, vault_cmd="status")
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")

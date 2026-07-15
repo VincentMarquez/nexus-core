@@ -1,8 +1,8 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated / restored 2026-07-15 (P1.4 hard-apply session)_
+_Generated / restored 2026-07-15 (P1.5 hard-apply session)_
 
-Model: `grok-4.5` · repos≥10 · arXiv≥10
+Model: `grok-4.5` · repos≥10 · arXiv≥10 (cycle often 20+20)
 
 ---
 
@@ -16,31 +16,33 @@ Model: `grok-4.5` · repos≥10 · arXiv≥10
 
 ---
 
-## This session — First apply slice: **P1.4 context pack stage**
+## This session — First apply slice: **P1.5 vault + gap-board auto-seed**
 
-Prior sessions landed P0 durability, improve-apply FSM, ops plane (P1.1), task DAG (P1.2), consensus grading (P1.3). **P1.4** formalizes the bounded multi-source context pack used by improve-apply and task operators.
+Prior sessions landed P0 durability, improve-apply FSM, ops plane (P1.1), task DAG (P1.2), consensus (P1.3), context pack (P1.4). **P1.5** closes the supervised-alive loop: register plan backlog as gaps, and add an env-first secrets vault that never prints values.
 
 ### Evidence drivers
 
 | Source | Signal |
 |--------|--------|
-| arXiv **2508.08322** | Context engineering for multi-agent LLM code assistants |
-| arXiv **2203.08975** / **2512.03278** | Communication + evidence-linked claims |
-| IMPROVE_OURS top repos | routa traces, mission-control export, zenith replan context, wshobson digests |
-| Scout: Denis2054 Context-Engineering… | Sectioned context shape (pattern only) |
+| Intelligent-Internet/zenith | Gap review + principled stop (not premature; not infinite thrash) |
+| builderz-labs/mission-control | Ops plane + env spend / presence |
+| ahmedEid1/lumen | Operational shell; secrets out of git |
+| arXiv **2203.08975** / **2502.07165** | Multi-agent communication + principle-based discipline |
+| IMPROVE_OURS | Top graded repos (routa, MisterSmith, EDDI, wshobson/agents, …) |
 
 ### Implementation summary
 
-- New module `src/nexus/context_pack.py` (`nexus.context_pack/v1`)
-- improve_apply `context_packed` phase uses formal builder
-- `DurableEngine.context_pack()` + `nexus task context` + MCP `context_pack`
-- Tests in `tests/test_context_pack.py`
+- `src/nexus/durability/gap_seed.py` — plan parsers + `seed_gap_board` (`nexus.gap_seed/v1`)
+- `src/nexus/vault.py` — env / local-file resolve, presence status, redact
+- Alive auto-seed each cycle (`seed_gaps=true`); `nexus alive gaps`; `nexus vault …`
+- MCP tools `gap_board` + `vault_status` (booleans only)
 
 ### Commands
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli task context <id> --prompt --research --repos
+PYTHONPATH=src python3 -m nexus.cli alive gaps --seed
+PYTHONPATH=src python3 -m nexus.cli vault status
 ```
 
 See `docs/LATEST_IMPROVE_PLAN.md` for acceptance checklist and next open items.

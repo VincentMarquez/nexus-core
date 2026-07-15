@@ -2,7 +2,8 @@
 
 **Target:** `/path/to/nexus-core`  
 **Focus:** multi-agent durability, MCP, mine/alive loops, grading, demos  
-**Sources:** Grok-graded mined repos (IMPROVE_OURS) + arXiv research notes under `.nexus_state/arxiv_improve/`
+**Sources:** Grok-graded mined repos (IMPROVE_OURS) + arXiv research notes under `.nexus_state/arxiv_improve/`  
+**Worker:** Grok 4.5 CLI · 2026-07-15
 
 ---
 
@@ -15,63 +16,66 @@
 | P1.1 | Task/spend ops plane | **done** (`ops_store.py` + `nexus ops`) |
 | P1.2 | Multi-agent task DAG | **done** (`steps.py` / `engine.dag`) |
 | P1.3 | Consensus / multi-grader path (gossipcat) | **done** (`consensus.py`) |
-| **P1.4** | **Formal context pack stage (arXiv 2508.08322)** | **done this session** |
-| P1.5+ | Vault, agent single-source, supervised alive, board traces | open |
-| P2 | Packaging, OpenAPI, anti-collusion, domain MCP demos | later |
+| P1.4 | Formal context pack stage (arXiv 2508.08322) | **done** (`context_pack.py`) |
+| **P1.5** | **Secrets vault + supervised alive gap-board auto-seed** | **done this session** |
+| P2 | Packaging, OpenAPI, domain MCP demos (AssetOpsBench) | open |
 
 ---
 
-## First apply slice this session — P1.4 context pack stage
+## First apply slice this session — P1.5 vault + gap seed
 
-**Goal:** Bound research notes + repo digests + grade + journal/memory into a single hard-budgeted pack *before* apply / mid-run prompts (context engineering, not full-tree dumps).
+**Goal:** Supervised *alive* only stops for `gaps_closed` when gaps are registered. Auto-seed the board from plan docs, and give operators an env-first secrets vault that never prints values.
 
 ### Landed
 
 | Surface | What |
 |---------|------|
-| `src/nexus/context_pack.py` | Sections, char budgets, total trim, research/repo loaders, `build_context_pack`, `prompt_block`, `nexus.context_pack/v1` |
-| `src/nexus/improve_apply.py` | `ensure_context_packed` uses formal builder; writes `context_pack.json` + `.prompt.md` |
-| `src/nexus/engine.py` | `context_pack(task_id)`; mid-run prompt inject when journal/meta set |
-| `src/nexus/cli.py` | `nexus task context [--json\|--prompt\|--research\|--repos\|--out]` |
-| `src/nexus/mcp_server.py` | tool `context_pack` |
-| tests | `tests/test_context_pack.py` |
+| `src/nexus/durability/gap_seed.py` | Parse status tables + Next open; `seed_gap_board` / `collect_plan_gaps` / `board_snapshot` (`nexus.gap_seed/v1`) |
+| `src/nexus/alive.py` | `seed_gaps` config (default on); auto-seed in `_record_principled_stop`; helpers `seed_gaps` / `gap_board` / `close_gap` |
+| `src/nexus/vault.py` | Env + optional `.nexus_state/vault.local.json`; presence-only `status`; `redact` / `mask_mapping` |
+| `src/nexus/cli.py` | `nexus alive gaps [--seed\|--close]`; `nexus vault status\|check\|redact` |
+| `src/nexus/mcp_server.py` | tools `gap_board`, `vault_status` (booleans only) |
+| tests | `tests/durability/test_gap_seed.py`, `tests/test_vault.py` |
 
 ### Acceptance
 
-- [x] Multi-source pack: goal / grade / research / repo_digest / journal / memory / prior
-- [x] Per-section + total char budgets (default 10k chars) with truncate markers
-- [x] IMPROVE_OURS + USE_LATEST digest parsers
-- [x] Latest arXiv improve notes loader
-- [x] improve_apply phase reuses builder; flat grade fields preserved
-- [x] Operator CLI + JSON + prompt export
-- [x] MCP parity tool
+- [x] Parse open/done rows from `docs/LATEST_IMPROVE_PLAN.md` status table
+- [x] Parse **Next open** numbered lists + inline `next open:` trails
+- [x] Seed does not reopen operator-closed gaps (unless `--reopen`)
+- [x] Plan `done` rows can close matching open board gaps
+- [x] Alive cycle auto-seeds when `seed_gaps=true`
+- [x] Vault status never embeds secret values
+- [x] Redaction masks known values and `KEY=value` patterns
+- [x] CLI + MCP parity
 - [x] Full pytest green
 
 ### Patterns (no tree vendor)
 
-- **arXiv 2508.08322** — context engineering for multi-agent LLM assistants
-- **Denis2054/Context-Engineering-for-Multi-Agent-Systems** — sectioned context shape
-- **phodal/routa** — evidence/context board export
-- **Intelligent-Internet/zenith** — bound context before replan
-- **wshobson/agents** — digests as reusable building blocks
-- **mission-control** — operator inspect + export
+- **Intelligent-Internet/zenith** — gap board + supervised stop (not premature / not infinite)
+- **builderz-labs/mission-control** — ops presence / env spend keys
+- **ahmedEid1/lumen** — operational shell + env secrets
+- **arXiv 2502.07165 / 2203.08975** — principle + communication discipline for multi-agent loops
+- **IMPROVE_OURS** top repos (routa / MisterSmith / EDDI) — operator inspect surfaces
 
 ### Demo
 
 ```bash
-PYTHONPATH=src python3 -m nexus.cli task context <task_id>
-PYTHONPATH=src python3 -m nexus.cli task context <task_id> --json
-PYTHONPATH=src python3 -m nexus.cli task context <task_id> --prompt --research --repos
-PYTHONPATH=src python3 -m nexus.cli demo self-improve-slice --fixture
+PYTHONPATH=src python3 -m nexus.cli alive gaps --seed
+PYTHONPATH=src python3 -m nexus.cli alive gaps
+PYTHONPATH=src python3 -m nexus.cli alive gaps --close P1.5 --evidence "landed + tests green"
+PYTHONPATH=src python3 -m nexus.cli vault status
+PYTHONPATH=src python3 -m nexus.cli vault check OPENAI_API_KEY
+PYTHONPATH=src python3 -m pytest -q
 ```
 
 ---
 
 ## Next open (after this slice)
 
-1. **P1.5** Secrets vault / supervised alive stop board auto-seed from IMPROVE_OURS  
-2. Modularize MCP domains + eval CLI (AssetOpsBench)  
-3. Packaging / OpenAPI (P2)
+1. **P2** Packaging / OpenAPI surface for core modules
+2. Modularize MCP domains + eval CLI (AssetOpsBench pattern)
+3. Agent single-source skillpack marketplace (wshobson/agents generators — pattern only)
+4. Board traces / routa-style evidence export polish (already partial via `task evidence`)
 
 ---
 
@@ -80,7 +84,8 @@ PYTHONPATH=src python3 -m nexus.cli demo self-improve-slice --fixture
 - No vendoring of scout_repos trees  
 - No force-push / secrets in commits  
 - No full mission-control UI rewrite  
-- No unbounded dump of full paper PDFs or entire repos into prompts
+- No unbounded dump of full paper PDFs or entire repos into prompts  
+- Vault never returns secret *values* over MCP
 
 ---
 

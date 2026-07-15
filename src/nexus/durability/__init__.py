@@ -1,8 +1,9 @@
 """Per-run durability safety primitives (cycgraph + zenith pattern ports).
 
 Small modules only — budgets, taint labels, zero-trust state slices,
-eval-gated memory writes, principled stop, independent verify-before-promote,
-and a thin DurableAgent step wrapper. Not a full monorepo copy.
+eval-gated memory writes, principled stop, gap-board plan seed,
+independent verify-before-promote, and a thin DurableAgent step wrapper.
+Not a full monorepo copy.
 
 Evidence drivers:
 - wmcmahan/cycgraph — budgets, zero-trust state, taint tracking, eval-gated retention
@@ -38,6 +39,13 @@ from .stop import (
     StopPolicy,
     cycle_progressed,
     default_stop_path,
+)
+from .gap_seed import (
+    SCHEMA as GAP_SEED_SCHEMA,
+    board_snapshot,
+    collect_plan_gaps,
+    parse_plan_gaps,
+    seed_gap_board,
 )
 from .verify_promote import (
     DEFAULT_VERIFY_MIN_SCORE,
@@ -84,6 +92,11 @@ __all__ = [
     "StopPolicy",
     "cycle_progressed",
     "default_stop_path",
+    "GAP_SEED_SCHEMA",
+    "board_snapshot",
+    "collect_plan_gaps",
+    "parse_plan_gaps",
+    "seed_gap_board",
     "DEFAULT_VERIFY_MIN_SCORE",
     "IndependentVerify",
     "VerifyError",

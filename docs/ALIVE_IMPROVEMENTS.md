@@ -135,7 +135,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - tests: `tests/test_engine.py` (budget + graph), `tests/test_task_cli.py`
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook budget/graph inspect
 - patterns: cycgraph/open-multi-agent maxTokenBudget, mission-control spend, MisterSmith hard-cap, MAS call-graph/space-time papers, routa traces
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 18:28:53Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -152,7 +152,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - tests: `tests/test_engine.py` (norms + evidence), `tests/test_task_cli.py`
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook evidence inspect
 - patterns: routa evidence board, mission-control export, AssetOpsBench eval, NorMAS / constitutional governance (2603.13189, 1709.02018)
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 18:35:55Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -181,7 +181,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - tests: `tests/durability/test_budgets.py`, `test_taint.py`, `test_durable_agent.py`, `test_engine.py::test_task_max_steps_hard_stop`
   - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
 - patterns: wmcmahan/cycgraph budgets + taint (pattern only, no tree vendor)
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 19:07:33Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -200,7 +200,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
 - patterns: wmcmahan/cycgraph permission-scoped state (pattern only, no tree vendor)
 - next open: P0.3 eval-gated memory · P0.4 zenith principled stop · P0.5 independent verify before promote
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 19:15:48Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -218,7 +218,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
 - patterns: wmcmahan/cycgraph eval-gated retention / verified lessons (pattern only, no tree vendor)
 - next open: P0.4 zenith principled stop · P0.5 independent verify before promote
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 
 ## Cycle 2026-07-15 19:23:53Z
@@ -239,7 +239,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
 - patterns: Intelligent-Internet/zenith (gap review + stop discipline + independent validation); cycgraph promote gate (pattern only, no tree vendor)
 - next open: auto-register IMPROVE_OURS backlog ids into gap board; optional engine review→promote hook
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 19:33:23Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -280,7 +280,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
   - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
 - patterns: builderz-labs/mission-control task-costs + status (pattern only, no tree vendor)
 - next open: P1.2 task DAG · P1.3 consensus grading · P1.4 context pack stage
-- evidence: `PYTHONPATH=src python3 -m pytest -q`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
 
 ## Cycle 2026-07-15 19:54:34Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -346,3 +346,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a2984ea421.md`
+
+## Cycle 2026-07-15 hard-apply P1.5 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (zenith / mission-control / lumen / routa / MisterSmith / EDDI / wshobson / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-5536a7eec8.md`; communication **2203.08975**, principles **2502.07165**, context **2508.08322**)
+- apply slice (P1.5 vault + supervised gap-board auto-seed — **First apply slice** this session):
+  - `src/nexus/durability/gap_seed.py` — plan parsers + `seed_gap_board` / `collect_plan_gaps` / `board_snapshot` (`nexus.gap_seed/v1`)
+  - `src/nexus/alive.py` — `seed_gaps` config; auto-seed in `_record_principled_stop`; `seed_gaps` / `gap_board` / `close_gap` helpers
+  - `src/nexus/vault.py` — env + `.nexus_state/vault.local.json`; presence-only status; `redact` / `mask_mapping`
+  - `src/nexus/cli.py` — `nexus alive gaps [--seed|--close]`; `nexus vault status|check|redact`
+  - `src/nexus/mcp_server.py` — tools `gap_board`, `vault_status`
+  - tests: `tests/durability/test_gap_seed.py`, `tests/test_vault.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: zenith gap board; mission-control/lumen env secrets (pattern only, no tree vendor)
+- next open: P2 packaging/OpenAPI · AssetOpsBench domain MCP · wshobson skillpack generators
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 266 passed
+
+## Cycle 2026-07-15 20:35:53Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5536a7eec8.md`

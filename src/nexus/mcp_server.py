@@ -281,6 +281,54 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "gap_board",
+        "description": (
+            "P1.5 principled-stop gap board: list open/closed gaps, seed from "
+            "LATEST_IMPROVE_PLAN / IMPROVE_OURS, or close a gap with evidence. "
+            "action=list|seed|close."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list | seed | close",
+                    "default": "list",
+                },
+                "gap_id": {
+                    "type": "string",
+                    "description": "Required for action=close",
+                },
+                "evidence": {
+                    "type": "string",
+                    "description": "Evidence when closing a gap",
+                    "default": "",
+                },
+                "reopen": {
+                    "type": "boolean",
+                    "description": "With seed: reopen previously closed plan gaps",
+                    "default": False,
+                },
+            },
+        },
+    },
+    {
+        "name": "vault_status",
+        "description": (
+            "P1.5 secrets vault presence report (booleans only — never returns "
+            "secret values). Optional key to check a single name."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "If set, report only this key's presence/source",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -569,6 +617,71 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             if want_prompt:
                 return _tool_result(pack.prompt_block())
             return _tool_result(json.dumps(pack.to_dict(), indent=2, default=str)[:12000])
+
+        if name == "gap_board":
+            from . import alive as al
+
+            root = _root()
+            action = str(args.get("action") or "list").lower()
+            try:
+                if action in {"seed", "refresh"}:
+                    out = al.seed_gaps(
+                        root,
+                        reopen_closed=bool(args.get("reopen", False)),
+                    )
+                    # drop full gaps list if huge — keep registered/closed
+                    slim = {
+                        k: out.get(k)
+                        for k in (
+                            "schema",
+                            "n_plan",
+                            "registered",
+                            "closed",
+                            "skipped",
+                            "board",
+                            "path",
+                        )
+                    }
+                    slim["snapshot_counts"] = (out.get("snapshot") or {}).get("counts")
+                    return _tool_result(json.dumps(slim, indent=2, default=str))
+                if action == "close":
+                    gid = str(args.get("gap_id") or "").strip()
+                    if not gid:
+                        return _tool_result("gap_id required for close", is_error=True)
+                    out = al.close_gap(
+                        gid,
+                        root,
+                        evidence=str(args.get("evidence") or "mcp close"),
+                    )
+                    return _tool_result(json.dumps(out, indent=2, default=str))
+                # list
+                out = al.gap_board(root)
+                return _tool_result(json.dumps(out, indent=2, default=str))
+            except KeyError as e:
+                return _tool_result(str(e), is_error=True)
+            except Exception as e:
+                return _tool_result(f"gap_board error: {e}", is_error=True)
+
+        if name == "vault_status":
+            from . import vault as vmod
+
+            root = _root()
+            vault = vmod.Vault(workdir=root)
+            key = str(args.get("key") or "").strip()
+            if key:
+                return _tool_result(
+                    json.dumps(
+                        {
+                            "schema": vmod.SCHEMA,
+                            "key": key,
+                            "present": vault.present(key),
+                            "source": vault.source_of(key),
+                        },
+                        indent=2,
+                    )
+                )
+            # presence only — never values
+            return _tool_result(json.dumps(vault.status(), indent=2, default=str))
 
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError

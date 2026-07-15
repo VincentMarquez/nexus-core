@@ -97,6 +97,7 @@ def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
         stop_max_cycles=12,
         stop_when_gaps_closed=False,
         stop_on_tests_red=True,
+        seed_gaps=False,
     )
     al.save_config(cfg, tmp_path)
     loaded = al.load_config(tmp_path)
@@ -104,6 +105,7 @@ def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
     assert loaded.stop_max_cycles == 12
     assert loaded.stop_when_gaps_closed is False
     assert loaded.stop_on_tests_red is True
+    assert loaded.seed_gaps is False
 
 
 def test_alive_dry_run_records_principled_stop_on_full_cycle(tmp_path, monkeypatch):
