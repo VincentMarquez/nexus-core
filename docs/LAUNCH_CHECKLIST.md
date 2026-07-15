@@ -29,6 +29,7 @@
 ### Week 1
 
 - [ ] Reply to every issue and HN comment  
+- [x] Community bot + inbox: `nexus github inbox` / Actions auto first-reply (see `docs/GITHUB_COMMUNITY.md`)  
 - [ ] Tag any follow-up fix as v0.2.1  
 - [ ] Share one “lesson learned” thread (resume/judge story)  
 

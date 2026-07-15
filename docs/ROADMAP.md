@@ -4,10 +4,12 @@ Ideas for growing NEXUS Core. Order is a suggestion, not a commitment.
 
 ## Near term
 
+- [x] GitHub community bot + maintainer inbox (`nexus github …`, Actions workflow)  
 - [ ] Optional dense embeddings behind the same `memory.search` API  
 - [ ] Richer SSE event types from the Python engine (task_started, step_done)  
 - [ ] Pluggable checkpointer interface (JSON today; SQLite / LangGraph later)  
 - [ ] More smoke tasks in `evals/` (fault injection, offline agent)  
+- [ ] LLM-powered community replies in Actions via optional secret (local `--llm` works today)  
 
 ## Medium term
 

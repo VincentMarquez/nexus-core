@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — 2026-07-15
+
+### Added
+- **GitHub community one-stop shop**: `nexus github inbox|draft|reply|auto|status`
+- **Actions bot**: `.github/workflows/community-bot.yml` auto first-replies on issues/PRs and on `@nexus` / `/triage` comments
+- Heuristic drafts (bug / feature / PR checklist) + optional `--llm` via NEXUS bus
+- Docs: `docs/GITHUB_COMMUNITY.md`, cookbook 09; README **GitHub community** section
+- Bot marker `<!-- nexus-community-bot -->` prevents double-posts
+- `nexus github do` keeps the repair-job path; bare `nexus github owner/repo` still works
+
 ## 0.6.0 — 2026-07-15
 
 ### Added

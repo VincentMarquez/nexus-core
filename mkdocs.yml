@@ -52,6 +52,8 @@ nav:
       - GitHub URL → fix: cookbook/06_github_do.md
       - Procurement agents: cookbook/07_procurement.md
       - arXiv research: cookbook/08_arxiv_research.md
+      - GitHub community auto-reply: cookbook/09_github_community.md
+      - GitHub community (full): GITHUB_COMMUNITY.md
       - PyPI publish: PYPI.md
   - Architecture:
       - Overview: ARCHITECTURE.md

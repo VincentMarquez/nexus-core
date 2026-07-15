@@ -10,5 +10,6 @@ Copy-paste recipes (also under `cookbook/` in the repo):
 6. [GitHub URL → fix](cookbook/06_github_do.md)
 7. [Procurement agents](cookbook/07_procurement.md)
 8. [arXiv research](cookbook/08_arxiv_research.md)
+9. [GitHub community auto-reply](cookbook/09_github_community.md)
 
 Clone the repo to run them locally with `make` / `nexus` commands.

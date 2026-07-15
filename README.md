@@ -165,6 +165,31 @@ nexus procure demo
 
 See [Quick start](#quick-start) and [cookbook 06](cookbook/06_github_do.md).
 
+### GitHub community (auto-reply + one-stop inbox)
+
+Reply to **anyone** on issues and pull requests from one desk — automatically on GitHub, interactively on your machine (same idea as an always-on assistant).
+
+| Mode | Command / path | What happens |
+|------|----------------|--------------|
+| **Automatic** | `.github/workflows/community-bot.yml` | First reply when an issue/PR opens; also on `@nexus` / `/triage` comments |
+| **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
+| **Draft** | `nexus github draft 12` | Print a reply (no post) |
+| **Reply** | `nexus github reply 12` | Post auto-draft (or `--body "…"`) |
+| **Bulk** | `nexus github auto --dry-run` | Preview / post first replies for everything open |
+
+```bash
+gh auth login                 # one-time on your machine
+nexus github status
+nexus github inbox
+nexus github reply 12         # or: --body "Thanks — fixed on main."
+nexus github auto --dry-run   # safe preview before bulk post
+```
+
+- **No extra secrets** for default replies (docs links + triage checklists).  
+- Marker `<!-- nexus-community-bot -->` prevents double-posts.  
+- Optional: `--llm` uses the NEXUS bus when the stack is up.  
+- Full setup: **[docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md)** · cookbook **[09](cookbook/09_github_community.md)**
+
 ### Research (arXiv)
 
 ```bash
@@ -247,6 +272,7 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `./run` | Install + auto start + agents |
 | `./run https://github.com/…` | Start **and** GitHub job |
 | `nexus do owner/repo` | Clone → install → check → fix |
+| `nexus github inbox` / `reply` / `auto` | Community one-stop (issues & PRs) |
 | `nexus research "…"` | arXiv job → brief + report |
 | `nexus arxiv search` / `get` | arXiv API helpers |
 | `nexus procure demo` | Procurement engine + experts |
@@ -328,6 +354,7 @@ Ollama / CLIs   ──event bus──►  nexus start
 6. [GitHub URL → fix](cookbook/06_github_do.md)  
 7. [Procurement agents](cookbook/07_procurement.md)  
 8. [arXiv research](cookbook/08_arxiv_research.md)  
+9. [GitHub community auto-reply](cookbook/09_github_community.md)  
 
 Docs: **https://vincentmarquez.github.io/nexus-core/**
 
@@ -341,6 +368,7 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 | Rubric-style judge | ✅ |
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
+| GitHub community bot + inbox CLI | ✅ |
 | arXiv search / research jobs | ✅ |
 | Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |
@@ -394,6 +422,7 @@ make test && make smoke
 | [docs/COMPARE.md](docs/COMPARE.md) | vs Cursor / LangGraph / CrewAI / AutoGen |
 | [docs/SHOW_HN.md](docs/SHOW_HN.md) | Show HN draft |
 | [docs/GROWTH.md](docs/GROWTH.md) | Distribution research |
+| [docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md) | Auto-reply bot + maintainer inbox |
 | [docs/PYPI.md](docs/PYPI.md) | Publish `nexus-multi-agent` |
 
 ## Citation

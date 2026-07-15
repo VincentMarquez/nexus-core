@@ -504,6 +504,152 @@ def cmd_research(args: argparse.Namespace) -> int:
     return 0 if job.status == "completed" else 1
 
 
+def cmd_github(args: argparse.Namespace) -> int:
+    """One-stop shop: community inbox / reply / auto, or repo repair job."""
+    from . import github_community as gc
+
+    sub = getattr(args, "github_cmd", None)
+
+    # Back-compat: nexus github owner/repo → repair job
+    if sub in (None, "do") or (isinstance(sub, str) and _looks_like_github(sub)):
+        # When user typed: nexus github owner/repo  (subparser may capture as github_cmd)
+        if sub and _looks_like_github(sub):
+            args.repo = sub
+        if not getattr(args, "repo", None):
+            print(
+                "usage:\n"
+                "  nexus github inbox|reply|draft|auto|status   # community one-stop\n"
+                "  nexus github do <owner/repo>                 # repair job\n"
+                "  nexus do <owner/repo>                        # same job"
+            )
+            return 2
+        return cmd_do(args)
+
+    repo = getattr(args, "repo_flag", None) or getattr(args, "repo", None)
+
+    if sub == "status":
+        print("gh:", "yes" if gc.gh_available() else "no")
+        try:
+            r = gc.resolve_repo(repo)
+            print("repo:", r)
+        except gc.GhError as e:
+            print("repo: (unresolved)", e)
+            return 1
+        return 0
+
+    if sub == "inbox":
+        try:
+            items = gc.list_inbox(
+                repo,
+                limit=int(getattr(args, "limit", 30)),
+                include_bot_replied=bool(getattr(args, "all", False)),
+            )
+        except gc.GhError as e:
+            print(f"error: {e}")
+            return 1
+        print(f"=== GitHub inbox ({gc.resolve_repo(repo)}) ===")
+        print(gc.format_inbox_table(items))
+        print()
+        print("reply:  nexus github reply <n> --body '…'")
+        print("draft:  nexus github draft <n>")
+        print("auto:   nexus github auto --dry-run")
+        return 0
+
+    if sub == "draft":
+        try:
+            item = gc.fetch_thread(repo, int(args.number))
+        except gc.GhError as e:
+            print(f"error: {e}")
+            return 1
+        panel = None
+        if getattr(args, "llm", False):
+            try:
+                from .github_job import ensure_panel_for_job
+
+                panel = ensure_panel_for_job()
+            except Exception:
+                panel = None
+        text = gc.draft_reply(
+            item,
+            repo=repo,
+            panel=panel,
+            prefer_llm=bool(getattr(args, "llm", False)),
+        )
+        print(text)
+        return 0
+
+    if sub == "reply":
+        body = getattr(args, "body", None)
+        if not body and getattr(args, "stdin", False):
+            body = sys.stdin.read()
+        if not body:
+            # auto-draft then post
+            try:
+                item = gc.fetch_thread(repo, int(args.number))
+            except gc.GhError as e:
+                print(f"error: {e}")
+                return 1
+            panel = None
+            if getattr(args, "llm", False):
+                try:
+                    from .github_job import ensure_panel_for_job
+
+                    panel = ensure_panel_for_job()
+                except Exception:
+                    panel = None
+            body = gc.draft_reply(
+                item,
+                repo=repo,
+                panel=panel,
+                prefer_llm=bool(getattr(args, "llm", False)),
+            )
+        try:
+            res = gc.post_comment(
+                repo,
+                int(args.number),
+                body,
+                dry_run=bool(getattr(args, "dry_run", False)),
+            )
+        except gc.GhError as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2))
+        return 0
+
+    if sub == "auto":
+        panel = None
+        if getattr(args, "llm", False):
+            try:
+                from .github_job import ensure_panel_for_job
+
+                panel = ensure_panel_for_job()
+            except Exception:
+                panel = None
+        try:
+            results = gc.auto_reply_open(
+                repo,
+                limit=int(getattr(args, "limit", 20)),
+                dry_run=bool(getattr(args, "dry_run", False)),
+                prefer_llm=bool(getattr(args, "llm", False)),
+                panel=panel,
+            )
+        except gc.GhError as e:
+            print(f"error: {e}")
+            return 1
+        if not results:
+            print("(nothing to reply to)")
+            return 0
+        for r in results:
+            print(
+                f"#{r.get('number')} {r.get('kind')} — "
+                f"{'DRY' if r.get('dry_run') else 'posted'} — {r.get('title', '')}"
+            )
+        return 0
+
+    print(f"unknown github subcommand: {sub}")
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -526,6 +672,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     # nexus https://github.com/owner/repo  →  nexus do …
     if raw and _looks_like_github(raw[0]):
         raw = ["do", *raw]
+    # nexus github owner/repo  →  nexus github do owner/repo
+    elif (
+        len(raw) >= 2
+        and raw[0] == "github"
+        and _looks_like_github(raw[1])
+        and raw[1] not in {"inbox", "reply", "draft", "auto", "status", "do"}
+    ):
+        raw = ["github", "do", *raw[1:]]
     elif not raw or raw[0] not in known:
         if raw and raw[0] in known:
             pass
@@ -631,10 +785,97 @@ def main(argv: Optional[list[str]] = None) -> int:
         "do",
         "GitHub URL → clone, install, run checks, fix with agents",
     )
-    _add_do_parser(
+
+    # --- GitHub community one-stop shop ---
+    gh = sub.add_parser(
         "github",
-        "alias for: nexus do <github-url>",
+        help="community inbox / auto-reply, or repair job (see: github do)",
     )
+    gh_sub = gh.add_subparsers(dest="github_cmd")
+
+    gh_inbox = gh_sub.add_parser(
+        "inbox",
+        help="list open issues/PRs needing a first reply",
+    )
+    gh_inbox.add_argument(
+        "--repo",
+        dest="repo_flag",
+        default=None,
+        help="owner/repo (default: current gh repo or VincentMarquez/nexus-core)",
+    )
+    gh_inbox.add_argument("--limit", type=int, default=30)
+    gh_inbox.add_argument(
+        "--all",
+        action="store_true",
+        help="include threads that already have a bot reply",
+    )
+    gh_inbox.set_defaults(func=cmd_github)
+
+    gh_draft = gh_sub.add_parser("draft", help="print a draft reply (no post)")
+    gh_draft.add_argument("number", type=int, help="issue or PR number")
+    gh_draft.add_argument("--repo", dest="repo_flag", default=None)
+    gh_draft.add_argument(
+        "--llm",
+        action="store_true",
+        help="prefer NEXUS bus LLM draft when available",
+    )
+    gh_draft.set_defaults(func=cmd_github)
+
+    gh_reply = gh_sub.add_parser(
+        "reply",
+        help="post a comment (drafted automatically if --body omitted)",
+    )
+    gh_reply.add_argument("number", type=int, help="issue or PR number")
+    gh_reply.add_argument("--repo", dest="repo_flag", default=None)
+    gh_reply.add_argument("--body", default=None, help="comment markdown")
+    gh_reply.add_argument(
+        "--stdin",
+        action="store_true",
+        help="read body from stdin",
+    )
+    gh_reply.add_argument("--dry-run", action="store_true")
+    gh_reply.add_argument(
+        "--llm",
+        action="store_true",
+        help="prefer NEXUS bus LLM draft when body omitted",
+    )
+    gh_reply.set_defaults(func=cmd_github)
+
+    gh_auto = gh_sub.add_parser(
+        "auto",
+        help="post first replies on open threads without a bot marker",
+    )
+    gh_auto.add_argument("--repo", dest="repo_flag", default=None)
+    gh_auto.add_argument("--limit", type=int, default=20)
+    gh_auto.add_argument("--dry-run", action="store_true")
+    gh_auto.add_argument("--llm", action="store_true")
+    gh_auto.set_defaults(func=cmd_github)
+
+    gh_st = gh_sub.add_parser("status", help="show gh auth + target repo")
+    gh_st.add_argument("--repo", dest="repo_flag", default=None)
+    gh_st.set_defaults(func=cmd_github)
+
+    # repair job still available under github do
+    gh_do = gh_sub.add_parser(
+        "do",
+        help="same as: nexus do <github-url>",
+    )
+    gh_do.add_argument(
+        "repo",
+        help="GitHub URL or owner/repo",
+    )
+    gh_do.add_argument("--goal", "-g", default="")
+    gh_do.add_argument("--resume", default=None)
+    gh_do.add_argument("--fix-rounds", type=int, default=3)
+    gh_do.add_argument("--no-start", action="store_true")
+    gh_do.add_argument("--no-cli", action="store_true")
+    gh_do.add_argument("--no-pull", action="store_true")
+    gh_do.add_argument("--open", action="store_true")
+    gh_do.add_argument("--heuristic-only", action="store_true")
+    gh_do.set_defaults(func=cmd_github)
+
+    # bare `nexus github` → help-ish via cmd_github
+    gh.set_defaults(func=cmd_github, github_cmd=None)
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")
