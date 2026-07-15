@@ -753,6 +753,8 @@ def cmd_github(args: argparse.Namespace) -> int:
                     workdir=workdir,
                     limit=int(getattr(args, "max", 8) or 8),
                     deep=not bool(getattr(args, "shallow", False)),
+                    connect=not bool(getattr(args, "no_connect", False)),
+                    prove=not bool(getattr(args, "no_prove", False)),
                     post_issue=not bool(getattr(args, "no_issue", False)),
                     dry_run=bool(getattr(args, "dry_run", False)),
                     apply=bool(getattr(args, "apply", False)),
@@ -798,9 +800,16 @@ def cmd_github(args: argparse.Namespace) -> int:
 
         q = getattr(args, "query", None)
         if not q:
-            print('usage: nexus github scout "topic" [--repo YOU/REPO] [--apply]')
+            print(
+                'usage: nexus github scout "topic" [--connect] [--prove] '
+                "[--repo YOU/REPO] [--apply]"
+            )
             return 2
         workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        connect = not bool(getattr(args, "no_connect", False))
+        if getattr(args, "connect", False):
+            connect = True
+        prove = connect and not bool(getattr(args, "no_prove", False))
         try:
             res = ga.scout_other_repos(
                 q,
@@ -809,6 +818,10 @@ def cmd_github(args: argparse.Namespace) -> int:
                 limit=int(getattr(args, "limit", 8) or 8),
                 language=getattr(args, "language", None) or None,
                 deep=not bool(getattr(args, "shallow", False)),
+                connect=connect,
+                prove=prove,
+                pull=not bool(getattr(args, "no_pull", False)),
+                run_checks=not bool(getattr(args, "structure_only", False)),
                 post_issue=bool(getattr(args, "issue", False)),
                 dry_run=bool(getattr(args, "dry_run", False)),
                 apply=bool(getattr(args, "apply", False)),
@@ -818,6 +831,29 @@ def cmd_github(args: argparse.Namespace) -> int:
             return 1
         print(json.dumps(res, indent=2))
         return 0
+
+    if sub == "connect":
+        from . import github_autonomy as ga
+
+        slug = getattr(args, "slug", None)
+        if not slug:
+            print("usage: nexus github connect owner/repo [--prove] [--workdir PATH]")
+            return 2
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        try:
+            res = ga.connect_and_prove(
+                slug,
+                workdir=workdir,
+                pull=not bool(getattr(args, "no_pull", False)),
+                prove=not bool(getattr(args, "no_prove", False)),
+                run_checks=not bool(getattr(args, "structure_only", False)),
+            )
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2))
+        ok = (res.get("connect") or {}).get("ok")
+        return 0 if ok else 1
 
     print(f"unknown github subcommand: {sub}")
     return 2
@@ -861,6 +897,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             "init",
             "search",
             "scout",
+            "connect",
             "improve",
             "status",
             "do",
@@ -1142,7 +1179,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     gh_scout = gh_sub.add_parser(
         "scout",
-        help="search related repos → write machine-local improvement notes",
+        help="search → clone/pull related repos → prove with checks → notes",
     )
     gh_scout.add_argument("query", help="topic / keywords to find other repos")
     gh_scout.add_argument("--repo", dest="repo_flag", default=None)
@@ -1153,6 +1190,32 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--shallow",
         action="store_true",
         help="skip README deep fetch",
+    )
+    gh_scout.add_argument(
+        "--connect",
+        action="store_true",
+        default=True,
+        help="clone/pull hits into .nexus_workspaces/scout_repos/ (default on)",
+    )
+    gh_scout.add_argument(
+        "--no-connect",
+        action="store_true",
+        help="search + notes only (no clone)",
+    )
+    gh_scout.add_argument(
+        "--no-prove",
+        action="store_true",
+        help="clone/pull but skip install/test evidence",
+    )
+    gh_scout.add_argument(
+        "--structure-only",
+        action="store_true",
+        help="prove layout/languages only (no install/pytest)",
+    )
+    gh_scout.add_argument(
+        "--no-pull",
+        action="store_true",
+        help="if already cloned, do not git pull",
     )
     gh_scout.add_argument(
         "--issue",
@@ -1166,6 +1229,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     gh_scout.add_argument("--dry-run", action="store_true")
     gh_scout.set_defaults(func=cmd_github)
+
+    gh_conn = gh_sub.add_parser(
+        "connect",
+        help="clone/pull one external repo and prove it (local workspace)",
+    )
+    gh_conn.add_argument("slug", help="owner/repo")
+    gh_conn.add_argument("--workdir", default=None)
+    gh_conn.add_argument("--no-pull", action="store_true")
+    gh_conn.add_argument("--no-prove", action="store_true")
+    gh_conn.add_argument("--structure-only", action="store_true")
+    gh_conn.set_defaults(func=cmd_github)
 
     gh_imp = gh_sub.add_parser(
         "improve",

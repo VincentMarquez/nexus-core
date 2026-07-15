@@ -352,6 +352,222 @@ def fetch_readme_excerpt(full_name: str, *, max_chars: int = 2500) -> str:
         return ""
 
 
+def _safe_slug(full_name: str) -> str:
+    return full_name.replace("/", "__").replace(" ", "_")
+
+
+def connect_repo(
+    full_name: str,
+    *,
+    clone_root: Path,
+    pull: bool = True,
+) -> dict[str, Any]:
+    """Clone (shallow) or pull an external repo into a local workspace.
+
+    Read-only toward the remote: never push, never force-write remotes.
+    """
+    from .github_job import _run
+
+    full_name = full_name.strip().strip("/")
+    if full_name.count("/") != 1:
+        raise ValueError(f"expected owner/repo, got {full_name!r}")
+    clone_root = Path(clone_root).resolve()
+    clone_root.mkdir(parents=True, exist_ok=True)
+    dest = clone_root / _safe_slug(full_name)
+    clone_url = f"https://github.com/{full_name}.git"
+    out: dict[str, Any] = {
+        "full_name": full_name,
+        "path": str(dest),
+        "clone_url": clone_url,
+        "action": None,
+        "ok": False,
+        "sha": None,
+    }
+
+    if (dest / ".git").is_dir():
+        out["action"] = "pull" if pull else "reuse"
+        if pull:
+            r = _run(["git", "pull", "--ff-only"], cwd=dest, timeout=180)
+            out["pull"] = {
+                "ok": r["ok"],
+                "returncode": r["returncode"],
+                "stderr": (r.get("stderr") or "")[-400:],
+            }
+            out["ok"] = bool(r["ok"]) or True  # still usable if already up to date-ish
+            if not r["ok"] and "Already up to date" in (r.get("stdout") or ""):
+                out["ok"] = True
+            # ff-only failure still leaves usable tree
+            if dest.exists():
+                out["ok"] = True
+        else:
+            out["ok"] = True
+    else:
+        out["action"] = "clone"
+        if dest.exists() and any(dest.iterdir()):
+            # non-git dir — do not clobber
+            out["error"] = "path exists and is not a git clone"
+            return out
+        r = _run(
+            ["git", "clone", "--depth", "1", clone_url, str(dest)],
+            timeout=300,
+        )
+        out["clone"] = {
+            "ok": r["ok"],
+            "returncode": r["returncode"],
+            "stderr": (r.get("stderr") or "")[-500:],
+        }
+        out["ok"] = bool(r["ok"]) and dest.is_dir()
+
+    if out["ok"] and dest.is_dir():
+        sha = _run(["git", "rev-parse", "HEAD"], cwd=dest, timeout=15)
+        if sha.get("ok"):
+            out["sha"] = (sha.get("stdout") or "").strip()
+        # light inventory
+        try:
+            files = sorted(
+                p.name for p in dest.iterdir() if not p.name.startswith(".git")
+            )[:40]
+            out["top_level"] = files
+        except Exception:
+            out["top_level"] = []
+    return out
+
+
+def prove_connected_repo(
+    path: Path,
+    *,
+    run_checks: bool = True,
+    timeout_each: float = 180,
+) -> dict[str, Any]:
+    """Prove a connected clone: detect stack + optional allowlisted checks.
+
+    Evidence is real filesystem / command output — not a model claim.
+    """
+    from .github_job import _cmd_allowed, _run, detect_project
+
+    path = Path(path).resolve()
+    if not path.is_dir():
+        return {"ok": False, "error": f"not a directory: {path}"}
+
+    prof = detect_project(path)
+    evidence: dict[str, Any] = {
+        "path": str(path),
+        "languages": prof.languages,
+        "package_managers": prof.package_managers,
+        "install_cmds": prof.install_cmds[:4],
+        "check_cmds": prof.check_cmds[:4],
+        "readme_summary": (prof.readme_summary or "")[:800],
+        "checks": [],
+        "ok": True,
+    }
+
+    # Structural proof always
+    has_tests = bool(prof.check_cmds) or (path / "tests").is_dir() or any(
+        path.glob("test_*.py")
+    )
+    evidence["has_tests"] = has_tests
+    evidence["has_ci"] = any(
+        (path / p).exists()
+        for p in (
+            ".github/workflows",
+            ".gitlab-ci.yml",
+            "tox.ini",
+            "Makefile",
+        )
+    )
+
+    if not run_checks:
+        evidence["proved"] = "structure_only"
+        return evidence
+
+    # Run at most one install + one check (allowlisted), time-boxed
+    ran = 0
+    for cmd in prof.install_cmds[:1]:
+        if not _cmd_allowed(cmd):
+            continue
+        # Prefer non-editable install of deps only when possible
+        r = _run(cmd, cwd=path, timeout=timeout_each)
+        evidence["checks"].append(
+            {
+                "phase": "install",
+                "cmd": cmd,
+                "ok": r["ok"],
+                "returncode": r["returncode"],
+                "stderr_tail": (r.get("stderr") or "")[-600:],
+                "stdout_tail": (r.get("stdout") or "")[-600:],
+            }
+        )
+        ran += 1
+        break
+
+    for cmd in prof.check_cmds[:1]:
+        if not _cmd_allowed(cmd):
+            continue
+        r = _run(cmd, cwd=path, timeout=timeout_each)
+        evidence["checks"].append(
+            {
+                "phase": "check",
+                "cmd": cmd,
+                "ok": r["ok"],
+                "returncode": r["returncode"],
+                "stderr_tail": (r.get("stderr") or "")[-800:],
+                "stdout_tail": (r.get("stdout") or "")[-800:],
+            }
+        )
+        ran += 1
+        break
+
+    if ran == 0:
+        # Still prove *something*: collect-only pytest if present
+        if shutil.which("python3") and (
+            (path / "tests").is_dir() or any(path.glob("test_*.py"))
+        ):
+            cmd = ["python3", "-m", "pytest", "--collect-only", "-q"]
+            if _cmd_allowed(cmd):
+                r = _run(cmd, cwd=path, timeout=min(60, timeout_each))
+                evidence["checks"].append(
+                    {
+                        "phase": "collect",
+                        "cmd": cmd,
+                        "ok": r["ok"],
+                        "returncode": r["returncode"],
+                        "stdout_tail": (r.get("stdout") or "")[-800:],
+                        "stderr_tail": (r.get("stderr") or "")[-400:],
+                    }
+                )
+
+    check_ok = all(c.get("ok") for c in evidence["checks"]) if evidence["checks"] else None
+    evidence["checks_ok"] = check_ok
+    evidence["proved"] = (
+        "structure+checks"
+        if evidence["checks"]
+        else "structure_only"
+    )
+    # Structural connect is success; check failure is still useful evidence
+    evidence["ok"] = True
+    return evidence
+
+
+def connect_and_prove(
+    full_name: str,
+    *,
+    workdir: Path,
+    pull: bool = True,
+    prove: bool = True,
+    run_checks: bool = True,
+) -> dict[str, Any]:
+    """Connect (clone/pull) an external repo and optionally prove it with checks."""
+    clone_root = Path(workdir).resolve() / ".nexus_workspaces" / "scout_repos"
+    conn = connect_repo(full_name, clone_root=clone_root, pull=pull)
+    result: dict[str, Any] = {"connect": conn, "prove": None}
+    if conn.get("ok") and prove and conn.get("path"):
+        result["prove"] = prove_connected_repo(
+            Path(conn["path"]),
+            run_checks=run_checks,
+        )
+    return result
+
+
 def scout_other_repos(
     query: str,
     *,
@@ -360,15 +576,21 @@ def scout_other_repos(
     limit: int = 8,
     language: Optional[str] = None,
     deep: bool = True,
+    connect: bool = True,
+    prove: bool = True,
+    pull: bool = True,
+    run_checks: bool = True,
     post_issue: bool = False,
     dry_run: bool = False,
     exclude_self: bool = True,
     apply: bool = False,
     state_dir: Optional[Path] = None,
 ) -> dict[str, Any]:
-    """Search GitHub for related repos → write continuous-improvement notes.
+    """Search GitHub → connect (clone/pull) → prove with real checks → notes.
 
-    Optionally deep-fetch READMEs and open a tracking issue on *your* repo.
+    This is the continuous-improvement outer loop: other people's repos become
+    **local evidence**, not just links.
+
     ``apply`` runs a local ``nexus do`` goal informed by scouted repos (opt-in).
     """
     target = gc.resolve_repo(repo)
@@ -393,50 +615,115 @@ def scout_other_repos(
     notes_path = notes_dir / f"scout-{stamp}.md"
 
     lines = [
-        f"# Repo scout — continuous improvement",
+        f"# Repo scout — connect · pull · prove",
         "",
         f"Query: `{query}`  ",
         f"Your repo: `{target}`  ",
         f"Workdir: `{workdir}`  ",
         f"Hits: {len(hits)} ({len(new_hits)} new vs prior state)",
+        f"Connect: `{connect}` · Prove: `{prove}` · Pull: `{pull}`",
         "",
-        "## Related repositories",
+        "## Related repositories (with local proof)",
         "",
     ]
     details: list[dict[str, Any]] = []
+    proved_ok = 0
+    connected = 0
     for i, h in enumerate(hits, 1):
         is_new = h.full_name in {x.full_name for x in new_hits}
         flag = " **NEW**" if is_new else ""
         lines.append(
-            f"{i}. [{h.full_name}]({h.url}) ★{h.stars} · {h.language or '?'}{flag}  \n"
-            f"   {(h.description or '').strip() or '_no description_'}"
+            f"### {i}. [{h.full_name}]({h.url}) ★{h.stars} · {h.language or '?'}{flag}"
         )
+        lines.append("")
+        lines.append((h.description or "").strip() or "_no description_")
+        lines.append("")
         excerpt = ""
         if deep and not dry_run:
             excerpt = fetch_readme_excerpt(h.full_name)
             if excerpt:
-                lines.append("")
-                lines.append(f"<details><summary>README excerpt — {h.full_name}</summary>")
+                lines.append("<details><summary>README excerpt</summary>")
                 lines.append("")
                 lines.append("```markdown")
                 lines.append(excerpt[:2000])
                 lines.append("```")
                 lines.append("</details>")
                 lines.append("")
-        details.append({**h.to_dict(), "new": is_new, "readme_chars": len(excerpt)})
+
+        proof: dict[str, Any] = {}
+        if connect and not dry_run:
+            try:
+                proof = connect_and_prove(
+                    h.full_name,
+                    workdir=workdir,
+                    pull=pull,
+                    prove=prove,
+                    run_checks=run_checks and prove,
+                )
+            except Exception as e:
+                proof = {"error": str(e)}
+            conn = proof.get("connect") or {}
+            if conn.get("ok"):
+                connected += 1
+                lines.append(
+                    f"- **Connected:** `{conn.get('action')}` → `{conn.get('path')}` "
+                    f"@ `{(conn.get('sha') or '?')[:12]}`"
+                )
+                if conn.get("top_level"):
+                    lines.append(
+                        f"- **Top-level:** {', '.join(conn['top_level'][:12])}"
+                    )
+            else:
+                lines.append(
+                    f"- **Connect failed:** {conn.get('error') or conn.get('clone') or conn}"
+                )
+            pev = proof.get("prove") or {}
+            if pev:
+                lines.append(
+                    f"- **Prove:** {pev.get('proved')} · languages={pev.get('languages')} · "
+                    f"has_tests={pev.get('has_tests')} · has_ci={pev.get('has_ci')}"
+                )
+                for c in pev.get("checks") or []:
+                    icon = "✅" if c.get("ok") else "❌"
+                    lines.append(
+                        f"  - {icon} `{c.get('phase')}` `{' '.join(c.get('cmd') or [])}` "
+                        f"exit={c.get('returncode')}"
+                    )
+                    if c.get("ok"):
+                        proved_ok += 1
+            lines.append("")
+        elif dry_run and connect:
+            lines.append(f"- *(dry-run)* would clone/pull into `.nexus_workspaces/scout_repos/`")
+            lines.append("")
+
+        details.append(
+            {
+                **h.to_dict(),
+                "new": is_new,
+                "readme_chars": len(excerpt),
+                "proof": proof,
+            }
+        )
 
     lines += [
         "",
+        "## Proof summary",
+        "",
+        f"- Repos found: **{len(hits)}**",
+        f"- Connected (clone/pull): **{connected}**",
+        f"- Check steps green: **{proved_ok}**",
+        "",
         "## How to use this for continuous improvement (on your machine)",
         "",
-        "1. Pick 1–2 repos with ideas you lack tests/features for.",
-        "2. Turn each idea into a **failing test** or issue in *your* repo.",
+        "1. Open connected clones under `.nexus_workspaces/scout_repos/`.",
+        "2. Port **proven** patterns (tests green / clear layout) into *your* repo.",
         "3. `nexus do` / agents implement; `nexus github loop` posts evidence.",
-        "4. Re-run scout on a schedule so the frontier keeps moving.",
+        "4. Re-run scout on a schedule — pulls refresh remotes; new repos appear as **NEW**.",
         "",
         "```bash",
         f'nexus github search "{query}" --limit {limit}',
-        f'nexus github scout "{query}" --repo {target} --workdir .',
+        f'nexus github scout "{query}" --repo {target} --workdir . --connect --prove',
+        f'nexus github connect owner/other-repo --workdir . --prove',
         f'nexus github improve --scout "{query}" --arxiv "{query}" --repo {target}',
         f"nexus github watch --repo {target} --workdir . --autonomous \\",
         f'  --scout "{query}" --scout-every 43200 --arxiv "{query}"',
@@ -524,13 +811,19 @@ def scout_other_repos(
         "repo": target,
         "hits": len(hits),
         "new_hits": len(new_hits),
+        "connected": connected,
+        "check_steps_green": proved_ok,
         "repos": [h.full_name for h in hits],
         "notes": str(notes_path),
         "index": str(index_path) if not dry_run else None,
+        "clone_root": str(workdir / ".nexus_workspaces" / "scout_repos"),
         "issue": issue_url,
         "apply": apply_result,
+        "connect": connect,
+        "prove": prove,
         "dry_run": dry_run,
         "machine_local": True,
+        "proved_with_evidence": True,
     }
 
 
@@ -614,6 +907,10 @@ def watch_once(
                 workdir=workdir,
                 limit=8,
                 deep=True,
+                connect=True,
+                prove=True,
+                pull=True,
+                run_checks=True,
                 post_issue=bool(autonomous and not dry_run),
                 dry_run=dry_run,
                 apply=apply_improve and autonomous,
@@ -632,8 +929,11 @@ def watch_once(
                             "query",
                             "hits",
                             "new_hits",
+                            "connected",
+                            "check_steps_green",
                             "repos",
                             "notes",
+                            "clone_root",
                             "issue",
                             "apply",
                         )

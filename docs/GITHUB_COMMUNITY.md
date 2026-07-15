@@ -12,7 +12,8 @@ Reply to **issues**, **pull requests**, and comments from one place — automati
 | Always-on **machine-local** loop | `nexus github watch --repo YOU/my-app --autonomous --interval 120` |
 | One poll cycle (debug) | `nexus github watch --once --autonomous` |
 | **Search other repos** | `nexus github search "topic" --limit 10` |
-| Scout repos → local notes | `nexus github scout "topic" --workdir .` |
+| Scout → **clone/pull + prove** | `nexus github scout "topic" --workdir . --connect --prove` |
+| Connect one external repo | `nexus github connect owner/repo --prove` |
 | Pull papers → notes (+ issue) | `nexus github improve --arxiv "topic" --repo YOU/my-app` |
 | Papers **+** other repos | `nexus github improve --arxiv "topic" --with-scout` |
 | Scout / papers → **try apply** via `nexus do` | `… --apply` |
@@ -31,7 +32,9 @@ create personal repo
 
 Portable workflow template: `connectors/examples/community-bot.workflow.yml`
 
-**Safety:** autonomy is **opt-in**. Without `--autonomous`, `watch` only observes. Without `--apply`, improve/scout only write notes (and can open a tracking issue). Nothing auto-merges. Scout does not clone arbitrary code into your tree unless you pass `--apply` (which runs the jailed `nexus do` job).
+**Connect + prove:** scout/connect use **shallow clone** and `git pull --ff-only` only (never push to their remotes). Proof runs **allowlisted** install/test commands under `.nexus_workspaces/scout_repos/`. Use `--structure-only` or `--no-prove` for lighter passes; `--no-connect` for search-only.
+
+**Safety:** autonomy is **opt-in**. Without `--autonomous`, `watch` only observes. Without `--apply`, improve only writes notes (and can open a tracking issue) after scout. Nothing auto-merges. Your code changes via `--apply` still go through jailed `nexus do`.
 
 ## ML architecture
 

@@ -28,3 +28,19 @@ def test_watch_state_roundtrip(tmp_path):
     st2 = load_state("a/b", state_dir=tmp_path)
     assert st2.cycles == 3
     assert st2.seen_comment_ids == ["1", "2"]
+
+
+def test_safe_slug():
+    from nexus.github_autonomy import _safe_slug
+    assert _safe_slug("a/b") == "a__b"
+
+
+def test_prove_structure_only(tmp_path):
+    from nexus.github_autonomy import prove_connected_repo
+    (tmp_path / "pyproject.toml").write_text('[project]\nname="x"\nversion="0"\n', encoding="utf-8")
+    (tmp_path / "test_x.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    ev = prove_connected_repo(tmp_path, run_checks=False)
+    assert ev["ok"] is True
+    assert "python" in ev["languages"]
+    assert ev["has_tests"] is True
+    assert ev["proved"] == "structure_only"

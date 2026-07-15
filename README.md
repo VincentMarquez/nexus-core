@@ -195,7 +195,8 @@ Design bet: **tests are the reward signal**, not “the model said OK.” Drafts
 | **Watch (always-on)** | `nexus github watch --autonomous` | **On your machine:** keep polling forever → reply → test → post → scout → again |
 | **Init (personal repos)** | `nexus github init --path ~/my-repo` | Drop the same workflow into **any** personal repo when you create it |
 | **Search other repos** | `nexus github search "topic"` | Find public repos to learn from (continuous improvement fuel) |
-| **Scout** | `nexus github scout "topic"` | Search repos → README digests → machine-local notes under `.nexus_state/` |
+| **Scout (connect + prove)** | `nexus github scout "topic"` | Search → **clone/pull** → **prove** (detect + allowlisted install/test) → notes |
+| **Connect one repo** | `nexus github connect owner/repo` | Shallow clone or `git pull` into `.nexus_workspaces/scout_repos/` + prove |
 | **Improve (arXiv + scout)** | `nexus github improve --arxiv "…" --scout "…"` | Papers **and** other repos → notes → optional `--apply` fix job |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
@@ -217,9 +218,11 @@ cd ~/code/my-new-app && git add .github && git commit -m "chore: NEXUS community
 # Fully autonomous on YOUR MACHINE (opt-in) — keeps running until Ctrl-C
 nexus github watch --repo YOU/my-new-app --workdir . --autonomous --interval 120
 
-# Search the rest of GitHub for continuous improvement ideas
+# Search the rest of GitHub — then CONNECT (clone/pull) and PROVE with real checks
 nexus github search "multi agent durable resume" --limit 10
-nexus github scout "multi agent durable" --workdir .     # notes in .nexus_state/repo_scout/
+nexus github scout "multi agent durable" --workdir . --connect --prove
+# clones land in .nexus_workspaces/scout_repos/  ·  evidence notes in .nexus_state/repo_scout/
+nexus github connect langchain-ai/langgraph --workdir . --prove   # one repo
 
 # Research loop: arXiv papers + other repos → improve this codebase
 nexus github improve --arxiv "multi agent orchestration" --with-scout --max 6
@@ -242,8 +245,12 @@ nexus github watch --autonomous --workdir . \
        human comments            evidence tests            outer world
        / PR pushes               (pytest+smoke)            ────────────
               │                         │                  arXiv papers
-              │                         │                  other GitHub
-              │                         │                  repos (scout)
+              │                         │                  other GitHub repos
+              │                         │                     │
+              │                         │                     ▼
+              │                         │              connect: clone/pull
+              │                         │              prove: install/test
+              │                         │              (local workspace)
               └────────────► notes + PASS/FAIL ◄───────────┘
                                         │
               ◄── watch --autonomous on your machine (continuous) ──►
@@ -267,7 +274,8 @@ you / contributor replies on issue or PR
 
 - **Works on personal repos** — not locked to nexus-core: `init` + `--repo YOU/name`.  
 - **Runs on your machine** — `watch` / `scout` / `improve` write under `.nexus_state/` locally; Actions is the cloud twin.  
-- **Searches other repos** — `search` + `scout` mine public GitHub for ideas; continuous mode remembers repos already seen.  
+- **Searches, connects, and proves other repos** — `search` finds them; `scout`/`connect` **clone or pull** into `.nexus_workspaces/scout_repos/`; **prove** runs allowlisted detect/install/test so claims are evidence-backed.  
+
 - **Fully autonomous is opt-in** — Actions on events, or `watch --autonomous` on a machine you control. Without `--autonomous`, watch only observes.  
 - **`--apply`** can run `nexus do` after arXiv/scout; leave it off for notes-only.  
 - **No extra secrets** for default replies and the test loop (`GITHUB_TOKEN` only).  

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.4 — 2026-07-15
+
+### Added
+- **Connect + prove external repos**: scout clones/pulls hits into `.nexus_workspaces/scout_repos/`
+- `nexus github connect owner/repo` for a single remote; allowlisted install/test evidence
+- Scout notes include SHA, top-level layout, and PASS/FAIL of foreign checks
+- Flags: `--no-connect`, `--no-prove`, `--structure-only`, `--no-pull`
+
 ## 0.7.3 — 2026-07-15
 
 ### Added
