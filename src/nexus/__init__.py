@@ -10,6 +10,7 @@ from .agents import AgentPanel
 from .circuits import CircuitBreaker
 from .memory_sqlite import SqliteMemory
 from . import arxiv_client
+from . import durability
 from . import procurement
 
 __version__ = "0.6.0"
@@ -26,5 +27,6 @@ __all__ = [
     "AgentPanel",
     "CircuitBreaker",
     "arxiv_client",
+    "durability",
     "procurement",
 ]

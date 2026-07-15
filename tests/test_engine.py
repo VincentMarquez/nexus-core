@@ -327,6 +327,43 @@ def test_task_budget_hard_stop(tmp_path: Path):
     assert task_max_tokens(Task(task_id="z", objective="y")) is None
 
 
+def test_task_max_steps_hard_stop(tmp_path: Path):
+    """P10: meta.max_steps fail-closed (durability RunBudget / cycgraph shape)."""
+    from nexus.engine import task_max_steps, task_run_budget
+
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="ms1",
+        objective="step budget demo",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={"max_steps": 2},
+    )
+    assert task_max_steps(task) == 2
+    b = task_run_budget(task)
+    assert b.max_steps == 2
+    task = engine.run(task)
+    assert task.status == TaskStatus.failed
+    assert task.meta.get("budget_exhausted") is True
+    assert "step budget exceeded" in (task.meta.get("error") or "")
+    assert task.current_step == 2  # completed 2 steps then refused 3rd
+    events = engine.events("ms1")
+    assert any(e.get("event") == "budget" and e.get("kind") == "steps" for e in events)
+
+    # soft run(max_steps=) still leaves running (unchanged contract)
+    t_soft = Task(
+        task_id="ms2",
+        objective="soft stop",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    t_soft = engine.run(t_soft, max_steps=2)
+    assert t_soft.status == TaskStatus.running
+    assert t_soft.current_step == 2
+
+    # constraints form
+    assert task_max_steps(Task(task_id="c", objective="y", constraints=["max_steps=3"])) == 3
+
+
 def test_call_graph_profile(tmp_path: Path):
     """P5: graph() builds agent nodes, handoff edges, and space-time sequence."""
     settings = Settings(state_dir=tmp_path / "state", autonomy=False)

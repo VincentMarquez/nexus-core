@@ -168,3 +168,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-2b3131c793.md`
+
+## Cycle 2026-07-15 hard-apply P10 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: cycgraph (primary) + IMPROVE_OURS top repos plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes under `.nexus_state/arxiv_improve/` (adversarial hierarchy 2303.16641, anti-collusion 2601.00360)
+- apply slice (P10 durability budgets + taint — **First apply slice** from LATEST_IMPROVE_PLAN):
+  - `src/nexus/durability/budgets.py` — `RunBudget` (max_steps/tokens/cost), `BudgetExhausted`, env/meta helpers
+  - `src/nexus/durability/taint.py` — `TaintLevel` (trusted|user|mined|external_mcp|derived), `TaintSet` stamp/require/promote/propagate
+  - `src/nexus/durability/durable_agent.py` — pre-step budget gate + post-write taint stamp
+  - `src/nexus/engine.py` — `task_max_steps()`, `task_run_budget()`; `meta.max_steps` hard-stop (fail-closed)
+  - tests: `tests/durability/test_budgets.py`, `test_taint.py`, `test_durable_agent.py`, `test_engine.py::test_task_max_steps_hard_stop`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- patterns: wmcmahan/cycgraph budgets + taint (pattern only, no tree vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q`
+
+## Cycle 2026-07-15 19:07:33Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-48104de82f.md`

@@ -2,20 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 80_
+_Rows: 90_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| 1410.2632 | Evaluation of a Conversation Management Toolkit for Multi Agent Progra | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 1807.02648 | How game complexity affects the playing behavior of synthetic agents | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 1809.07124 | Pommerman: A Multi-Agent Playground | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2102.08370 | Quantifying the effects of environment and population diversity in mul | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2303.14061 | Learning Reward Machines in Cooperative Multi-Agent Tasks | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2310.12670 | Fault-Tolerant Hybrid-Parallel Training at Scale with Reliable and Eff | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2506.17266 | Securing Generative AI Agentic Workflows: Risks, Mitigation, and a Pro | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2508.02866 | PROV-AGENT: Unified Provenance for Tracking AI Agent Interactions in A | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2606.09840 | Envisioning Sensemaking in Multi-Human, Multi-Agent Collaborative Know | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
-| 2606.14130 | Contract-Based Compositional Shielding for Safe Multi-Agent Reinforcem | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
 | 1508.02674 | Space-Time Diagram Generation for Profiling Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
 | 1508.02677 | Call Graph Profiling for Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
 | 1708.02361 | Verification & Validation of Agent Based Simulations using the VOMAS ( | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
@@ -56,3 +46,13 @@ _Rows: 80_
 | 2507.19543 | Agent WARPP: Workflow Adherence via Runtime Parallel Personalization | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2602.09771 | A large scale multi-modal workflow for battery characterization: from  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2606.22213 | Resume Screening, Fast and Slow: (Biased) AI Recommendations' Influenc | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 1007.0803 | Soft Control on Collective Behavior of a Group of Autonomous Agents by | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |
+| 1204.1581 | A new approach of designing Multi-Agent Systems | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |
+| 2308.11959 | Scalable δ-Level Coherent State Synchronization of Multi-Agent Systems | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |
+| 2502.09809 | AgentGuard: Repurposing Agentic Orchestrator for Safety Evaluation of  | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |
+| cs | An agent-based intelligent environmental monitoring system | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |
+| 2205.15716 | Multi-Agent Learning of Numerical Methods for Hyperbolic PDEs with Fac | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
+| 2302.00521 | Off-the-Grid MARL: Datasets with Baselines for Offline Multi-Agent Rei | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
+| 2506.11304 | A Hybrid Adaptive Nash Equilibrium Solver for Distributed Multi-Agent  | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
+| 2603.00131 | Thought Virus: Viral Misalignment via Subliminal Prompting in Multi-Ag | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
+| 2607.07403 | Multi-Agent Robotic Control with Onboard Vision-Language Models | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
