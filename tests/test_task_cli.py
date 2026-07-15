@@ -226,6 +226,42 @@ def test_task_graph_and_budget_cost_cli(tmp_path: Path, capsys):
     assert rc == 1
 
 
+def test_task_dag_cli(tmp_path: Path, capsys):
+    """P1.2: nexus task dag shows dependency snapshot + action_order."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli_dag",
+        objective="cli dag board",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task, max_steps=4)
+    assert task.current_step == 4
+    state = str(settings.state_dir)
+
+    rc = main(["task", "dag", "cli_dag", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "dag cli_dag" in out
+    assert "action_order:" in out
+    assert "nodes:" in out
+    assert "1:goal" in out or "s1:goal" in out
+
+    rc = main(["task", "dag", "cli_dag", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "nexus.dag/v1" in out
+    assert "action_order" in out
+
+    rc = main(["task", "dag", "cli_dag", "--state-dir", state, "--mermaid"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "flowchart" in out
+
+    rc = main(["task", "dag", "missing", "--state-dir", state])
+    assert rc == 1
+
+
 def test_task_evidence_cli(tmp_path: Path, capsys):
     settings = Settings(state_dir=tmp_path / "state", autonomy=False)
     engine = DurableEngine(settings=settings, auto_approve=True)

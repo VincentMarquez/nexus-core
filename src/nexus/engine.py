@@ -66,6 +66,12 @@ Zero-trust state slice (P11 — cycgraph read_keys / write_keys):
   is deny-all; ``*`` for trusted system agents; protected ``_`` keys unwritable.
 - ``DurableAgent(slice=…)`` enforces read/write keys; ``view()`` filters state.
 - Opt-in via ``meta.read_keys`` / ``meta.write_keys`` / ``meta.state_slice``.
+
+Multi-agent task DAG (P1.2 — open-multi-agent + AOAD-MAT):
+- Schedule via ``StepPolicy.ready(completed)`` (dependency gate, not pure linear).
+- ``meta.action_order[]`` records explicit step order (AOAD-MAT).
+- ``dag(task_id)`` — policy dependency snapshot + mermaid (``nexus.dag/v1``).
+- Context ``prior`` uses dependency outputs when ``depends_on`` is set.
 """
 
 from __future__ import annotations
@@ -84,7 +90,7 @@ from .durability import RunBudget, budget_from_env, budget_from_meta
 from .judge import RubricJudge, decision_thresholds
 from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
-from .steps import StepPolicy, structural_ok
+from .steps import StepPolicy, completed_set, structural_ok
 from .trust import TrustLog
 from .usage import estimate_tokens
 
@@ -618,20 +624,74 @@ class DurableEngine:
             step=task.current_step,
         )
 
-        steps = list(self.policy)
         start_step = task.current_step
         stopped_early = False
         # P10: per-run step counter for meta.max_steps hard-cap (durability)
         steps_this_run = 0
         run_step_cap = task_max_steps(task)
+        # P1.2: multi-agent task DAG — completed set + explicit action order
+        try:
+            self.policy.validate()
+        except ValueError as e:
+            task.status = TaskStatus.failed
+            task.meta["error"] = f"invalid step DAG: {e}"
+            self.save(task)
+            self.record_event(
+                task.task_id, "failed",
+                status=task.status.value, detail=task.meta["error"],
+            )
+            return task
+        completed = completed_set(task.outputs, current_step=task.current_step)
+        action_order: list[str] = [
+            str(x) for x in (task.meta.get("action_order") or []) if x is not None
+        ]
         # seed prior agent from meta so resume still emits handoffs correctly
         prev_agent: Optional[str] = task.meta.get("last_agent")
-        for step in steps:
-            if step.number <= task.current_step:
-                continue
-            if max_steps is not None and step.number > (start_step + max_steps):
-                stopped_early = True
+        while True:
+            ready_list = self.policy.ready(
+                completed, current_step=task.current_step
+            )
+            if not ready_list:
+                # No ready work: done, or deadlocked on unmet deps
+                remaining = self.policy.pending(completed)
+                if remaining:
+                    blocked = self.policy.blocked(completed)
+                    detail = (
+                        "dag blocked: no ready steps; remaining="
+                        + ",".join(str(s.number) for s in remaining)
+                    )
+                    if blocked:
+                        waits = []
+                        for b in blocked:
+                            miss = sorted(set(b.depends_on) - completed)
+                            waits.append(f"{b.number}:wait:{','.join(map(str, miss))}")
+                        detail += " blocked=" + ";".join(waits)
+                    task.status = TaskStatus.failed
+                    task.meta["error"] = detail
+                    task.meta["dag_deadlock"] = True
+                    task.meta["action_order"] = action_order
+                    self.save(task)
+                    self.record_event(
+                        task.task_id, "failed",
+                        step=task.current_step, status=task.status.value,
+                        detail=detail,
+                        extra={"kind": "dag_deadlock", "remaining": [s.number for s in remaining]},
+                    )
+                    return task
                 break
+
+            # Soft max_steps: only consider ready steps within start_step+max_steps
+            eligible = ready_list
+            if max_steps is not None:
+                eligible = [
+                    s for s in ready_list
+                    if s.number <= (start_step + max_steps)
+                ]
+                if not eligible:
+                    stopped_early = True
+                    break
+
+            step = eligible[0]  # lowest number among ready (stable AOAD-MAT order)
 
             # P10: meta.max_steps hard-stop (fail-closed; distinct from soft max_steps arg)
             if run_step_cap is not None and steps_this_run >= run_step_cap:
@@ -776,12 +836,14 @@ class DurableEngine:
                 step=step.number, agent=agent_name, status=task.status.value,
                 detail=step.name,
             )
+            # P1.2: dependency-scoped prior context (open-multi-agent memoryScope)
+            prior_keys = self.policy.prior_keys(step)
             ctx = {
                 "cascade": self.cascade.prompt_block(),
                 "memory": self.memory.search(task.objective, ns=task.namespace, k=3),
                 "objective": task.objective,
                 "success_criteria": task.success_criteria,
-                "prior": {n: task.outputs.get(n) for n in range(1, step.number)},
+                "prior": {n: task.outputs.get(n) for n in prior_keys if n in task.outputs},
             }
             # Context engineering: shallow journal on resume / mid-run only
             journal_blk = ""
@@ -811,7 +873,12 @@ class DurableEngine:
                             detail=task.meta["error"],
                         )
                         return task
-                    task.current_step = step.number
+                    task.current_step = max(int(task.current_step or 0), step.number)
+                    completed.add(step.number)
+                    order_token = f"{step.number}:{step.name}"
+                    if order_token not in action_order:
+                        action_order.append(order_token)
+                    task.meta["action_order"] = list(action_order)
                     task.meta["last_agent"] = agent_name
                     prev_agent = agent_name
                     self.save(task)
@@ -819,15 +886,21 @@ class DurableEngine:
                         task.task_id, "step_complete",
                         step=step.number, agent=agent_name, status=task.status.value,
                         detail="human approved",
+                        extra={
+                            "action_order_i": len(action_order),
+                            "depends_on": list(step.depends_on),
+                        },
                     )
                     continue
                 task.status = TaskStatus.waiting_human
                 task.meta["waiting_step"] = step.number
+                task.meta["action_order"] = list(action_order)
                 self.save(task)
                 self.record_event(
                     task.task_id, "waiting_human",
                     step=step.number, status=task.status.value,
                     detail=step.name,
+                    extra={"ready": [s.number for s in ready_list], "depends_on": list(step.depends_on)},
                 )
                 return task
 
@@ -921,7 +994,11 @@ class DurableEngine:
                 return task
 
             task.outputs[step.number] = {**output, "_verdict": verdict.to_dict()}
-            task.current_step = step.number
+            task.current_step = max(int(task.current_step or 0), step.number)
+            completed.add(step.number)
+            order_token = f"{step.number}:{step.name}"
+            action_order.append(order_token)
+            task.meta["action_order"] = list(action_order)
             task.meta["last_agent"] = agent_name
             prev_agent = agent_name
             steps_this_run += 1
@@ -947,6 +1024,8 @@ class DurableEngine:
                     "score": round(float(getattr(verdict, "score", 0.0) or 0.0), 4),
                     "tokens": step_tokens,
                     "thresholds": thr,
+                    "action_order_i": len(action_order),
+                    "depends_on": list(step.depends_on),
                 },
             )
 
@@ -1968,6 +2047,51 @@ class DurableEngine:
             "meta_tokens": meta_tokens,
             "max_step_complete": max_complete,
         }
+
+    def dag(self, task_id: str) -> dict[str, Any]:
+        """Multi-agent task dependency DAG snapshot (open-multi-agent plan shape).
+
+        Distinct from ``graph()`` (agent handoff call-graph): this exports the
+        **policy** step DAG with completed/ready/blocked status, explicit
+        ``action_order`` (AOAD-MAT), and mermaid for operator paste.
+
+        Schema: ``nexus.dag/v1``.
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": "nexus.dag/v1",
+                "error": f"task not found: {task_id}",
+            }
+        done = completed_set(task.outputs, current_step=task.current_step)
+        order = [str(x) for x in (task.meta.get("action_order") or []) if x is not None]
+        if not order:
+            # Reconstruct from journal step_complete order when meta missing
+            for e in self.events(task_id):
+                if e.get("event") != "step_complete":
+                    continue
+                sn = e.get("step")
+                name = e.get("detail") or ""
+                if sn is not None:
+                    order.append(f"{sn}:{name}" if name else str(sn))
+        snap = self.policy.dag_snapshot(
+            completed=done,
+            current_step=task.current_step,
+            action_order=order,
+        )
+        snap.update(
+            {
+                "task_id": task.task_id,
+                "found": True,
+                "status": task.status.value,
+                "current_step": task.current_step,
+                "objective": task.objective,
+            }
+        )
+        return snap
 
     def graph(self, task_id: str) -> dict[str, Any]:
         """Agent call-graph + space-time sequence from the journal (MAS profiling).

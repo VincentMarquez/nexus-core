@@ -1233,7 +1233,7 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events/resume + replay/explain/cost/prov/verify/graph/evidence."""
+    """Operator surface: list/show/events/resume + replay/explain/cost/prov/verify/graph/dag/evidence."""
     from .engine import DurableEngine, TaskStatus
     from .persist import atomic_write_json
 
@@ -1550,6 +1550,46 @@ def cmd_task(args: argparse.Namespace) -> int:
                 print(f"  {step_s:>3}  {ev:<14}  {detail}")
             if len(seq) > 40:
                 print(f"  … +{len(seq) - 40} more (use --json)")
+        if getattr(args, "mermaid", False) and rep.get("mermaid"):
+            print("mermaid:")
+            print(rep["mermaid"])
+        return 0
+
+    if sub == "dag":
+        # P1.2 multi-agent task dependency DAG (policy + action_order)
+        rep = engine.dag(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        print(f"# dag {rep['task_id']}  schema={rep.get('schema')}")
+        print(
+            f"status:       {rep.get('status')}  step={rep.get('current_step')}  "
+            f"completed={rep.get('n_completed', 0)}/{rep.get('n_steps', 0)}  "
+            f"ready={rep.get('n_ready', 0)}  blocked={rep.get('n_blocked', 0)}"
+        )
+        print(f"objective:    {rep.get('objective', '')}")
+        print(f"topo:         {rep.get('topo')}")
+        order = rep.get("action_order") or []
+        if order:
+            print(f"action_order: {' → '.join(str(x) for x in order)}")
+        nodes = rep.get("nodes") or []
+        if nodes:
+            print("nodes:")
+            for n in nodes:
+                deps = n.get("depends_on") or []
+                dep_s = f" depends_on={deps}" if deps else ""
+                print(
+                    f"  s{n.get('id')}:{n.get('name')}  "
+                    f"status={n.get('status')}  agent={n.get('agent')}{dep_s}"
+                )
+        blocked = rep.get("blocked") or []
+        if blocked:
+            print("blocked:")
+            for b in blocked:
+                print(f"  s{b.get('id')}:{b.get('name')}  waiting_on={b.get('waiting_on')}")
         if getattr(args, "mermaid", False) and rep.get("mermaid"):
             print("mermaid:")
             print(rep["mermaid"])
@@ -2943,6 +2983,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     tk_graph.add_argument("--state-dir", default=None)
     tk_graph.set_defaults(func=cmd_task)
+    tk_dag = tk_sub.add_parser(
+        "dag",
+        help="multi-agent task dependency DAG + action_order (P1.2; read-only)",
+    )
+    tk_dag.add_argument("task_id")
+    tk_dag.add_argument("--json", action="store_true", help="emit full JSON document")
+    tk_dag.add_argument(
+        "--mermaid",
+        action="store_true",
+        help="also print mermaid flowchart of step dependencies",
+    )
+    tk_dag.add_argument("--state-dir", default=None)
+    tk_dag.set_defaults(func=cmd_task)
     tk_evd = tk_sub.add_parser(
         "evidence",
         help="portable evidence pack (norms + gates + timeline + cost + prov + graph)",

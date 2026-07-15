@@ -483,6 +483,73 @@ def test_hitl_resume_approve_and_reject(tmp_path: Path):
     assert pack["gates"]["completed"] is False
 
 
+def test_dag_scheduling_and_action_order(tmp_path: Path):
+    """P1.2: engine schedules via depends_on + records action_order + dag()."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    # Diamond DAG: goal → (plan | challenge) → review  (parallel ready after root)
+    # Step names match MockAgent so structural pre-gate stays green.
+    policy = StepPolicy(
+        steps=[
+            StepDef(
+                1, "goal", "define", "operator",
+                output_keys=("objective", "constraints", "success_criteria"),
+            ),
+            StepDef(
+                2, "plan", "left branch", "planner", depends_on=(1,),
+                required_capability="can_plan",
+                output_keys=("approach", "risks", "estimated_steps"),
+            ),
+            StepDef(
+                3, "challenge", "right branch", "adversary", depends_on=(1,),
+                required_capability="can_review",
+                output_keys=("concerns", "alternatives", "recommendation"),
+            ),
+            StepDef(
+                4, "review", "join", "reviewer", depends_on=(2, 3),
+                required_capability="can_review",
+                output_keys=("findings", "severity", "verdict"),
+            ),
+        ]
+    )
+    engine = DurableEngine(settings=settings, auto_approve=True, policy=policy)
+    task = Task(task_id="dag1", objective="diamond dag", success_criteria=["ok"])
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed, task.meta.get("error")
+    assert set(task.outputs) == {1, 2, 3, 4}
+    order = task.meta.get("action_order") or []
+    assert order[0] == "1:goal"
+    # After root, lowest-number ready first (2 before 3), then join
+    assert order == ["1:goal", "2:plan", "3:challenge", "4:review"]
+
+    rep = engine.dag("dag1")
+    assert rep["found"] is True
+    assert rep["schema"] == "nexus.dag/v1"
+    assert rep["n_completed"] == 4
+    assert rep["n_ready"] == 0
+    assert rep["action_order"] == order
+    assert "flowchart" in (rep.get("mermaid") or "")
+
+    # step_complete carries depends_on / action_order_i
+    completes = [e for e in engine.events("dag1") if e.get("event") == "step_complete"]
+    assert any(list(e.get("depends_on") or []) == [2, 3] for e in completes)
+
+
+def test_dag_deadlock_unknown_path(tmp_path: Path):
+    """Incomplete DAG with unsatisfiable edge fails closed (no spin)."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    # Step 2 depends on 1, but step 1 is missing from policy → validate fails at start
+    policy = StepPolicy(
+        steps=[
+            StepDef(2, "orphan", "o", "planner", depends_on=(1,)),
+        ]
+    )
+    engine = DurableEngine(settings=settings, auto_approve=True, policy=policy)
+    task = Task(task_id="dag_bad", objective="bad dag")
+    task = engine.run(task)
+    assert task.status == TaskStatus.failed
+    assert "invalid step DAG" in (task.meta.get("error") or "")
+
+
 def test_evidence_pack(tmp_path: Path):
     """P6: evidence() unifies timeline/cost/prov/verify/graph + readiness gates."""
     settings = Settings(state_dir=tmp_path / "state", autonomy=False)

@@ -286,3 +286,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-999cc7be06.md`
+
+## Cycle 2026-07-15 hard-apply P1.2 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: open-multi-agent (primary) + IMPROVE_OURS top repos (mission-control, routa, EDDI, …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-9df4f8edff.md`; AOAD-MAT 2510.13343, communication 2203.08975)
+- apply slice (P1.2 multi-agent task DAG — **First apply slice** this session):
+  - `src/nexus/steps.py` — DAG helpers: `completed_set`, `validate`, `next_ready`, `blocked`, `prior_keys`, `mermaid`, `dag_snapshot` (`nexus.dag/v1`)
+  - `src/nexus/engine.py` — schedule via `policy.ready(completed)`; `meta.action_order[]`; deps-scoped prior; fail-closed invalid/deadlock; `dag(task_id)`
+  - `src/nexus/cli.py` — `nexus task dag` (+ `--json` / `--mermaid`)
+  - tests: `tests/test_steps_dag.py`, `tests/test_engine.py` (diamond + invalid), `tests/test_task_cli.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook crash-resume dag inspect
+- patterns: open-multi-agent task DAG; AOAD-MAT explicit action order; mission-control/routa operator export (pattern only, no tree vendor)
+- next open: P1.3 consensus grading · P1.4 context pack stage
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 230 passed
+
+## Cycle 2026-07-15 20:05:30Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-9df4f8edff.md`
