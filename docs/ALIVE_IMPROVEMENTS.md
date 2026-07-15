@@ -187,3 +187,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-48104de82f.md`
+
+## Cycle 2026-07-15 hard-apply P11 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: cycgraph (primary) + IMPROVE_OURS top repos (routa, mission-control, MisterSmith, EDDI, …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (communication attacks 2502.14847, adversarial hierarchy 2303.16641, coordination survey 2203.08975)
+- apply slice (P11 zero-trust state slice — **First apply slice** this session):
+  - `src/nexus/durability/state_slice.py` — `StateSlice` (`read_keys`/`write_keys`, fail-closed empty default, `*` system wildcard, protected `_` keys)
+  - `src/nexus/durability/durable_agent.py` — enforce slice on read/write/`run_step`; `view()`; opt-in `from_meta`
+  - `src/nexus/durability/__init__.py` — export `StateSlice` / `SliceError` / `slice_from_step`
+  - tests: `tests/durability/test_state_slice.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
+- patterns: wmcmahan/cycgraph permission-scoped state (pattern only, no tree vendor)
+- next open: P0.3 eval-gated memory · P0.4 zenith principled stop · P0.5 independent verify before promote
+- evidence: `PYTHONPATH=src python3 -m pytest -q`
+
+## Cycle 2026-07-15 19:15:48Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bda446f48d.md`

@@ -2,56 +2,60 @@
 
 **Applied this session (Grok 4.5 CLI hard-apply):** First apply slice from the cycle plan.
 
-## First apply slice — DONE
+## First apply slice — DONE (P11)
 
-**Title:** `durability: per-run budgets + taint labels (cycgraph pattern)`
+**Title:** `durability: zero-trust state slicing (cycgraph read_keys / write_keys)`
 
 | Deliverable | Path |
 |-------------|------|
-| Run budget (steps/tokens/cost) | `src/nexus/durability/budgets.py` |
-| Taint labels + promote gate | `src/nexus/durability/taint.py` |
-| Step wrapper (pre-budget + post-taint) | `src/nexus/durability/durable_agent.py` |
-| Engine wire: `meta.max_steps` hard-stop | `src/nexus/engine.py` (`task_max_steps`, `task_run_budget`) |
-| Tests | `tests/durability/*`, `tests/test_engine.py::test_task_max_steps_hard_stop` |
+| StateSlice (view / merge / protect `_` keys) | `src/nexus/durability/state_slice.py` |
+| DurableAgent slice enforce + `view()` | `src/nexus/durability/durable_agent.py` |
+| Package exports | `src/nexus/durability/__init__.py` |
+| Tests | `tests/durability/test_state_slice.py` |
+| Engine module doc (P11) | `src/nexus/engine.py` |
 
 ### Acceptance
 
-- [x] Exceeding `max_steps` raises `BudgetExhausted` (DurableAgent) or fail-closed task status (engine `meta.max_steps`)
-- [x] Mined-path writes labeled `mined`; not readable as `trusted` without `promote(gate=…)`
-- [x] Existing resume/checkpoint tests still pass
-- [x] New tests green in isolation
+- [x] Empty `read_keys` / `write_keys` → deny-all (zero-trust default)
+- [x] Declared keys filter `view()`; undeclared writes raise `SliceError`
+- [x] Protected keys (`_…`, `_taint_registry`) never agent-writable (even with `*`)
+- [x] Default `DurableAgent` stays backward-compatible (open-all except protected)
+- [x] Opt-in via `meta.read_keys` / `meta.write_keys` / `meta.state_slice`
+- [x] Existing durability + engine tests still pass
 
 ### Evidence drivers
 
-- **Mine:** `wmcmahan/cycgraph` (score 14.0) — budgets, taint, zero-trust state
-- **Papers:** 2303.16641 (adversarial hierarchy), 2601.00360 (anti-collusion / independent verify later)
+- **Mine:** `wmcmahan/cycgraph` — permission-scoped state (`read_keys`/`write_keys` default `[]`)
+- **Also ranked:** mission-control quality gates, routa evidence board, MisterSmith audit
+- **Papers:** 2502.14847 (communication attacks → least privilege), 2303.16641 (adversarial hierarchy)
 - **Pattern only** — no vendored upstream tree
-
-### Env defaults
-
-- `NEXUS_MAX_STEPS`, `NEXUS_MAX_TOKENS` / `NEXUS_MAX_TOKENS_RUN`, `NEXUS_MAX_COST` / `NEXUS_MAX_COST_USD`
 
 ### Immediate next PR
 
-**P0.4 + P0.5:** zenith-style gap review / principled stop in `cli_alive` + independent verify before memory promote.
+| ID | Item | Notes |
+|----|------|-------|
+| P0.3 | Eval-gated memory write | Promote API exists; gate `MemorySpine` / sqlite writes on score |
+| P0.4 | Principled stopping (zenith) | Gap review + stop discipline in alive loop |
+| P0.5 | Independent verify before promote | Separate judge path before taint→trusted |
 
 ---
 
-## Prioritized backlog (unchanged priorities)
+## Prioritized backlog
 
 ### P0 — Prove the loop
 
 | Item | Status |
 |------|--------|
 | P0.1 Budgets | **done** (`durability/budgets.py` + engine max_steps/tokens/wall) |
-| P0.2 Taint labels | **done** (`durability/taint.py`); full zero-trust policy engine still open |
+| P0.2 Taint labels | **done** (`durability/taint.py`) |
+| P0.2b Zero-trust state slice | **done this session** (`durability/state_slice.py`) |
 | P0.3 Eval-gated memory write | open (promote API exists; wire memory path) |
 | P0.4 Principled stopping | open (zenith) |
 | P0.5 Independent verify on apply | open |
 
-### P1–P2
+### P1–P10 operator / durability (landed)
 
-See `docs/SELF_IMPROVE_CYCLE.md` for full DAG/handoff/governance/evidence backlog.
+See `docs/SELF_IMPROVE_CYCLE.md` for full status. Atomic checkpoints, handoffs, replay/explain, cost, prov/verify, graph, evidence, HITL resume, wall budget, norms, RunBudget/Taint/DurableAgent are **done**.
 
 ---
 

@@ -2,18 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 90_
+_Rows: 98_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| 1508.02674 | Space-Time Diagram Generation for Profiling Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 1508.02677 | Call Graph Profiling for Multi Agent Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 1708.02361 | Verification & Validation of Agent Based Simulations using the VOMAS ( | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2107.13252 | Multi Agent System for Machine Learning Under Uncertainty in Cyber Phy | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2111.01762 | AIRCC-Clim: a user-friendly tool for generating regional probabilistic | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2209.14239 | How to solve a classification problem using a cooperative tiling Multi | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2404.01131 | GOV-REK: Governed Reward Engineering Kernels for Designing Robust Mult | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2512.21309 | A Plan Reuse Mechanism for LLM-Driven Agent | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
 | 2606.20023 | When Lower Privileges Suffice: Investigating Over-Privileged Tool Sele | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
 | 2606.20485 | Optimal Order of Multi-Agent and General Many-Body Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
 | 1309.1742 | Multi-Agent Systems and Blood Cell Formation | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
@@ -56,3 +48,11 @@ _Rows: 90_
 | 2506.11304 | A Hybrid Adaptive Nash Equilibrium Solver for Distributed Multi-Agent  | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
 | 2603.00131 | Thought Virus: Viral Misalignment via Subliminal Prompting in Multi-Ag | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
 | 2607.07403 | Multi-Agent Robotic Control with Onboard Vision-Language Models | 1 | 2026-07-15T19:01:55Z | multi-agent systems durable orchestratio |
+| 2303.08307 | Coordinating Fully-Cooperative Agents Using Hierarchical Learning Anti | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2402.11163 | KG-Agent: An Efficient Autonomous Agent Framework for Complex Reasonin | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2502.14847 | Red-Teaming LLM Multi-Agent Systems via Communication Attacks | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2506.15656 | PhishDebate: An LLM-Based Multi-Agent Framework for Phishing Website D | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2506.17560 | Towards Zero-Shot Coordination between Teams of Agents: The N-XPlay Fr | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2510.05748 | Communication Enables Cooperation in LLM Agents: A Comparison with Cur | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2601.10758 | Agents at Risk: How Users Unwittingly Undermine LLM Safety | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 2607.09330 | Communication-Efficient Digital-Twin Coordination for Heterogeneous LL | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |

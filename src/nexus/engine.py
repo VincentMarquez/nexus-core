@@ -60,6 +60,12 @@ Per-run durability package (P10 — cycgraph first-apply slice):
 - ``meta.max_steps`` / constraint ``max_steps=N`` hard-stop this run (distinct
   from ``run(max_steps=)`` soft early-stop).
 - Env defaults: ``NEXUS_MAX_STEPS``, ``NEXUS_MAX_COST`` (via durability helpers).
+
+Zero-trust state slice (P11 — cycgraph read_keys / write_keys):
+- ``nexus.durability.StateSlice`` — permission-scoped view/merge; empty default
+  is deny-all; ``*`` for trusted system agents; protected ``_`` keys unwritable.
+- ``DurableAgent(slice=…)`` enforces read/write keys; ``view()`` filters state.
+- Opt-in via ``meta.read_keys`` / ``meta.write_keys`` / ``meta.state_slice``.
 """
 
 from __future__ import annotations
