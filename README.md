@@ -379,7 +379,7 @@ nexus alive watch --interval 3600                  # keep going
 nexus usage status
 ```
 
-Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
+Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · merge lab: **[docs/MERGE_REAL_NEXUS.md](docs/MERGE_REAL_NEXUS.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
 
 ### Resilience (power / WiFi / cloud poke)
 
