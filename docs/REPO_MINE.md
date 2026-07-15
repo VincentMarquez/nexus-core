@@ -1,5 +1,7 @@
 # Repo mine — use other codebases (don’t follow people)
 
+ML architecture (alive + mine + budget): ![arch-alive-self-improve.svg](assets/arch-alive-self-improve.svg)
+
 Inspired by tools like [yumiaura/followme](https://github.com/yumiaura/followme), but with a different endgame:
 
 | followme | NEXUS `github mine` |

@@ -354,6 +354,21 @@ Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_S
 
 NEXUS can stay **alive**: search/research the ecosystem, **score repos**, plan improvements to **your** code, and optionally self-approve when tests pass — while you **throttle tokens**.
 
+#### ML architecture (alive / mine / budget)
+
+<p align="center">
+  <img src="docs/assets/arch-alive-self-improve.svg" alt="NEXUS alive self-improve ML architecture — goals, token budget, mine scoring, improve ours, self-approve" width="100%">
+</p>
+
+| Layer | Role |
+|-------|------|
+| **① User goal** | `alive.json` — what to chase, apply?, self_approve? |
+| **② Token budget** | Daily/monthly/per-call caps; block or warn (`nexus usage`) |
+| **③ Sensors** | GitHub search, arXiv, clones, issues/PRs, heartbeat |
+| **④ Scoring** | idea + skill for **reuse** (Ollama or heuristic) — never follow/star |
+| **⑤ Improve ours** | USE clones → IMPROVE_OURS.md → tests → optional self-approve |
+| **⑥ Control** | `alive watch` / cron — cycle under budget |
+
 ```bash
 nexus usage set --daily 200000 --monthly 3000000   # throttle
 nexus alive init --goal "improve multi-agent durability" -q "multi agent durable"
@@ -364,7 +379,7 @@ nexus alive watch --interval 3600                  # keep going
 nexus usage status
 ```
 
-Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)**
+Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
 
 ### Resilience (power / WiFi / cloud poke)
 

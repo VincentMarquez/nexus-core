@@ -6,6 +6,12 @@ High-level idea:
 > score what it finds, use those repos to plan improvements to **your** code,  
 > and optionally self-approve when tests pass — while **you** throttle tokens.
 
+## ML architecture
+
+![Alive / mine self-improve architecture](assets/arch-alive-self-improve.svg)
+
+Also see the **GitHub community** ML figure: [arch-github-community.svg](assets/arch-github-community.svg) (issues/PRs → tests → write-back).
+
 ## The loop
 
 ```text

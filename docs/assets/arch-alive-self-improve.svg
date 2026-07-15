@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-label="NEXUS alive self-improve ML architecture">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="goal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="budget" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="s" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#22d3ee"/>
+    </marker>
+    <marker id="arrG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#4ade80"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="820" fill="url(#bg)"/>
+
+  <text x="40" y="42" font-family="ui-sans-serif,system-ui,sans-serif" font-size="24" font-weight="800" fill="#f8fafc">Alive / Mine — self-improve ML architecture</text>
+  <text x="40" y="68" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" fill="#94a3b8">User goals · token throttle · discover &amp; score repos · use clones · improve ours · optional self-approve</text>
+
+  <!-- User goal -->
+  <rect x="40" y="95" width="1120" height="70" rx="14" fill="url(#goal)" filter="url(#s)"/>
+  <text x="600" y="125" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="700" fill="#e0e7ff">① USER GOAL  ·  alive.json</text>
+  <text x="600" y="148" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" fill="#f8fafc">“improve multi-agent durability…”  ·  queries · apply? · self_approve?</text>
+
+  <path d="M600 165 V190" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Budget gate -->
+  <rect x="340" y="195" width="520" height="75" rx="14" fill="url(#budget)" filter="url(#s)"/>
+  <text x="600" y="225" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="700" fill="#fffbeb">② TOKEN BUDGET GATE  ·  usage ledger</text>
+  <text x="600" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#fef3c7">daily / monthly / per-call caps  ·  block or warn  ·  ~chars÷4 estimate</text>
+
+  <!-- fork over budget -->
+  <path d="M860 232 H980" stroke="#f87171" stroke-width="2" marker-end="url(#arr)"/>
+  <rect x="980" y="205" width="180" height="55" rx="10" fill="#450a0a" stroke="#f87171"/>
+  <text x="1070" y="228" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-weight="700" fill="#fecaca">OVER BUDGET</text>
+  <text x="1070" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#fca5a5">stop / throttle</text>
+
+  <path d="M600 270 V300" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Outer world sensors -->
+  <text x="40" y="295" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="700" fill="#22d3ee" letter-spacing="1">③ OUTER WORLD  ·  SENSORS / DATA</text>
+
+  <rect x="40" y="310" width="220" height="100" rx="12" fill="#0f172a" stroke="#38bdf8" filter="url(#s)"/>
+  <text x="150" y="345" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#7dd3fc">GitHub Search</text>
+  <text x="150" y="368" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#bae6fd">mine fetch</text>
+  <text x="150" y="390" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#38bdf8">public repos</text>
+
+  <rect x="280" y="310" width="220" height="100" rx="12" fill="#0f172a" stroke="#a78bfa" filter="url(#s)"/>
+  <text x="390" y="345" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#c4b5fd">arXiv / research</text>
+  <text x="390" y="368" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#ddd6fe">optional papers</text>
+  <text x="390" y="390" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#a78bfa">briefs + notes</text>
+
+  <rect x="520" y="310" width="220" height="100" rx="12" fill="#0f172a" stroke="#34d399" filter="url(#s)"/>
+  <text x="630" y="345" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#6ee7b7">Local clones</text>
+  <text x="630" y="368" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a7f3d0">shallow git pull</text>
+  <text x="630" y="390" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#34d399">scout_repos/</text>
+
+  <rect x="760" y="310" width="200" height="100" rx="12" fill="#0f172a" stroke="#fbbf24" filter="url(#s)"/>
+  <text x="860" y="345" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#fde68a">Issues / PRs</text>
+  <text x="860" y="368" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#fef3c7">community loop</text>
+  <text x="860" y="390" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#fbbf24">evidence tests</text>
+
+  <rect x="980" y="310" width="180" height="100" rx="12" fill="#0f172a" stroke="#fb7185" filter="url(#s)"/>
+  <text x="1070" y="345" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#fda4af">Heartbeat</text>
+  <text x="1070" y="368" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#fecdd3">cloud dead-man</text>
+  <text x="1070" y="390" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#fb7185">Healthchecks</text>
+
+  <path d="M150 410 V440" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M390 410 V440" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+  <path d="M630 410 V440" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- ML grade layer -->
+  <text x="40" y="435" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="700" fill="#c084fc" letter-spacing="1">④ MODEL / SCORING LAYER</text>
+  <rect x="40" y="450" width="700" height="110" rx="14" fill="#1e1b4b" stroke="#a78bfa" filter="url(#s)"/>
+  <text x="390" y="480" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="700" fill="#e9d5ff">Grade for REUSE (not social growth)</text>
+  <text x="390" y="505" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#d8b4fe">idea ∈ [1,10] novelty  ·  skill ∈ [1,10] engineering  ·  score = idea + skill</text>
+  <text x="390" y="530" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#c4b5fd">Ollama local LLM  ·  or heuristic features  ·  SQLite repo_mine.sqlite</text>
+  <text x="390" y="548" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#a78bfa">threshold default ≥ 12  ·  never follow / star</text>
+
+  <!-- multi LLM side panel -->
+  <rect x="760" y="450" width="400" height="110" rx="14" fill="#052e16" stroke="#4ade80" filter="url(#s)"/>
+  <text x="960" y="480" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#86efac">Same tools for all agents</text>
+  <text x="960" y="505" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#bbf7d0">Grok CLI · Cursor · Claude · ChatGPT (MCP)</text>
+  <text x="960" y="528" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a7f3d0">Ollama on bus (TOOL_CALL loop)</text>
+  <text x="960" y="548" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#4ade80">Workspace MCP · project jail</text>
+
+  <path d="M390 560 V590" stroke="#22d3ee" stroke-width="2" marker-end="url(#arrC)"/>
+
+  <!-- Actuate improve -->
+  <text x="40" y="585" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="700" fill="#4ade80" letter-spacing="1">⑤ ACTUATE  ·  IMPROVE OURS</text>
+  <rect x="40" y="600" width="250" height="90" rx="12" fill="#052e16" stroke="#34d399" filter="url(#s)"/>
+  <text x="165" y="635" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#6ee7b7">USE clones</text>
+  <text x="165" y="658" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a7f3d0">connect + prove</text>
+  <text x="165" y="678" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#34d399">scout_repos/</text>
+
+  <path d="M290 645 H320" stroke="#4ade80" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <rect x="320" y="600" width="250" height="90" rx="12" fill="#052e16" stroke="#34d399" filter="url(#s)"/>
+  <text x="445" y="635" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#6ee7b7">IMPROVE_OURS.md</text>
+  <text x="445" y="658" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a7f3d0">plan from top scores</text>
+  <text x="445" y="678" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#34d399">human or agent review</text>
+
+  <path d="M570 645 H600" stroke="#4ade80" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <rect x="600" y="600" width="250" height="90" rx="12" fill="#14532d" stroke="#fbbf24" filter="url(#s)"/>
+  <text x="725" y="630" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#fde68a">Self-check</text>
+  <text x="725" y="652" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#fef3c7">pytest + smoke</text>
+  <text x="725" y="672" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#fbbf24">evidence gate</text>
+
+  <path d="M850 645 H880" stroke="#4ade80" stroke-width="2" marker-end="url(#arrG)"/>
+
+  <rect x="880" y="600" width="280" height="90" rx="12" fill="#1c1917" stroke="#f59e0b" filter="url(#s)"/>
+  <text x="1020" y="630" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="700" fill="#fcd34d">Self-approve? (opt-in)</text>
+  <text x="1020" y="652" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#fde68a">apply only if tests green</text>
+  <text x="1020" y="672" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#fbbf24">nexus do jailed · no merge</text>
+
+  <!-- Control loop footer -->
+  <rect x="40" y="720" width="1120" height="75" rx="14" fill="#0f172a" stroke="#6366f1" filter="url(#s)"/>
+  <text x="600" y="750" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="700" fill="#c7d2fe">⑥ CONTINUOUS CONTROL  ·  nexus alive watch / cron</text>
+  <text x="600" y="775" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a5b4fc">alive once → mine → plan → (optional apply) → heartbeat → usage ledger → sleep → repeat</text>
+</svg>

@@ -12,6 +12,7 @@ Publication-style diagrams for talks, papers, and the README.
 | GLM-5.2 path | [assets/arch-glm-pipeline.svg](assets/arch-glm-pipeline.svg) | Cloud/small agents + colibrì GLM-5.2 |
 | 10-step pipeline | [assets/arch-pipeline-10.svg](assets/arch-pipeline-10.svg) | Adversarial step flow |
 | **GitHub community ML** | [assets/arch-github-community.svg](assets/arch-github-community.svg) | Sensors → router → multi-LLM → evidence tests → write-back → continuous loop |
+| **Alive / mine self-improve** | [assets/arch-alive-self-improve.svg](assets/arch-alive-self-improve.svg) | User goal → token budget → mine/score → improve ours → optional self-approve |
 | Crash → resume | [assets/demo-flow.svg](assets/demo-flow.svg) | Kill mid-task recovery |
 | Demo animation | [assets/demo.gif](assets/demo.gif) | Short loop for social |
 
