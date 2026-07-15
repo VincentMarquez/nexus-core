@@ -1024,12 +1024,13 @@ def improve_from_arxiv(
 
     repo = gc.resolve_repo(repo)
     workdir = Path(workdir or Path.cwd()).resolve()
-    runner = ResearchJobRunner(panel=None)
+    runner = ResearchJobRunner(panel=None, project_root=workdir)
     job = runner.run(
         query,
         max_results=max_results,
         download_pdf=download_pdf,
         with_brief=True,
+        skip_seen=True,
     )
     scout_res = None
     if also_scout or scout_query:
@@ -1156,6 +1157,7 @@ def improve_from_arxiv(
         "research_status": job.status,
         "papers": len(paper_rows),
         "paper_list": paper_rows,
+        "ledger": getattr(job, "ledger", None) or {},
         "notes": str(notes_path),
         "issue": issue_url,
         "apply": apply_result,

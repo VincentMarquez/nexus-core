@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import arxiv_client
+from . import arxiv_ledger
 
 
 @dataclass
@@ -23,6 +24,7 @@ class ResearchJob:
     report_path: str = ""
     log: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    ledger: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -35,8 +37,10 @@ class ResearchJobRunner:
         workspace_root: Optional[Path] = None,
         state_dir: Optional[Path] = None,
         panel: Any = None,
+        project_root: Optional[Path] = None,
     ):
-        root = Path(__file__).resolve().parents[2]
+        root = Path(project_root or Path(__file__).resolve().parents[2])
+        self.project_root = root
         self.workspace_root = Path(workspace_root or root / ".nexus_workspaces" / "research")
         self.state_dir = Path(state_dir or root / ".nexus_state" / "research_jobs")
         self.workspace_root.mkdir(parents=True, exist_ok=True)
@@ -57,6 +61,7 @@ class ResearchJobRunner:
         download_pdf: bool = False,
         with_brief: bool = True,
         job_id: Optional[str] = None,
+        skip_seen: bool = True,
     ) -> ResearchJob:
         jid = job_id or f"rx-{uuid.uuid4().hex[:10]}"
         work = self.workspace_root / jid
@@ -66,9 +71,36 @@ class ResearchJobRunner:
         print(f"=== NEXUS research: {query!r} ===")
         print(f"  job: {jid}")
         print(f"  dir: {work}")
+        print(f"  ledger: skip_seen={skip_seen} → {arxiv_ledger.docs_csv_path(self.project_root)}")
 
         try:
-            papers = arxiv_client.search(query, max_results=max_results)
+            if skip_seen:
+                hit = arxiv_ledger.search_new(
+                    query,
+                    max_results=max_results,
+                    workdir=self.project_root,
+                )
+                papers = hit["papers"]
+                job.ledger = {
+                    k: hit.get(k)
+                    for k in (
+                        "fetched",
+                        "new",
+                        "already_seen",
+                        "returned",
+                        "reused",
+                        "ledger_size",
+                        "skipped_ids",
+                    )
+                }
+                print(
+                    f"  search: fetched={hit['fetched']} new={hit['new']} "
+                    f"already_seen={hit['already_seen']} → using {hit['returned']} "
+                    f"(reused={hit['reused']})"
+                )
+            else:
+                papers = arxiv_client.search(query, max_results=max_results)
+                job.ledger = {"skip_seen": False, "returned": len(papers)}
         except Exception as e:
             job.status = "failed"
             job.log.append({"event": "search_failed", "error": str(e)})
@@ -77,20 +109,38 @@ class ResearchJobRunner:
             return job
 
         job.papers = [p.to_dict() for p in papers]
-        job.log.append({"event": "found", "n": len(papers)})
+        job.log.append({"event": "found", "n": len(papers), "ledger": job.ledger})
         self.save(job)
         print(f"  found {len(papers)} papers")
 
+        # mark NEW vs already-seen for this cycle before recording
+        known_before = arxiv_ledger.seen_ids(self.project_root)
         for p in papers:
             arxiv_client.save_abstract_md(p, work / "abstracts")
             arxiv_client.save_paper_json(p, work / "meta")
-            print(f"  · {p.arxiv_id}: {p.title[:70]}")
+            tag = "NEW" if arxiv_ledger._canon_id(p.arxiv_id) not in known_before else "seen"
+            print(f"  · [{tag}] {p.arxiv_id}: {p.title[:70]}")
             if download_pdf:
                 try:
                     path = arxiv_client.download_pdf(p, work / "pdfs")
                     print(f"    pdf → {path.name}")
                 except Exception as e:
                     print(f"    pdf failed: {e}")
+
+        # record into CSV ledger (docs/ARXIV_LEDGER.csv) so next cycle skips them
+        try:
+            rec = arxiv_ledger.record_papers(
+                papers,
+                query=query,
+                notes_path=str(work / "NEXUS_RESEARCH_REPORT.md"),
+                workdir=self.project_root,
+            )
+            job.ledger["recorded"] = rec
+            print(f"  ledger: +{rec['added']} new, {rec['updated']} updated, total={rec['total']}")
+            print(f"  ledger files: {rec['paths']}")
+        except Exception as e:
+            job.log.append({"event": "ledger_failed", "error": str(e)})
+            print(f"  ledger record failed: {e}")
 
         if with_brief:
             job.brief = self._brief(query, papers)

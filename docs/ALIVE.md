@@ -44,6 +44,18 @@ user goal (alive.json)
 | Hard improve / apply | **Grok** | `worker: auto\|grok\|bus` |
 | Light bus turns, digests | **Local Ollama** | `use_ollama: true`, `nexus start` |
 
+### arXiv ledger (no double papers)
+
+Seen papers are stored in a spreadsheet-friendly CSV the AI can read:
+
+| File | Role |
+|------|------|
+| [`docs/ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) | Open in Excel / LibreOffice; committed to GitHub |
+| [`docs/ARXIV_LEDGER.md`](ARXIV_LEDGER.md) | Short markdown table for agents |
+| `.nexus_state/arxiv_ledger.csv` | Runtime mirror |
+
+Each research / alive / full-cycle arXiv step **over-fetches**, **drops ids already in the ledger**, records the new ones, and only reuses old papers if not enough new hits exist.
+
 ```bash
 nexus alive init \
   --goal "improve durability" \

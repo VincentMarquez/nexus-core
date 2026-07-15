@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 """Full self-improve cycle: 10 repos + 10 arXiv + Grok 4.5 reason + apply + push.
 
+One shot (stops when finished)::
+
   PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle.py
+
+Keep going until you stop it (Ctrl-C or stop file)::
+
+  PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 \\
+    python3 scripts/full_self_improve_cycle.py --watch --interval 120
+
+  # stop cleanly:
+  touch .nexus_state/STOP_FULL_CYCLE
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -30,6 +41,8 @@ N_REPOS = 10
 N_PAPERS = 10
 QUERY = "multi agent durable orchestration MCP"
 ARXIV_Q = "multi-agent systems durable orchestration LLM"
+STOP_FILE = ROOT / ".nexus_state" / "STOP_FULL_CYCLE"
+PID_FILE = ROOT / ".nexus_state" / "full_cycle.pid"
 
 
 def _log(msg: str) -> None:
@@ -82,10 +95,12 @@ def reset_for_grok_regrade(limit: int = N_REPOS) -> int:
 
 def step_mine(cfg: al.AliveConfig) -> dict:
     _log("=== 1/5 MINE: fetch → Grok grade → use (10 repos) ===")
+    q = (cfg.queries or [QUERY])[0]
+    _log(f"  query: {q!r}")
     # ensure we have enough candidates
     f1 = rm.step_fetch(
         ROOT,
-        query=QUERY,
+        query=q,
         count=N_REPOS,
         language="Python",
         max_stars=2000,
@@ -93,7 +108,7 @@ def step_mine(cfg: al.AliveConfig) -> dict:
     _log(f"  fetch primary: +{f1.get('inserted')} {f1.get('repos')}")
     f2 = rm.step_fetch(
         ROOT,
-        query="multi agent LLM orchestration durable resume",
+        query=f"{q} durable resume",
         count=N_REPOS,
         language="Python",
         max_stars=5000,
@@ -136,8 +151,10 @@ def step_mine(cfg: al.AliveConfig) -> dict:
 
 def step_arxiv(cfg: al.AliveConfig) -> dict:
     _log("=== 2/5 arXiv: 10 papers ===")
+    aq = (cfg.arxiv_queries or [ARXIV_Q])[0]
+    _log(f"  arxiv query: {aq!r}")
     ar = ga.improve_from_arxiv(
-        ARXIV_Q,
+        aq,
         repo=cfg.our_repo,
         workdir=ROOT,
         max_results=N_PAPERS,
@@ -147,10 +164,12 @@ def step_arxiv(cfg: al.AliveConfig) -> dict:
     )
     paper_list = ar.get("paper_list") or []
     n = ar.get("papers") if not isinstance(ar.get("papers"), list) else len(ar.get("papers") or [])
-    _log(f"  papers: {n} (list={len(paper_list)})")
+    led = ar.get("ledger") or {}
+    _log(f"  papers: {n} (list={len(paper_list)}) ledger={led}")
     for i, p in enumerate(paper_list[:N_PAPERS], 1):
         _log(f"    {i}. {p.get('arxiv_id')}: {(p.get('title') or '')[:72]}")
     _log(f"  notes: {ar.get('notes')}")
+    _log(f"  ledger CSV: {ROOT / 'docs' / 'ARXIV_LEDGER.csv'}")
     return ar
 
 
@@ -179,13 +198,20 @@ def _evidence_blob(mine: dict, arxiv: dict) -> str:
         parts.append(p.read_text(encoding="utf-8")[:8000])
     papers = arxiv.get("paper_list") or []
     if papers:
-        parts.append("\n# Paper list\n")
+        parts.append("\n# Paper list (this cycle)\n")
         for p in papers[:N_PAPERS]:
             parts.append(
                 f"- {p.get('arxiv_id')}: {p.get('title')}\n"
                 f"  {p.get('abs_url') or ''}\n"
                 f"  {(p.get('summary') or '')[:400]}\n"
             )
+    # AI-readable ledger of all papers already used
+    ledger_csv = ROOT / "docs" / "ARXIV_LEDGER.csv"
+    if ledger_csv.is_file():
+        parts.append("\n# ARXIV_LEDGER.csv (do not re-propose these ids)\n")
+        parts.append(ledger_csv.read_text(encoding="utf-8")[:12000])
+    if arxiv.get("ledger"):
+        parts.append(f"\n# Ledger filter stats\n{json.dumps(arxiv.get('ledger'), default=str)}\n")
     return "\n".join(parts)
 
 
@@ -267,8 +293,9 @@ def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
     return {"checks": checks, "publish": pub_res}
 
 
-def main() -> int:
-    _log("NEXUS full self-improve cycle")
+def run_once(*, cycle_n: int = 1) -> int:
+    """One full pipe: mine 10 → arxiv 10 → Grok reason → hard improve → push."""
+    _log(f"NEXUS full self-improve cycle #{cycle_n}")
     _log(f"  root={ROOT}")
     _log(f"  grok model={gw.default_model()} available={gw.grok_available()}")
     try:
@@ -278,8 +305,26 @@ def main() -> int:
         return 1
 
     cfg = configure()
+    # rotate queries so each watch loop discovers fresh surface area
+    mine_qs = [
+        QUERY,
+        "multi agent durable resume checkpoint",
+        "MCP multi agent orchestration",
+        "agent workflow durable state HITL",
+    ]
+    arxiv_qs = [
+        ARXIV_Q,
+        "multi agent communication coordination LLM",
+        "durable multi agent workflow checkpoint resume",
+        "tool use multi LLM agent systems",
+    ]
+    cfg.queries = [mine_qs[(cycle_n - 1) % len(mine_qs)]]
+    cfg.arxiv_queries = [arxiv_qs[(cycle_n - 1) % len(arxiv_qs)]]
+    al.save_config(cfg, ROOT)
+
     report: dict = {
         "ts": time.time(),
+        "cycle": cycle_n,
         "goal": cfg.goal,
         "model": "grok-4.5",
         "n_repos": N_REPOS,
@@ -354,9 +399,97 @@ def main() -> int:
     out = ROOT / ".nexus_state" / "full_cycle_report.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
-    _log(f"=== DONE in {report['elapsed_s']}s → {out} ===")
-    print(json.dumps(report, indent=2, default=str)[:8000])
+    # append history
+    hist = ROOT / ".nexus_state" / "full_cycle_history.jsonl"
+    with hist.open("a", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "ts": report["ts"],
+            "cycle": cycle_n,
+            "elapsed_s": report["elapsed_s"],
+            "evaluated": next((s.get("evaluated") for s in report["steps"] if s.get("step") == "mine"), None),
+            "papers": next((s.get("papers") for s in report["steps"] if s.get("step") == "arxiv"), None),
+            "apply_ok": next((s.get("ok") for s in report["steps"] if s.get("step") == "grok_hard_improve"), None),
+        }, default=str) + "\n")
+    _log(f"=== CYCLE #{cycle_n} DONE in {report['elapsed_s']}s → {out} ===")
+    print(json.dumps(report, indent=2, default=str)[:4000], flush=True)
     return 0
+
+
+def _should_stop() -> bool:
+    return STOP_FILE.is_file()
+
+
+def watch_loop(*, interval_s: float = 120.0) -> int:
+    """Run full cycles forever until Ctrl-C or STOP_FULL_CYCLE file."""
+    STOP_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if STOP_FILE.is_file():
+        STOP_FILE.unlink()
+    PID_FILE.write_text(str(os.getpid()) + "\n", encoding="utf-8")
+    _log("=== NEXUS full-cycle WATCH (keeps going until you stop) ===")
+    _log(f"  model:    {gw.default_model()}")
+    _log(f"  interval: {interval_s}s between cycles")
+    _log(f"  stop:     touch {STOP_FILE}")
+    _log(f"  or:       kill $(cat {PID_FILE})")
+    _log("  Ctrl-C also stops")
+    n = 0
+    try:
+        while True:
+            if _should_stop():
+                _log(f"stop file present ({STOP_FILE}) — exiting")
+                break
+            n += 1
+            _log(f"\n######## watch cycle {n} @ {time.strftime('%Y-%m-%d %H:%M:%S')} ########")
+            try:
+                rc = run_once(cycle_n=n)
+                if rc != 0:
+                    _log(f"cycle returned {rc} — sleeping then retry (still watching)")
+            except Exception as e:
+                _log(f"cycle CRASHED: {e} — sleeping then retry")
+            if _should_stop():
+                _log("stop file after cycle — exiting")
+                break
+            _log(f"sleeping {interval_s}s before next cycle (stop: touch .nexus_state/STOP_FULL_CYCLE)")
+            # interruptible sleep
+            end = time.time() + max(30.0, float(interval_s))
+            while time.time() < end:
+                if _should_stop():
+                    _log("stop file during sleep — exiting")
+                    return 0
+                time.sleep(min(5.0, end - time.time()))
+    except KeyboardInterrupt:
+        _log("\n  stopped by Ctrl-C.")
+    finally:
+        try:
+            if PID_FILE.is_file():
+                PID_FILE.unlink()
+        except Exception:
+            pass
+    _log(f"watch ended after {n} cycle(s)")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="NEXUS full self-improve (Grok 4.5)")
+    ap.add_argument(
+        "--watch",
+        action="store_true",
+        help="keep running full cycles until Ctrl-C or STOP_FULL_CYCLE file",
+    )
+    ap.add_argument(
+        "--interval",
+        type=float,
+        default=120.0,
+        help="seconds between watch cycles (default 120)",
+    )
+    ap.add_argument(
+        "--once",
+        action="store_true",
+        help="run a single cycle and exit (default if not --watch)",
+    )
+    args = ap.parse_args(argv)
+    if args.watch:
+        return watch_loop(interval_s=args.interval)
+    return run_once(cycle_n=1)
 
 
 if __name__ == "__main__":

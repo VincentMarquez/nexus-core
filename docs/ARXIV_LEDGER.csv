@@ -1,0 +1,11 @@
+arxiv_id,title,first_seen,last_seen,query,notes_path,times_seen,abs_url
+1311.5108,A Methodology to Engineer and Validate Dynamic Multi-level Multi-agent Based Simulations,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/1311.5108v1
+2103.04480,Learning Distributed Stabilizing Controllers for Multi-Agent Systems,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2103.04480v1
+2203.08975,A Survey of Multi-Agent Deep Reinforcement Learning with Communication,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2203.08975v2
+2401.07324,Small LLMs Are Weak Tool Learners: A Multi-LLM Agent,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2401.07324v3
+2410.12532,MedAide: Information Fusion and Anatomy of Medical Intents via LLM-based Agent Collaboration,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2410.12532v3
+2412.06333,Augmenting the action space with conventions to improve multi-agent cooperation in Hanabi,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2412.06333v3
+2508.08322,"Context Engineering for Multi-Agent LLM Code Assistants Using Elicit, NotebookLM, ChatGPT, and Claude Code",2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2508.08322v1
+2510.13343,AOAD-MAT: Transformer-based multi-agent deep reinforcement learning model considering agents' order of action decisions,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2510.13343v1
+2512.03278,Thucy: An LLM-based Multi-Agent System for Claim Verification across Relational Databases,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2512.03278v2
+2602.04518,Learning the Value Systems of Agents with Preference-based and Inverse Reinforcement Learning,2026-07-15T17:52:22Z,2026-07-15T17:52:22Z,seed:full_cycle,.nexus_state/full_cycle_report.json,1,https://arxiv.org/abs/2602.04518v1
