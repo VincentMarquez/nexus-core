@@ -19,6 +19,11 @@ class Settings:
     # Judge prefers a different vendor than implementer
     prefer_cross_vendor_judge: bool = True
 
+    # Multi-grader consensus (gossipcat-style independent findings + trust weights)
+    consensus_judge: bool = True
+    consensus_min_graders: int = 2
+    consensus_max_graders: int = 3
+
     # Memory retrieval outage must not freeze the engine
     memory_fail_open: bool = True
 

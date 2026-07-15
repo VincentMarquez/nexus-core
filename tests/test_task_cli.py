@@ -262,6 +262,56 @@ def test_task_dag_cli(tmp_path: Path, capsys):
     assert rc == 1
 
 
+def test_task_consensus_cli(tmp_path: Path, capsys):
+    """P1.3: nexus task consensus shows multi-grader rounds + trust."""
+    settings = Settings(
+        state_dir=tmp_path / "state",
+        autonomy=False,
+        consensus_judge=True,
+    )
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli_cons",
+        objective="cli consensus board",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    state = str(settings.state_dir)
+
+    rc = main(["task", "consensus", "cli_cons", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "consensus cli_cons" in out
+    assert "rounds:" in out
+    assert "totals:" in out
+
+    rc = main(
+        ["task", "consensus", "cli_cons", "--state-dir", state, "--json"]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "nexus.consensus/v1" in out
+    assert "rounds" in out
+
+    rc = main(
+        [
+            "task",
+            "consensus",
+            "cli_cons",
+            "--state-dir",
+            state,
+            "--findings",
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "findings:" in out or "rounds:" in out
+
+    rc = main(["task", "consensus", "missing", "--state-dir", state])
+    assert rc == 1
+
+
 def test_task_evidence_cli(tmp_path: Path, capsys):
     settings = Settings(state_dir=tmp_path / "state", autonomy=False)
     engine = DurableEngine(settings=settings, auto_approve=True)

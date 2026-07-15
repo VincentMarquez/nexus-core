@@ -1595,6 +1595,57 @@ def cmd_task(args: argparse.Namespace) -> int:
             print(rep["mermaid"])
         return 0
 
+    if sub == "consensus":
+        # P1.3 multi-grader consensus (gossipcat findings + trust weights)
+        rep = engine.consensus(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        print(f"# consensus {rep['task_id']}  schema={rep.get('schema')}")
+        print(
+            f"status:       {rep.get('status')}  step={rep.get('current_step')}  "
+            f"enabled={rep.get('enabled')}  rounds={rep.get('n_rounds', 0)}"
+        )
+        print(f"objective:    {rep.get('objective', '')}")
+        totals = rep.get("totals") or {}
+        print(
+            f"totals:       agreement={totals.get('agreement', 0)}  "
+            f"disagreement={totals.get('disagreement', 0)}  "
+            f"avg_agree={totals.get('avg_agreement_ratio')}"
+        )
+        weights = rep.get("trust_weights") or {}
+        if weights:
+            top = sorted(weights.items(), key=lambda x: -float(x[1]))[:6]
+            print(
+                "trust:        "
+                + " ".join(f"{k}={v}" for k, v in top)
+            )
+        rounds = rep.get("rounds") or []
+        if rounds:
+            print("rounds:")
+            for r in rounds:
+                graders = ",".join(str(g) for g in (r.get("graders") or [])[:5])
+                print(
+                    f"  s{r.get('step')}: {r.get('detail') or '?'}  "
+                    f"dec={r.get('decision')}  score={r.get('score')}  "
+                    f"agree={r.get('agreement_ratio')}  n={r.get('n_graders')}  "
+                    f"graders=[{graders}]"
+                )
+        steps = rep.get("step_findings") or []
+        if steps and getattr(args, "findings", False):
+            print("findings:")
+            for s in steps:
+                for f in s.get("findings") or []:
+                    print(
+                        f"  s{s.get('step')}  {f.get('grader')}: "
+                        f"dec={f.get('decision')} score={f.get('score')} "
+                        f"w={f.get('weight')} signal={f.get('signal')}"
+                    )
+        return 0
+
     if sub == "prov":
         # PROV-AGENT style unified provenance export (read-only)
         rep = engine.provenance(args.task_id)
@@ -2996,6 +3047,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     tk_dag.add_argument("--state-dir", default=None)
     tk_dag.set_defaults(func=cmd_task)
+    tk_cons = tk_sub.add_parser(
+        "consensus",
+        help="multi-grader consensus pack (findings + trust weights; P1.3)",
+    )
+    tk_cons.add_argument("task_id")
+    tk_cons.add_argument("--json", action="store_true", help="emit full JSON document")
+    tk_cons.add_argument(
+        "--findings",
+        action="store_true",
+        help="also print per-grader findings from step verdicts",
+    )
+    tk_cons.add_argument("--state-dir", default=None)
+    tk_cons.set_defaults(func=cmd_task)
     tk_evd = tk_sub.add_parser(
         "evidence",
         help="portable evidence pack (norms + gates + timeline + cost + prov + graph)",

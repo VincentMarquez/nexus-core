@@ -1,6 +1,6 @@
 # Self-improve cycle — Grok 4.5
 
-_Updated 2026-07-15 (hard-apply P1.2)_
+_Updated 2026-07-15 (hard-apply P1.3)_
 
 Model: `grok-4.5` · mine: IMPROVE_OURS top repos · arXiv notes under `.nexus_state/arxiv_improve/`
 
@@ -17,29 +17,29 @@ Model: `grok-4.5` · mine: IMPROVE_OURS top repos · arXiv notes under `.nexus_s
 
 ---
 
-## This cycle — First apply: P1.2 multi-agent task DAG
+## This cycle — First apply: P1.3 consensus grading
 
 | Deliverable | Path |
 |-------------|------|
-| DAG helpers + snapshot | `src/nexus/steps.py` |
-| Dependency-aware engine schedule + `action_order` + `dag()` | `src/nexus/engine.py` |
-| Operator CLI | `nexus task dag` in `src/nexus/cli.py` |
-| Tests | `tests/test_steps_dag.py`, `tests/test_engine.py`, `tests/test_task_cli.py` |
+| Consensus module (findings, trust, aggregate) | `src/nexus/consensus.py` |
+| Engine multi-grader + journal + export | `src/nexus/engine.py`, `src/nexus/config.py` |
+| Operator CLI | `nexus task consensus` in `src/nexus/cli.py` |
+| Tests | `tests/test_consensus.py`, `tests/test_task_cli.py` |
 
 **Evidence drivers**
 
-- Mine: open-multi-agent (task DAG), mission-control / routa (operator export)  
-- arXiv: AOAD-MAT **2510.13343** (action order), context pack **2508.08322** (next), communication survey **2203.08975**  
-- Prior landed: P0 improve-apply FSM, P1.1 ops spend plane, durability package  
+- Mine: gossipcat-ai (consensus + trust), mission-control / routa (operator export), IMPROVE_OURS top 20  
+- arXiv: communication survey **2203.08975**, principles **2502.07165**, context pack **2508.08322** (next)  
+- Prior landed: P0 improve-apply FSM, P1.1 ops spend, P1.2 task DAG, durability package  
 
 **Commands**
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli task dag <id> --mermaid
+PYTHONPATH=src python3 -m nexus.cli task consensus <id> --findings
 ```
 
-**Next open:** P1.3 consensus grading · P1.4 context pack stage
+**Next open:** P1.4 context pack stage
 
 ---
 

@@ -72,6 +72,11 @@ Multi-agent task DAG (P1.2 — open-multi-agent + AOAD-MAT):
 - ``meta.action_order[]`` records explicit step order (AOAD-MAT).
 - ``dag(task_id)`` — policy dependency snapshot + mermaid (``nexus.dag/v1``).
 - Context ``prior`` uses dependency outputs when ``depends_on`` is set.
+
+Consensus grading (P1.3 — gossipcat independent findings + trust weights):
+- ``Settings.consensus_judge`` (default on) runs multi-grader ``ConsensusJudge``.
+- Per-step verdict carries ``findings`` / ``agreement_ratio`` / ``counts``.
+- Journal ``consensus`` events; ``consensus(task_id)`` operator export.
 """
 
 from __future__ import annotations
@@ -87,6 +92,7 @@ from .agents import AgentPanel
 from .cascade import CascadeIndex
 from .config import Settings
 from .durability import RunBudget, budget_from_env, budget_from_meta
+from .consensus import ConsensusJudge, SCHEMA as CONSENSUS_SCHEMA
 from .judge import RubricJudge, decision_thresholds
 from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
@@ -509,7 +515,16 @@ class DurableEngine:
         self.memory = memory or MemorySpine.demo()
         self.cascade = cascade or CascadeIndex.demo()
         self.policy = policy or StepPolicy.default()
-        self.judge = RubricJudge(self.panel, prefer_cross_vendor=self.settings.prefer_cross_vendor_judge)
+        prefer_xv = self.settings.prefer_cross_vendor_judge
+        if getattr(self.settings, "consensus_judge", True):
+            self.judge = ConsensusJudge(
+                self.panel,
+                prefer_cross_vendor=prefer_xv,
+                min_graders=int(getattr(self.settings, "consensus_min_graders", 2) or 2),
+                max_graders=int(getattr(self.settings, "consensus_max_graders", 3) or 3),
+            )
+        else:
+            self.judge = RubricJudge(self.panel, prefer_cross_vendor=prefer_xv)
         self.trust = TrustLog(self.settings.state_dir / "trust.json")
         self.auto_approve = auto_approve
         self.journal = journal
@@ -1014,19 +1029,54 @@ class DurableEngine:
             # CEMA-style short causal "why" + value-system score/thresholds + tokens
             why = str(getattr(verdict, "rationale", "") or "")[:200]
             thr = getattr(verdict, "thresholds", None) or decision_thresholds()
+            complete_extra: dict[str, Any] = {
+                "decision": getattr(verdict, "decision", ""),
+                "why": why,
+                "score": round(float(getattr(verdict, "score", 0.0) or 0.0), 4),
+                "tokens": step_tokens,
+                "thresholds": thr,
+                "action_order_i": len(action_order),
+                "depends_on": list(step.depends_on),
+            }
+            # Gossipcat-style consensus summary when multi-grader path is active
+            findings_list = getattr(verdict, "findings", None)
+            if findings_list is not None:
+                complete_extra["consensus"] = True
+                complete_extra["agreement_ratio"] = round(
+                    float(getattr(verdict, "agreement_ratio", 0.0) or 0.0), 4
+                )
+                complete_extra["n_graders"] = int(
+                    getattr(verdict, "n_graders", 0) or 0
+                )
+                complete_extra["counts"] = dict(
+                    getattr(verdict, "counts", None) or {}
+                )
+                grader_names: list[str] = []
+                for f in findings_list:
+                    if isinstance(f, dict):
+                        grader_names.append(str(f.get("grader") or ""))
+                    else:
+                        grader_names.append(str(getattr(f, "grader", "") or ""))
+                self.record_event(
+                    task.task_id, "consensus",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=step.name,
+                    extra={
+                        "decision": getattr(verdict, "decision", ""),
+                        "score": complete_extra["score"],
+                        "agreement_ratio": complete_extra["agreement_ratio"],
+                        "n_graders": complete_extra["n_graders"],
+                        "counts": complete_extra["counts"],
+                        "graders": grader_names,
+                        "degraded": bool(getattr(verdict, "degraded", False)),
+                        "schema": getattr(verdict, "schema", CONSENSUS_SCHEMA),
+                    },
+                )
             self.record_event(
                 task.task_id, "step_complete",
                 step=step.number, agent=agent_name, status=task.status.value,
                 detail=step.name,
-                extra={
-                    "decision": getattr(verdict, "decision", ""),
-                    "why": why,
-                    "score": round(float(getattr(verdict, "score", 0.0) or 0.0), 4),
-                    "tokens": step_tokens,
-                    "thresholds": thr,
-                    "action_order_i": len(action_order),
-                    "depends_on": list(step.depends_on),
-                },
+                extra=complete_extra,
             )
 
             # Post-step budget hard-stop (open-multi-agent: may overshoot by 1 turn)
@@ -2092,6 +2142,104 @@ class DurableEngine:
             }
         )
         return snap
+
+    def consensus(self, task_id: str) -> dict[str, Any]:
+        """Multi-grader consensus export (gossipcat findings + trust weights).
+
+        Collects journal ``consensus`` events and step ``_verdict`` findings
+        into a single operator pack (``nexus.consensus/v1``).
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": CONSENSUS_SCHEMA,
+                "error": f"task not found: {task_id}",
+            }
+        events = [
+            e for e in self.events(task_id) if e.get("event") == "consensus"
+        ]
+        rounds: list[dict[str, Any]] = []
+        for e in events:
+            rounds.append(
+                {
+                    "step": e.get("step"),
+                    "detail": e.get("detail"),
+                    "decision": e.get("decision"),
+                    "score": e.get("score"),
+                    "agreement_ratio": e.get("agreement_ratio"),
+                    "n_graders": e.get("n_graders"),
+                    "counts": e.get("counts") or {},
+                    "graders": e.get("graders") or [],
+                    "degraded": e.get("degraded"),
+                    "ts": e.get("ts"),
+                }
+            )
+        # Also harvest findings from step outputs when present
+        step_findings: list[dict[str, Any]] = []
+        for sn, out in sorted(task.outputs.items(), key=lambda x: int(x[0])):
+            if not isinstance(out, dict):
+                continue
+            v = out.get("_verdict") or {}
+            if not isinstance(v, dict):
+                continue
+            findings = v.get("findings")
+            if not findings:
+                continue
+            step_findings.append(
+                {
+                    "step": int(sn),
+                    "decision": v.get("decision"),
+                    "score": v.get("score"),
+                    "agreement_ratio": v.get("agreement_ratio"),
+                    "n_graders": v.get("n_graders"),
+                    "counts": v.get("counts") or {},
+                    "findings": findings,
+                    "degraded": v.get("degraded"),
+                }
+            )
+        n_agree = sum(
+            int((r.get("counts") or {}).get("agreement") or 0) for r in rounds
+        )
+        n_dis = sum(
+            int((r.get("counts") or {}).get("disagreement") or 0) for r in rounds
+        )
+        avg_agree = None
+        if rounds:
+            vals = [
+                float(r["agreement_ratio"])
+                for r in rounds
+                if r.get("agreement_ratio") is not None
+            ]
+            if vals:
+                avg_agree = round(sum(vals) / len(vals), 4)
+        trust_weights: dict[str, float] = {}
+        judge = getattr(self, "judge", None)
+        if judge is not None and hasattr(judge, "trust"):
+            try:
+                trust_weights = judge.trust.to_dict()
+            except Exception:
+                trust_weights = {}
+        return {
+            "schema": CONSENSUS_SCHEMA,
+            "task_id": task.task_id,
+            "found": True,
+            "status": task.status.value,
+            "current_step": task.current_step,
+            "objective": task.objective,
+            "n_rounds": len(rounds),
+            "rounds": rounds,
+            "step_findings": step_findings,
+            "totals": {
+                "agreement": n_agree,
+                "disagreement": n_dis,
+                "avg_agreement_ratio": avg_agree,
+            },
+            "trust_weights": trust_weights,
+            "enabled": bool(getattr(self.settings, "consensus_judge", True)),
+        }
 
     def graph(self, task_id: str) -> dict[str, Any]:
         """Agent call-graph + space-time sequence from the journal (MAS profiling).

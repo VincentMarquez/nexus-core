@@ -305,3 +305,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-9df4f8edff.md`
+
+## Cycle 2026-07-15 hard-apply P1.3 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: gossipcat-ai (primary) + IMPROVE_OURS top repos (mission-control, routa, wshobson/agents, …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-6b7f9afae8.md`; communication 2203.08975, principles 2502.07165, context 2508.08322)
+- apply slice (P1.3 consensus grading — **First apply slice** this session):
+  - `src/nexus/consensus.py` — multi-grader findings, role lenses, trust weights, weighted aggregate, agreement signals (`nexus.consensus/v1`)
+  - `src/nexus/config.py` — `consensus_judge` / min/max graders knobs (default on)
+  - `src/nexus/engine.py` — ConsensusJudge path; journal `consensus` events; `consensus(task_id)` export
+  - `src/nexus/cli.py` — `nexus task consensus` (+ `--json` / `--findings`)
+  - tests: `tests/test_consensus.py`, `tests/test_task_cli.py::test_task_consensus_cli`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
+- patterns: gossipcat independent findings + adaptive trust; swarm multi-agent; arXiv communication/principles (pattern only, no tree vendor)
+- next open: P1.4 context pack stage
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 238 passed
+
+## Cycle 2026-07-15 20:15:38Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-6b7f9afae8.md`
