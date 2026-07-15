@@ -2624,7 +2624,26 @@ def cmd_improve(args: argparse.Namespace) -> int:
                 )
         return 0
 
-    print("usage: nexus improve smoke|apply|ledger", file=sys.stderr)
+    if sub in ("demo-loop", "demo_loop", "loop"):
+        from . import context_store as cs
+
+        report = cs.run_demo_loop(
+            root,
+            run_id=getattr(args, "run_id", None),
+            goal=str(
+                getattr(args, "goal", None)
+                or "prove durable MCP context + verify-before-done"
+            ),
+            stop_after=getattr(args, "stop_after", None),
+            grade_total=float(getattr(args, "grade_total", None) or 15.0),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(cs.format_demo_report(report))
+        return 0 if report.get("ok") else 1
+
+    print("usage: nexus improve smoke|apply|ledger|demo-loop", file=sys.stderr)
     return 2
 
 
@@ -3964,7 +3983,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     # First apply slice: mine → grade → claim_verify smoke + worktree apply + ledger
     imp = sub.add_parser(
         "improve",
-        help="self-improve smoke/apply (mine→…→worktree) + decision ledger",
+        help="self-improve smoke/apply/demo-loop + decision ledger",
     )
     imp.add_argument("--path", default=".", help="project workdir")
     imp_sub = imp.add_subparsers(dest="improve_cmd")
@@ -4033,6 +4052,35 @@ def main(argv: Optional[list[str]] = None) -> int:
     imp_led.add_argument("--limit", type=int, default=20)
     imp_led.add_argument("--json", action="store_true")
     imp_led.set_defaults(func=cmd_improve, improve_cmd="ledger")
+    imp_dl = imp_sub.add_parser(
+        "demo-loop",
+        help=(
+            "durable SQLite MCP context + ordered stages + verify-before-done "
+            "(restart-safe demo)"
+        ),
+    )
+    imp_dl.add_argument("--path", default=".", help="project workdir")
+    imp_dl.add_argument("--run-id", default=None, dest="run_id", help="resume run id")
+    imp_dl.add_argument(
+        "--goal",
+        default="prove durable MCP context + verify-before-done",
+        help="run goal string",
+    )
+    imp_dl.add_argument(
+        "--stop-after",
+        default=None,
+        dest="stop_after",
+        help="stop after stage (e.g. apply) to prove restart resume",
+    )
+    imp_dl.add_argument(
+        "--grade-total",
+        type=float,
+        default=15.0,
+        dest="grade_total",
+        help="stub grade total (default 15.0)",
+    )
+    imp_dl.add_argument("--json", action="store_true")
+    imp_dl.set_defaults(func=cmd_improve, improve_cmd="demo-loop")
     imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 
     args = ap.parse_args(raw)

@@ -219,6 +219,77 @@ TOOLS = [
         },
     },
     {
+        "name": "context_get",
+        "description": (
+            "Read SQLite MCP persistent context for a self-improve run "
+            "(key or full map). From cas/lumen durable context pattern."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "description": "Context run id"},
+                "key": {
+                    "type": "string",
+                    "description": "Optional key; omit for full map",
+                },
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "context_set",
+        "description": (
+            "Write a key into SQLite MCP persistent context for a self-improve run."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {
+                    "description": "String or JSON-serializable value",
+                },
+                "agent": {"type": "string", "default": ""},
+            },
+            "required": ["run_id", "key", "value"],
+        },
+    },
+    {
+        "name": "handoff",
+        "description": (
+            "Record agent handoff in durable MCP context (from→to + summary). "
+            "Swarm/cas-shaped; persists across restarts."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "from_agent": {"type": "string"},
+                "to_agent": {"type": "string"},
+                "summary": {"type": "string", "default": ""},
+            },
+            "required": ["run_id", "from_agent", "to_agent"],
+        },
+    },
+    {
+        "name": "demo_loop",
+        "description": (
+            "Run/resume durable self-improve demo-loop: ordered stages + "
+            "verify-before-done + grade row. Restart-safe via run_id."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "description": "Resume id (optional)"},
+                "goal": {"type": "string"},
+                "stop_after": {
+                    "type": "string",
+                    "description": "Stop after stage (e.g. apply) for restart demos",
+                },
+            },
+        },
+    },
+    {
         "name": "ops_control",
         "description": (
             "Mission-control ops plane: list/show jobs and spend rollups "
@@ -726,6 +797,82 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 "audit": status.get("audit"),
             }
             return _tool_result(json.dumps(slim, indent=2, default=str))
+
+        if name == "context_get":
+            from .context_store import ContextStore, ContextStoreError
+
+            rid = str(args.get("run_id") or "").strip()
+            if not rid:
+                return _tool_result("run_id required", is_error=True)
+            try:
+                with ContextStore.open(_root()) as store:
+                    if store.get_run(rid) is None:
+                        return _tool_result(f"unknown run: {rid}", is_error=True)
+                    val = store.context_get(rid, args.get("key"))
+                    return _tool_result(json.dumps(val, indent=2, default=str))
+            except ContextStoreError as e:
+                return _tool_result(str(e), is_error=True)
+
+        if name == "context_set":
+            from .context_store import ContextStore, ContextStoreError
+
+            rid = str(args.get("run_id") or "").strip()
+            key = str(args.get("key") or "").strip()
+            if not rid or not key:
+                return _tool_result("run_id and key required", is_error=True)
+            if "value" not in args:
+                return _tool_result("value required", is_error=True)
+            try:
+                with ContextStore.open(_root()) as store:
+                    if store.get_run(rid) is None:
+                        store.create_run(run_id=rid, goal="mcp context_set")
+                    row = store.context_set(
+                        rid,
+                        key,
+                        args.get("value"),
+                        agent=str(args.get("agent") or "mcp"),
+                    )
+                    return _tool_result(json.dumps(row, indent=2, default=str))
+            except ContextStoreError as e:
+                return _tool_result(str(e), is_error=True)
+
+        if name == "handoff":
+            from .context_store import ContextStore, ContextStoreError
+
+            rid = str(args.get("run_id") or "").strip()
+            fr = str(args.get("from_agent") or "").strip()
+            to = str(args.get("to_agent") or "").strip()
+            if not rid or not fr or not to:
+                return _tool_result(
+                    "run_id, from_agent, to_agent required", is_error=True
+                )
+            try:
+                with ContextStore.open(_root()) as store:
+                    if store.get_run(rid) is None:
+                        store.create_run(run_id=rid, goal="mcp handoff")
+                    body = store.handoff(
+                        rid,
+                        from_agent=fr,
+                        to_agent=to,
+                        summary=str(args.get("summary") or ""),
+                    )
+                    return _tool_result(json.dumps(body, indent=2, default=str))
+            except ContextStoreError as e:
+                return _tool_result(str(e), is_error=True)
+
+        if name == "demo_loop":
+            from . import context_store as cs
+
+            report = cs.run_demo_loop(
+                _root(),
+                run_id=args.get("run_id") or None,
+                goal=str(
+                    args.get("goal")
+                    or "prove durable MCP context + verify-before-done"
+                ),
+                stop_after=args.get("stop_after") or None,
+            )
+            return _tool_result(json.dumps(report, indent=2, default=str))
 
         if name == "context_pack":
             from .config import Settings

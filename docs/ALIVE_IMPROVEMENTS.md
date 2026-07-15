@@ -552,3 +552,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fb9207372a.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — durable MCP context + verify-before-done (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: codingagentsystem/cas (16.0 primary — SQLite MCP context) + zenith (verify-before-done) + lumen (migrations) + soul (handoff); plan=`docs/LATEST_IMPROVE_PLAN.md` First apply slice + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT order **2510.13343**, deterministic orchestration **2511.15755**, Thucy claims **2512.03278**, CEMA decision log **2302.10809**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN — prove durable loop):
+  - `src/nexus/context_store.py` — SQLite `nexus.context_store/v1` tables `runs/stages/context_kv/claims/grades/decisions`; LOOP_STAGES `research_ingest→mine_rank→plan_item→apply→verify→grade→done`; reject done without verified claim + grade; `context_get/set` + `handoff`; `run_demo_loop` restart-safe (`stop_after` resume)
+  - `src/nexus/cli.py` — `nexus improve demo-loop` (+ `--run-id` / `--stop-after` / `--grade-total` / `--json`)
+  - `src/nexus/mcp_server.py` — tools `context_get`, `context_set`, `handoff`, `demo_loop`
+  - `src/nexus/tool_catalog.py` — privilege map for new tools
+  - tests: `tests/test_context_store.py` (CRUD, illegal stage jump, done gate, path verify, restart, MCP, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` success criteria checked; this log
+- patterns: cas SQLite MCP context; zenith anti-premature done; lumen schema migration; soul handoff; mission-control/routa CLI surface (pattern only, no tree vendor)
+- non-goals kept: no worktree pool, no multi-reviewer consensus, no event bus, no vendored trees
+- next open: P0.1 deeper worktree promote-to-main · Grok re-grade of real mined apply · wire demo-loop into alive cycle
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 387 passed; `nexus improve demo-loop` → status=done + grade stub
+
+## Cycle 2026-07-15 22:25:42Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-aa3fa1d262.md`

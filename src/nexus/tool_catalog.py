@@ -53,6 +53,7 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "get_run_checkpoint": "read",
     "get_run_status": "read",
     "context_pack": "read",
+    "context_get": "read",
     "tool_catalog": "read",
     "mcp_eval": "read",
     # side-effecting ops
@@ -61,6 +62,9 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "github_loop": "ops",
     "platforms_connect": "ops",
     "apply_phase": "ops",
+    "context_set": "write",
+    "handoff": "write",
+    "demo_loop": "ops",
     "ops_control": "ops",
     "gap_board": "ops",
     "skillpacks": "ops",
