@@ -1,0 +1,12 @@
+{
+  "id": "durable-operator",
+  "version": "0.1.0",
+  "name": "Durable operator board",
+  "tags": ["nexus", "durability", "hitl", "audit", "production"],
+  "entrypoints": {
+    "skill": "SKILL.md",
+    "demo": "examples/demo_hitl_resume.py",
+    "cookbook": "cookbook/12_task_operator.md"
+  },
+  "harnesses": ["grok", "cursor", "claude", "local"]
+}

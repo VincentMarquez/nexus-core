@@ -153,22 +153,29 @@ nexus task show  <task_id>              # full checkpoint JSON
 nexus task events <task_id>             # pretty journal (or --json)
 nexus task replay <task_id>             # normalized timeline (no re-run)
 nexus task explain <task_id>            # causal chain: handoffs, vetoes, why
+nexus task cost|prov|verify|graph <id>  # spend, provenance, integrity, call-graph
+nexus task evidence <id> --out e.json   # portable evidence pack
+nexus task resume <id> --approve        # HITL when waiting_human
 ```
 
-State lives under `.nexus_state/tasks/` (JSON checkpoints + `*.events.jsonl`). Safe to inspect; not secrets.
+State lives under `.nexus_state/tasks/` (JSON checkpoints + `*.events.jsonl`). Safe to inspect; not secrets.  
+Optional metrics: `NEXUS_METRICS=1` (Prometheus textfile / OTel if installed).  
+Skill packs: [`skillpacks/`](skillpacks/README.md). Pipeline steps support DAG `depends_on`.
 
 ### Prove it locally
 
 ```bash
 make demo                # crash → resume
 make demo-judge          # rubric vs “looks good”
+python3 examples/demo_hitl_resume.py
 nexus task list
 # pick an id from the list:
 nexus task replay  <id>
 nexus task explain <id>
+nexus task evidence <id> --out /tmp/evidence.json
 ```
 
-Cookbook: **[01 crash → resume](cookbook/01_crash_resume.md)** · engine notes in `docs/SELF_IMPROVE_CYCLE.md` (latest self-improve plan).
+Cookbook: **[01 crash → resume](cookbook/01_crash_resume.md)** · **[12 task operator](cookbook/12_task_operator.md)** · `docs/SELF_IMPROVE_CYCLE.md`.
 
 ---
 

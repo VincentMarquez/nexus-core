@@ -12,6 +12,12 @@ Copy-paste recipes. Each is self-contained.
 | 06 | [GitHub URL → fix](06_github_do.md) | Clone, run, fix a repo |
 | 07 | [Procurement](07_procurement.md) | Scorecard, TCO, expert panel |
 | 08 | [arXiv research](08_arxiv_research.md) | Search, brief, report |
+| 09 | [GitHub community](09_github_community.md) | Inbox, loop, tests on threads |
+| 10 | [Platforms + local LLM](10_platforms_local_llm.md) | Grok / Cursor / Ollama mesh |
+| 11 | [Heartbeat resilience](11_heartbeat_resilience.md) | Power / WiFi dead-man |
+| 12 | [Task operator board](12_task_operator.md) | list / replay / evidence / HITL resume |
+
+Skill packs (multi-harness layout): [`skillpacks/`](../skillpacks/README.md)
 
 Prereq for most recipes:
 

@@ -165,6 +165,47 @@ def commit_and_maybe_push(
     return out
 
 
+def write_evidence_snapshot(root: Path, *, limit: int = 5) -> list[Path]:
+    """Export evidence packs for recent tasks into docs/evidence/ (allowlisted)."""
+    root = Path(root)
+    out_dir = root / "docs" / "evidence"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    try:
+        from .config import Settings
+        from .engine import DurableEngine
+
+        settings = Settings(state_dir=root / ".nexus_state")
+        eng = DurableEngine(settings=settings, auto_approve=True, journal=True)
+        rows = eng.list_tasks()[: max(1, limit)]
+        for r in rows:
+            tid = r.get("task_id")
+            if not tid:
+                continue
+            try:
+                pack = eng.evidence(str(tid))
+            except Exception:
+                continue
+            path = out_dir / f"{tid}.json"
+            import json
+
+            path.write_text(json.dumps(pack, indent=2, default=str) + "\n", encoding="utf-8")
+            written.append(path)
+        # index
+        idx = out_dir / "README.md"
+        lines = [
+            "# Task evidence snapshots\n\n",
+            "Written by alive/publish when self-improve runs. Safe to commit.\n\n",
+        ]
+        for p in written:
+            lines.append(f"- [`{p.name}`]({p.name})\n")
+        idx.write_text("".join(lines), encoding="utf-8")
+        written.append(idx)
+    except Exception:
+        pass
+    return written
+
+
 def write_improvements_log(root: Path, cycle: dict[str, Any]) -> Path:
     """Append a durable markdown log under docs/ (safe to commit)."""
     docs = root / "docs"
@@ -195,6 +236,19 @@ def write_improvements_log(root: Path, cycle: dict[str, Any]) -> Path:
                 f"- publish: pushed={s.get('pushed')} sha={s.get('sha')} "
                 f"staged={s.get('staged')}\n"
             )
+        elif step == "grok_hard_improve":
+            lines.append(
+                f"- hard_improve: ok={s.get('ok')} rc={s.get('returncode')}\n"
+            )
+    # always try evidence export (routa / mission-control board shape)
+    try:
+        ev_paths = write_evidence_snapshot(root, limit=5)
+        if ev_paths:
+            lines.append(
+                f"- evidence: {len(ev_paths)} file(s) under `docs/evidence/`\n"
+            )
+    except Exception as e:
+        lines.append(f"- evidence: error `{e}`\n")
     if not log.exists():
         header = (
             "# Alive improvement log\n\n"

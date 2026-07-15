@@ -46,6 +46,20 @@ Wall-clock budget (P8):
   (cycgraph multi-budget / latency-tracker shape; may overshoot by one step).
 - ``task_max_wall_s()`` + ``task_elapsed_s()``; journal ``budget`` events carry
   ``kind=wall``; ``cost()`` / ``evidence()`` expose elapsed + remaining wall.
+
+Norm enforcement (P9):
+- Opt-in via ``meta.enforce_norms`` or constraint ``enforce_norms=true``
+  (NorMAS / constitutional MAS / mission-control quality-gate shape).
+- Pre-step **deny** match against step name / agent / description → fail-closed.
+- Pre-complete **require** coverage of pipeline steps → fail if unmet.
+- Journal ``norm`` events; evidence gate ``norms_ok``.
+
+Per-run durability package (P10 — cycgraph first-apply slice):
+- ``nexus.durability`` — ``RunBudget`` (steps/tokens/cost), ``TaintSet`` labels,
+  ``DurableAgent`` step wrapper (budget pre-check + taint post-write).
+- ``meta.max_steps`` / constraint ``max_steps=N`` hard-stop this run (distinct
+  from ``run(max_steps=)`` soft early-stop).
+- Env defaults: ``NEXUS_MAX_STEPS``, ``NEXUS_MAX_COST`` (via durability helpers).
 """
 
 from __future__ import annotations
@@ -60,6 +74,7 @@ from typing import Any, Optional
 from .agents import AgentPanel
 from .cascade import CascadeIndex
 from .config import Settings
+from .durability import RunBudget, budget_from_env, budget_from_meta
 from .judge import RubricJudge, decision_thresholds
 from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
@@ -95,6 +110,57 @@ def task_max_tokens(task: "Task") -> Optional[int]:
                 except ValueError:
                     break
     return None
+
+
+def task_max_steps(task: "Task") -> Optional[int]:
+    """Resolve per-run step hard-cap from meta or constraints (None = unlimited).
+
+    Distinct from ``DurableEngine.run(..., max_steps=)`` which soft-stops and
+    leaves status=running for resume. This hard-fails with ``budget_exhausted``
+    (cycgraph / durability RunBudget shape).
+
+    Sources (first match wins):
+    - ``task.meta["max_steps"]``
+    - constraint strings like ``max_steps=5`` or ``max_steps: 5``
+    """
+    raw = (task.meta or {}).get("max_steps")
+    if raw is not None and raw != "":
+        try:
+            n = int(raw)
+            return n if n > 0 else None
+        except (TypeError, ValueError):
+            pass
+    for c in task.constraints or []:
+        s = str(c).strip().lower().replace(" ", "")
+        for prefix in ("max_steps=", "max_steps:"):
+            if s.startswith(prefix):
+                try:
+                    n = int(s[len(prefix) :])
+                    return n if n > 0 else None
+                except ValueError:
+                    break
+    return None
+
+
+def task_run_budget(task: "Task", *, use_env: bool = False) -> RunBudget:
+    """Build a :class:`RunBudget` snapshot for *task* (meta + optional env)."""
+    b = budget_from_meta(task.meta)
+    # prefer explicit resolvers so constraint strings are honored
+    ms = task_max_steps(task)
+    if ms is not None:
+        b.max_steps = ms
+    mt = task_max_tokens(task)
+    if mt is not None:
+        b.max_tokens = mt
+    if use_env:
+        env_b = budget_from_env()
+        if b.max_steps is None:
+            b.max_steps = env_b.max_steps
+        if b.max_tokens is None:
+            b.max_tokens = env_b.max_tokens
+        if b.max_cost_usd is None:
+            b.max_cost_usd = env_b.max_cost_usd
+    return b
 
 
 def task_max_wall_s(task: "Task") -> Optional[float]:
@@ -150,12 +216,113 @@ def task_elapsed_s(task: "Task", *, now: Optional[float] = None) -> Optional[flo
     return max(0.0, t - started)
 
 
+# require:token → step names that satisfy the requirement (substring match on step.name)
+_REQUIRE_STEP_HINTS: dict[str, tuple[str, ...]] = {
+    "tests": ("test",),
+    "test": ("test",),
+    "review": ("review", "meta_review"),
+    "plan": ("plan",),
+    "human": ("approval",),
+    "approval": ("approval",),
+    "implement": ("implement",),
+    "deliver": ("deliver",),
+    "goal": ("goal",),
+    "challenge": ("challenge",),
+    "log": ("log",),
+}
+
+
+def task_enforce_norms(task: "Task") -> bool:
+    """Whether deny/require norms hard-fail the run (opt-in; default off).
+
+    Sources:
+    - ``task.meta["enforce_norms"]`` truthy/falsey strings
+    - constraint ``enforce_norms``, ``enforce_norms=true``, ``enforce_norms=false``
+    """
+    raw = (task.meta or {}).get("enforce_norms")
+    if raw is not None and raw != "":
+        if isinstance(raw, bool):
+            return raw
+        s = str(raw).strip().lower()
+        if s in ("1", "true", "yes", "on"):
+            return True
+        if s in ("0", "false", "no", "off"):
+            return False
+    for c in task.constraints or []:
+        s = str(c).strip().lower().replace(" ", "")
+        if s in ("enforce_norms", "enforce_norms=true", "enforce_norms:true", "enforce_norms=1"):
+            return True
+        if s in ("enforce_norms=false", "enforce_norms:false", "enforce_norms=0"):
+            return False
+    return False
+
+
+def norm_deny_hit(
+    task: "Task",
+    *,
+    step_name: str,
+    agent_name: str,
+    step_description: str = "",
+) -> Optional[str]:
+    """Return the deny token if this step/agent is blocked, else None."""
+    norms = task_norms(task)
+    hay = f"{step_name} {agent_name} {step_description}".lower()
+    for d in norms.get("deny") or []:
+        token = str(d).strip().lower()
+        if token and token in hay:
+            return str(d).strip()
+    return None
+
+
+def norm_require_gaps(task: "Task", *, policy: Optional["StepPolicy"] = None) -> list[str]:
+    """Return require tokens not yet satisfied by completed steps.
+
+    Satisfaction: a completed step whose name contains a known hint for the
+    token (e.g. require:tests ↔ step ``test``), or the raw token itself.
+    """
+    norms = task_norms(task)
+    reqs = [str(r).strip() for r in (norms.get("require") or []) if str(r).strip()]
+    if not reqs:
+        return []
+
+    completed_names: list[str] = []
+    if policy is not None:
+        for s in policy:
+            if s.number <= int(task.current_step or 0):
+                completed_names.append(s.name.lower())
+    # Also use output keys as completed step numbers when policy unavailable
+    if not completed_names and task.outputs:
+        completed_names = [f"step{n}" for n in task.outputs]
+
+    gaps: list[str] = []
+    for req in reqs:
+        key = req.lower().replace(" ", "")
+        hints = _REQUIRE_STEP_HINTS.get(key, (key,))
+        ok = False
+        for name in completed_names:
+            for h in hints:
+                if h and h in name:
+                    ok = True
+                    break
+            if ok:
+                break
+        # human: also accept explicit approval output
+        if not ok and key in ("human", "approval"):
+            for out in (task.outputs or {}).values():
+                if isinstance(out, dict) and out.get("approved") is True:
+                    ok = True
+                    break
+        if not ok:
+            gaps.append(req)
+    return gaps
+
+
 def task_norms(task: "Task") -> dict[str, Any]:
     """Interpret constraints + meta as structured operator norms.
 
     Light NorMAS / constitutional-governance shape: free-form constraints stay
     as ``raw``; recognized prefixes become typed rules (require / deny / budget).
-    Does not enforce — use for evidence packs and operator boards.
+    Enforcement is opt-in via ``task_enforce_norms`` (P9); packs always expose norms.
     """
     raw = [str(c) for c in (task.constraints or [])]
     rules: list[dict[str, Any]] = []
@@ -165,6 +332,16 @@ def task_norms(task: "Task") -> dict[str, Any]:
     for c in raw:
         s = c.strip()
         low = s.lower().replace(" ", "")
+        # P9: enforce flag is meta for the pack, not a soft constraint
+        if low.startswith("enforce_norms"):
+            rules.append(
+                {
+                    "kind": "enforce",
+                    "value": task_enforce_norms(task),
+                    "source": c,
+                }
+            )
+            continue
         # token budget
         budget_matched = False
         for prefix in ("max_tokens=", "max_tokens:"):
@@ -227,11 +404,14 @@ def task_norms(task: "Task") -> dict[str, Any]:
 
     cap = task_max_tokens(task)
     wall = task_max_wall_s(task)
+    enforce = task_enforce_norms(task)
     # meta-level norms (not duplicated if already in rules)
     if cap is not None and not any(r.get("key") == "max_tokens" for r in rules):
         rules.append({"kind": "budget", "key": "max_tokens", "value": cap, "source": "meta.max_tokens"})
     if wall is not None and not any(r.get("key") == "max_wall_s" for r in rules):
         rules.append({"kind": "budget", "key": "max_wall_s", "value": wall, "source": "meta.max_wall_s"})
+    if enforce and not any(r.get("kind") == "enforce" for r in rules):
+        rules.append({"kind": "enforce", "value": True, "source": "meta.enforce_norms"})
 
     if (task.meta or {}).get("require_human") in (True, "true", "1", 1):
         rules.append({"kind": "require", "value": "human", "source": "meta.require_human"})
@@ -245,6 +425,7 @@ def task_norms(task: "Task") -> dict[str, Any]:
         "deny": deny,
         "max_tokens": cap,
         "max_wall_s": wall,
+        "enforce": enforce,
         "n_rules": len(rules),
     }
 
@@ -353,6 +534,13 @@ class DurableEngine:
                 extra=extra,
             ),
         )
+        try:
+            from . import metrics as metrics_mod
+
+            metrics_mod.record_task_event(event, status=status or "")
+            metrics_mod.flush(self.settings.state_dir.parent if self.settings else None)
+        except Exception:
+            pass
 
     def events(self, task_id: str, *, limit: Optional[int] = None) -> list[dict[str, Any]]:
         """Return the append-only event log for a task (replay / audit)."""
@@ -427,6 +615,9 @@ class DurableEngine:
         steps = list(self.policy)
         start_step = task.current_step
         stopped_early = False
+        # P10: per-run step counter for meta.max_steps hard-cap (durability)
+        steps_this_run = 0
+        run_step_cap = task_max_steps(task)
         # seed prior agent from meta so resume still emits handoffs correctly
         prev_agent: Optional[str] = task.meta.get("last_agent")
         for step in steps:
@@ -435,6 +626,35 @@ class DurableEngine:
             if max_steps is not None and step.number > (start_step + max_steps):
                 stopped_early = True
                 break
+
+            # P10: meta.max_steps hard-stop (fail-closed; distinct from soft max_steps arg)
+            if run_step_cap is not None and steps_this_run >= run_step_cap:
+                task.status = TaskStatus.failed
+                task.meta["error"] = (
+                    f"task step budget exceeded: steps_this_run={steps_this_run} "
+                    f"max_steps={run_step_cap}"
+                )
+                task.meta["budget_exhausted"] = True
+                task.meta["run_budget"] = task_run_budget(task).snapshot()
+                self.save(task)
+                self.record_event(
+                    task.task_id, "budget",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={
+                        "kind": "steps",
+                        "max_steps": run_step_cap,
+                        "steps_this_run": steps_this_run,
+                        "remaining": 0,
+                        "phase": "pre_step",
+                    },
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
 
             # Pre-step budget gate (already spent ≥ cap → refuse further work)
             cap = task_max_tokens(task)
@@ -497,6 +717,46 @@ class DurableEngine:
                 return task
 
             agent_name = self.panel.resolve(step)
+
+            # P9: opt-in deny gate (NorMAS / quality-gate fail-closed)
+            if task_enforce_norms(task):
+                denied = norm_deny_hit(
+                    task,
+                    step_name=step.name,
+                    agent_name=agent_name,
+                    step_description=step.description or "",
+                )
+                if denied:
+                    task.status = TaskStatus.failed
+                    task.meta["error"] = (
+                        f"norm deny: {denied!r} blocked step={step.name} agent={agent_name}"
+                    )
+                    task.meta["norm_violation"] = {
+                        "kind": "deny",
+                        "token": denied,
+                        "step": step.number,
+                        "step_name": step.name,
+                        "agent": agent_name,
+                    }
+                    self.save(task)
+                    self.record_event(
+                        task.task_id, "norm",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail=task.meta["error"],
+                        extra={
+                            "kind": "deny",
+                            "token": denied,
+                            "phase": "pre_step",
+                            "step_name": step.name,
+                        },
+                    )
+                    self.record_event(
+                        task.task_id, "failed",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail=task.meta["error"],
+                    )
+                    return task
+
             # Swarm-style handoff when control transfers to a different agent
             if prev_agent and prev_agent != agent_name:
                 self.record_event(
@@ -658,6 +918,7 @@ class DurableEngine:
             task.current_step = step.number
             task.meta["last_agent"] = agent_name
             prev_agent = agent_name
+            steps_this_run += 1
             if "artifacts" in output:
                 task.meta["_artifact_path"] = (output["artifacts"] or [None])[0]
             # mission-control style per-step token estimate (prompt + output size)
@@ -753,6 +1014,31 @@ class DurableEngine:
                 detail=f"stopped early after {task.current_step}",
             )
             return task
+
+        # P9: opt-in require coverage gate before completed
+        if task_enforce_norms(task):
+            gaps = norm_require_gaps(task, policy=self.policy)
+            if gaps:
+                task.status = TaskStatus.failed
+                task.meta["error"] = f"norm require unmet: {', '.join(gaps)}"
+                task.meta["norm_violation"] = {
+                    "kind": "require",
+                    "unmet": gaps,
+                    "step": task.current_step,
+                }
+                self.save(task)
+                self.record_event(
+                    task.task_id, "norm",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={"kind": "require", "unmet": gaps, "phase": "pre_complete"},
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
 
         task.status = TaskStatus.completed
         task.meta["completed_at"] = time.time()
@@ -1930,9 +2216,20 @@ class DurableEngine:
         n_failures = len(explained.get("failures") or [])
         completed = status == TaskStatus.completed.value
         waiting_human = status == TaskStatus.waiting_human.value
-        # Ready to treat as delivered evidence: completed + integrity + budget
+        # P9: norms_ok — no recorded violation; when enforce on, also require gaps empty
+        norm_violation = task.meta.get("norm_violation")
+        require_gaps = (
+            norm_require_gaps(task, policy=self.policy) if task_enforce_norms(task) else []
+        )
+        norms_ok = not bool(norm_violation) and not require_gaps
+        # Ready to treat as delivered evidence: completed + integrity + budget + norms
         ready = bool(
-            completed and integrity_ok and budget_ok and has_timeline and not waiting_human
+            completed
+            and integrity_ok
+            and budget_ok
+            and has_timeline
+            and not waiting_human
+            and norms_ok
         )
         gates = {
             "integrity_ok": integrity_ok,
@@ -1942,6 +2239,7 @@ class DurableEngine:
             "completed": completed,
             "no_veto": n_vetoes == 0,
             "not_waiting_human": not waiting_human,
+            "norms_ok": norms_ok,
             "ready": ready,
         }
         gate_failures = [k for k, v in gates.items() if k != "ready" and not v]

@@ -893,6 +893,51 @@ def llm_draft(
         return None
 
 
+# Security / safety tokens — block auto-replies that would exfiltrate or self-harm ops
+_SECURITY_DENY_PATTERNS = (
+    "curl http",
+    "curl https",
+    "wget ",
+    "rm -rf /",
+    "DROP TABLE",
+    "api_key=",
+    "API_KEY=",
+    "BEGIN RSA PRIVATE",
+    "xai-",
+    "sk-ant-",
+    "ghp_",
+    "password:",
+    "sudo rm",
+    "mkfs.",
+    "base64 -d | bash",
+    "| bash",
+    "| sh",
+)
+
+
+def security_gate(
+    text: str,
+    *,
+    extra_deny: Optional[list[str]] = None,
+) -> tuple[bool, str]:
+    """Return (ok, reason). Fail closed on dangerous reply content.
+
+    Used before posting community drafts (agent security / workflow papers).
+    """
+    body = text or ""
+    low = body.lower()
+    for p in _SECURITY_DENY_PATTERNS:
+        if p.lower() in low:
+            return False, f"blocked pattern: {p!r}"
+    for p in extra_deny or []:
+        if p and p.lower() in low:
+            return False, f"blocked extra deny: {p!r}"
+    # huge dump risk
+    if len(body) > 12_000:
+        return False, "reply too long (>12000 chars)"
+    return True, "ok"
+
+
 def draft_reply(
     item: ThreadItem,
     *,
@@ -903,8 +948,20 @@ def draft_reply(
     if prefer_llm:
         text = llm_draft(item, repo=repo, panel=panel)
         if text:
-            return text
-    return heuristic_draft(item, repo=repo)
+            ok, reason = security_gate(text)
+            if ok:
+                return text
+            # fall through to heuristic if LLM draft is unsafe
+            _ = reason
+    text = heuristic_draft(item, repo=repo)
+    ok, reason = security_gate(text)
+    if not ok:
+        # last resort: minimal safe reply
+        return (
+            f"Thanks for opening this — a maintainer will review.\n\n"
+            f"(auto-draft suppressed: {reason})\n\n{BOT_MARKER}\n"
+        )
+    return text
 
 
 def auto_reply_open(
@@ -922,6 +979,16 @@ def auto_reply_open(
         if _thread_has_bot_comment(repo, item.number):
             continue
         body = draft_reply(item, repo=repo, panel=panel, prefer_llm=prefer_llm)
+        ok, reason = security_gate(body)
+        if not ok:
+            results.append({
+                "number": item.number,
+                "kind": item.kind,
+                "title": item.title,
+                "skipped": True,
+                "reason": reason,
+            })
+            continue
         res = post_comment(repo, item.number, body, dry_run=dry_run)
         res["kind"] = item.kind
         res["title"] = item.title
