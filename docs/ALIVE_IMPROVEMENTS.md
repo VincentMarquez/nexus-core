@@ -407,3 +407,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-406cb98836.md`
+
+## Cycle 2026-07-15 hard-apply P2.2 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: mission-control (primary) + IMPROVE_OURS top repos (AssetOpsBench / Network-AI / wshobson / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-36f52aff73.md`; communication **2203.08975**, context **2508.08322**, deterministic audit **2511.15755**)
+- apply slice (P2.2 OpenAPI-ish MCP tool catalog — **First apply slice** this session):
+  - `src/nexus/tool_catalog.py` — `nexus.tool_catalog/v1` + OpenAPI 3.1 export; privilege ladder; validate; export under `.nexus_state/tool_catalog/`
+  - `src/nexus/cli.py` — `nexus tools list|validate|catalog|openapi|export`
+  - `src/nexus/mcp_server.py` — tool `tool_catalog`; HTTP `GET /openapi.json` + `/catalog.json`
+  - tests: `tests/test_tool_catalog.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: builderz-labs/mission-control openapi export; arXiv 2606.20023 least-privilege; AssetOpsBench validate-as-smoke (pattern only, no tree vendor)
+- next open: P2.3 domain MCP eval smoke · P3 review→promote hook
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 300 passed
+
+## Cycle 2026-07-15 21:08:48Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-36f52aff73.md`

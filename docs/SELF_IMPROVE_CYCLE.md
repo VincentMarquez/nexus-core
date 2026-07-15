@@ -17,15 +17,15 @@ Model: `grok-4.5` · repos from `.nexus_state/repo_mine/IMPROVE_OURS.md` · arXi
 
 ## This session First apply slice
 
-**P2.1 Skillpack multi-harness generate/validate/drift** (wshobson/agents pattern + privilege ladder from arXiv 2606.20023).
+**P2.2 OpenAPI-ish MCP tool catalog export** (mission-control pattern + privilege ladder from arXiv 2606.20023).
 
 | Deliverable | Path |
 |-------------|------|
-| Core | `src/nexus/skillpacks.py` |
-| CLI | `nexus skillpacks …` in `src/nexus/cli.py` |
-| MCP | tool `skillpacks` in `src/nexus/mcp_server.py` |
-| Tests | `tests/test_skillpacks.py` |
-| Pack meta | `skillpacks/durable-operator/manifest.json` (`privilege: ops`) |
+| Core | `src/nexus/tool_catalog.py` |
+| CLI | `nexus tools …` in `src/nexus/cli.py` |
+| MCP | tool `tool_catalog` in `src/nexus/mcp_server.py` |
+| HTTP | `GET /openapi.json`, `GET /catalog.json` |
+| Tests | `tests/test_tool_catalog.py` |
 | Docs | this file, `docs/LATEST_IMPROVE_PLAN.md`, `docs/ALIVE_IMPROVEMENTS.md` |
 
 ## Guardrails
@@ -33,19 +33,23 @@ Model: `grok-4.5` · repos from `.nexus_state/repo_mine/IMPROVE_OURS.md` · arXi
 - Prefer small, tested changes; keep make test / pytest green.
 - Do **not** force-push; do **not** commit secrets; do **not** vendor whole upstream trees.
 - Port patterns from `.nexus_workspaces/scout_repos/` only.
-- Fail closed on invalid packs (refuse generate).
+- Fail closed on unmapped tools (default privilege `ops`) and invalid schemas.
 
-## Next after P2.1
+## Prior this cycle (already landed)
 
-- P2.2 OpenAPI-ish MCP tool catalog export (mission-control)
-- P2.3 Domain MCP eval smoke (AssetOpsBench)
-- Optional: wire generated stubs into `platforms connect`
+P0 durability · P1 operator board · improve_apply FSM · grade loop · ops_store · DAG · consensus · context pack · vault/gap seed · **P2.1 skillpacks**.
+
+## Next after P2.2
+
+- P2.3 Domain MCP eval smoke (AssetOpsBench) — extend catalog validate into domain fixtures
+- P3 Optional engine review→promote hook (zenith / cycgraph)
+- Optional: wire OpenAPI export into packaging / docs site
 
 ## Quick commands
 
 ```bash
-nexus skillpacks list --max-privilege write
-nexus skillpacks validate
-nexus skillpacks generate && nexus skillpacks drift
+nexus tools list --max-privilege read
+nexus tools validate
+nexus tools export && ls .nexus_state/tool_catalog/
 PYTHONPATH=src python3 -m pytest -q
 ```

@@ -421,6 +421,31 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "tool_catalog",
+        "description": (
+            "P2.2 OpenAPI-ish MCP tool catalog: list / validate / export / openapi "
+            "from TOOLS[] with privilege ladder (mission-control-shaped export)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list | validate | export | openapi | catalog",
+                    "default": "list",
+                },
+                "max_privilege": {
+                    "type": "string",
+                    "description": "read|write|ops|admin filter (least-privilege)",
+                },
+                "out_dir": {
+                    "type": "string",
+                    "description": "Relative export dir (default .nexus_state/tool_catalog)",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -922,6 +947,61 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 is_error=True,
             )
 
+        if name == "tool_catalog":
+            from . import tool_catalog as tc
+
+            action = str(args.get("action") or "list").lower()
+            max_priv = args.get("max_privilege") or None
+            try:
+                if action == "list":
+                    entries = tc.build_entries(max_privilege=max_priv)
+                    return _tool_result(
+                        json.dumps(
+                            {
+                                "schema": tc.SCHEMA_VERSION,
+                                "count": len(entries),
+                                "tools": [e.to_dict() for e in entries],
+                            },
+                            indent=2,
+                            default=str,
+                        )
+                    )
+                if action in ("catalog", "export"):
+                    out_dir = str(
+                        args.get("out_dir") or tc.DEFAULT_OUT_DIR
+                    ).lstrip("/\\")
+                    # Keep export under project root (path jail)
+                    if ".." in Path(out_dir).parts:
+                        return _tool_result(
+                            "out_dir escapes project root", is_error=True
+                        )
+                    if action == "catalog":
+                        data = tc.build_catalog(max_privilege=max_priv)
+                        # compact JSON — full catalog must stay parseable
+                        return _tool_result(json.dumps(data, default=str))
+                    result = tc.export_catalog(
+                        _root(), out_dir=out_dir, max_privilege=max_priv
+                    )
+                    return _tool_result(json.dumps(result, indent=2, default=str))
+                if action == "openapi":
+                    data = tc.build_openapi(max_privilege=max_priv)
+                    # compact + no mid-document truncation (clients parse this)
+                    return _tool_result(json.dumps(data, default=str))
+                if action == "validate":
+                    rep = tc.validate_tools()
+                    return _tool_result(
+                        json.dumps(rep.to_dict(), indent=2, default=str)
+                    )
+            except tc.CatalogError as e:
+                return _tool_result(f"CatalogError: {e}", is_error=True)
+            except Exception as e:
+                return _tool_result(f"tool_catalog error: {e}", is_error=True)
+            return _tool_result(
+                f"unknown tool_catalog action: {action} "
+                "(list|validate|export|openapi|catalog)",
+                is_error=True,
+            )
+
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError
 
@@ -1131,6 +1211,14 @@ def run_http(host: str = "127.0.0.1", port: int = 8765) -> int:
                 )
             if self.path == "/tools":
                 return self._send(200, {"tools": TOOLS})
+            if self.path in ("/openapi.json", "/openapi"):
+                from . import tool_catalog as tc
+
+                return self._send(200, tc.build_openapi())
+            if self.path in ("/catalog.json", "/catalog"):
+                from . import tool_catalog as tc
+
+                return self._send(200, tc.build_catalog())
             self._send(404, {"error": "not found"})
 
         def do_POST(self) -> None:
@@ -1152,7 +1240,7 @@ def run_http(host: str = "127.0.0.1", port: int = 8765) -> int:
         flush=True,
     )
     print(
-        f"[nexus-mcp] POST /tools/call  GET /tools  GET /health",
+        f"[nexus-mcp] POST /tools/call  GET /tools  GET /openapi.json  GET /health",
         file=sys.stderr,
         flush=True,
     )

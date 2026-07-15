@@ -2315,6 +2315,81 @@ def cmd_skillpacks(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_tools(args: argparse.Namespace) -> int:
+    """P2.2 OpenAPI-ish MCP tool catalog: list / validate / export / openapi."""
+    from . import tool_catalog as tc
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "tools_cmd", None) or "list"
+    as_json = bool(getattr(args, "json", False))
+    max_priv = getattr(args, "max_privilege", None)
+
+    if sub == "list":
+        entries = tc.build_entries(max_privilege=max_priv)
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "schema": tc.SCHEMA_VERSION,
+                        "count": len(entries),
+                        "tools": [e.to_dict() for e in entries],
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+        else:
+            print(tc.format_list(entries))
+        return 0
+
+    if sub == "validate":
+        rep = tc.validate_tools()
+        data = rep.to_dict()
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(tc.format_validate(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "catalog":
+        data = tc.build_catalog(max_privilege=max_priv)
+        # Structured document; use `list` for a human table.
+        print(json.dumps(data, indent=2, default=str))
+        return 0
+
+    if sub == "openapi":
+        data = tc.build_openapi(max_privilege=max_priv)
+        out = getattr(args, "out", None)
+        if out:
+            out_path = Path(out)
+            if not out_path.is_absolute():
+                out_path = root / out_path
+            from .persist import atomic_write_json
+
+            atomic_write_json(out_path, data)
+            print(f"wrote {out_path} ({len(data.get('paths') or {})} paths)")
+        else:
+            print(json.dumps(data, indent=2, default=str))
+        return 0
+
+    if sub == "export":
+        out_dir = getattr(args, "out", None) or tc.DEFAULT_OUT_DIR
+        result = tc.export_catalog(
+            root, out_dir=str(out_dir), max_privilege=max_priv
+        )
+        if as_json:
+            print(json.dumps(result, indent=2, default=str))
+        else:
+            print(tc.format_export(result))
+        return 0 if result.get("ok") else 1
+
+    print(
+        "usage: nexus tools list|validate|catalog|openapi|export",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -2336,6 +2411,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "alive",
         "vault",
         "skillpacks",
+        "tools",
         "procure",
         "arxiv",
         "research",
@@ -3481,6 +3557,72 @@ def main(argv: Optional[list[str]] = None) -> int:
     sk_dr.add_argument("--out", default=None, help="generated root to check")
     sk_dr.add_argument("--json", action="store_true")
     sk_dr.set_defaults(func=cmd_skillpacks)
+
+    tools = sub.add_parser(
+        "tools",
+        help="MCP tool catalog: list / validate / openapi export (P2.2)",
+    )
+    tools_sub = tools.add_subparsers(dest="tools_cmd")
+    tl = tools_sub.add_parser("list", help="list MCP tools with privilege tags")
+    tl.add_argument("--path", default=None)
+    tl.add_argument("--json", action="store_true")
+    tl.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="filter tools above this privilege (least-privilege)",
+    )
+    tl.set_defaults(func=cmd_tools)
+    tv = tools_sub.add_parser(
+        "validate",
+        help="structural + privilege validate of mcp_server.TOOLS",
+    )
+    tv.add_argument("--json", action="store_true")
+    tv.set_defaults(func=cmd_tools)
+    tc = tools_sub.add_parser(
+        "catalog",
+        help="emit nexus.tool_catalog/v1 JSON (stdout)",
+    )
+    tc.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+    )
+    tc.add_argument("--json", action="store_true")
+    tc.set_defaults(func=cmd_tools)
+    to = tools_sub.add_parser(
+        "openapi",
+        help="emit OpenAPI 3.1 document for MCP tools",
+    )
+    to.add_argument(
+        "--out",
+        default=None,
+        help="write path (default: stdout)",
+    )
+    to.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+    )
+    to.add_argument("--path", default=None)
+    to.set_defaults(func=cmd_tools)
+    te = tools_sub.add_parser(
+        "export",
+        help="write catalog.json + openapi.json under .nexus_state/tool_catalog",
+    )
+    te.add_argument("--path", default=None)
+    te.add_argument(
+        "--out",
+        default=None,
+        help="output dir (default: .nexus_state/tool_catalog)",
+    )
+    te.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+    )
+    te.add_argument("--json", action="store_true")
+    te.set_defaults(func=cmd_tools)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

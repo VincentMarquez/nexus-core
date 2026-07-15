@@ -16,80 +16,80 @@ Self-improve **nexus-core** from mined multi-agent repos + arXiv papers: small, 
 
 | Repo | Score | Pattern to port |
 |------|------:|-----------------|
-| wshobson/agents | 16 | Single Markdown skill → multi-harness generate/validate/drift |
-| builderz-labs/mission-control | 15 | Ops/CLI/MCP parity, packaging hygiene |
-| IBM/AssetOpsBench | 15 | Domain MCP + eval harness shape |
+| wshobson/agents | 16 | Single Markdown skill → multi-harness generate/validate/drift (P2.1) |
+| builderz-labs/mission-control | 15 | Ops/CLI/MCP parity, **openapi.json tool catalog (P2.2)** |
+| IBM/AssetOpsBench | 15 | Domain MCP + eval/smoke harness shape |
 | phodal/routa | 15 | Board/evidence export |
 | labsai/EDDI | 15 | Config-driven production signals |
 | automagik-dev/forge | 15 | HITL + worktree isolation |
 | ahmedEid1/lumen | 15 | Phase guards + honest grades |
 | MattMagg/MisterSmith | 15 | Supervision / durability OS |
-| openai/swarm | 14 | Agent handoff |
-| SolaceLabs/solace-agent-mesh | 14 | Event mesh packaging |
+| Network-AI | 14 | Dual packaging / catalog export hygiene |
 | (+ more in IMPROVE_OURS) | | |
 
-### arXiv (latest `improve-rx-406cb98836` + prior)
+### arXiv (latest `improve-rx-36f52aff73` + prior)
 
 | Id | Idea for NEXUS |
 |----|----------------|
 | 2508.08322 | Context engineering packs (landed P1.4) |
 | 2510.13343 | Ordered action decisions / next_agent (landed) |
 | 2512.03278 | Evidence-linked claims (grade + audit) |
-| 2606.20023 | Over-privileged tools → pack `privilege` ladder |
+| 2606.20023 | Over-privileged tools → privilege ladder on packs **and tools** |
 | 2203.08975 | Multi-agent communication survey |
-| 2502.07165 | Principle-based multi-agent prompting |
-| 2303.16641 | Adversarial hierarchy / zero-trust slices (P11) |
+| 2511.15755 | Deterministic multi-agent decision audit |
+| 2302.10809 | Causal explain (landed operator board) |
 
 ## 3. Prior slices already landed
 
-P0 durability (atomic persist, budgets, taint, state slice, eval memory, stop, verify-promote) · P1 operator board (handoff, veto, replay, explain, cost, prov, graph, evidence, DAG, consensus, context pack, vault, gap seed) · improve_apply FSM · grade_artifact loop · ops_store.
+P0 durability · P1 operator board (handoff, veto, replay, explain, cost, prov, graph, evidence, DAG, consensus, context pack, vault, gap seed) · improve_apply FSM · grade_artifact · ops_store · **P2.1 skillpacks**.
 
 ## 4. Open backlog (priority)
 
-| Pri | Item | Source |
-|-----|------|--------|
-| **P2.1** | **Skillpack generate/validate/drift + privilege filter** | wshobson/agents, 2606.20023 |
-| P2.2 | Lightweight OpenAPI-ish tool catalog export for MCP | mission-control |
-| P2.3 | Domain MCP eval smoke (AssetOpsBench shape) | IBM/AssetOpsBench |
-| P3 | Optional engine review→promote hook | zenith / cycgraph |
+| Pri | Item | Source | Status |
+|-----|------|--------|--------|
+| P2.1 | Skillpack generate/validate/drift + privilege filter | wshobson/agents, 2606.20023 | **done** |
+| **P2.2** | **Lightweight OpenAPI-ish tool catalog export for MCP** | mission-control | **this session** |
+| P2.3 | Domain MCP eval smoke (AssetOpsBench shape) | IBM/AssetOpsBench | open (partial: catalog validate smoke) |
+| P3 | Optional engine review→promote hook | zenith / cycgraph | open |
 
-## 5. First apply slice (this session) — P2.1
+## 5. First apply slice (this session) — P2.2
 
-**Implement multi-harness skillpack tooling from a single SKILL.md source.**
+**Export MCP `TOOLS[]` as a privilege-tagged catalog + OpenAPI 3.1 document (mission-control-shaped).**
 
 ### Scope
 
-1. `src/nexus/skillpacks.py`
-   - `list_packs` / `validate_pack` / `validate_all`
-   - `generate_pack` / `generate_all` → `.nexus_state/generated_skillpacks/`
-   - harness adapters: `grok`, `cursor`, `claude`, `codex`, `local`
-   - `drift_check` source vs generated
-   - `privilege` ladder + `--max-privilege` filter
-2. CLI: `nexus skillpacks list|validate|generate|drift`
-3. MCP tool: `skillpacks` (`action=list|validate|generate|drift`)
-4. Tests: `tests/test_skillpacks.py`
-5. Annotate `skillpacks/durable-operator/manifest.json` with `privilege: ops`
+1. `src/nexus/tool_catalog.py`
+   - `build_entries` / `build_catalog` (`nexus.tool_catalog/v1`)
+   - `build_openapi` (OpenAPI 3.1, `POST /tools/{name}`)
+   - `validate_tools` (unique names, required⊆properties, path parity)
+   - `export_catalog` → `.nexus_state/tool_catalog/`
+   - privilege ladder + `--max-privilege` filter
+2. CLI: `nexus tools list|validate|catalog|openapi|export`
+3. MCP tool: `tool_catalog` (`action=list|validate|export|openapi|catalog`)
+4. HTTP: `GET /openapi.json` + `GET /catalog.json`
+5. Tests: `tests/test_tool_catalog.py`
 
 ### Non-goals
 
-- Do not vendor wshobson monorepo or plugin trees
-- Do not implement full Cursor/Claude installers
-- No secrets in generated artifacts
+- Do not vendor mission-control monorepo or full REST product API
+- Do not implement auth / multi-tenant OpenAPI servers
+- No secrets in catalog artifacts
 
 ### Acceptance criteria
 
-- [x] `nexus skillpacks validate` green on durable-operator
-- [x] `generate` + `drift` round-trip
-- [x] least-privilege filter drops ops/admin packs when max=read/write
-- [x] MCP + CLI parity
-- [x] `PYTHONPATH=src python3 -m pytest -q` → 289 passed
+- [x] Live `mcp_server.TOOLS` validates clean
+- [x] Every tool gets an OpenAPI path + privilege tag
+- [x] least-privilege filter drops write/ops when max=read
+- [x] MCP + CLI + HTTP parity
+- [x] export writes `catalog.json` + `openapi.json` + `summary.md`
+- [x] `PYTHONPATH=src python3 -m pytest -q` green
 
 ## 6. Commands
 
 ```bash
-nexus skillpacks list
-nexus skillpacks validate --json
-nexus skillpacks generate
-nexus skillpacks drift
-PYTHONPATH=src python3 -m pytest -q tests/test_skillpacks.py
+nexus tools list --max-privilege write
+nexus tools validate --json
+nexus tools export
+nexus tools openapi --out .nexus_state/tool_catalog/openapi.json
+PYTHONPATH=src python3 -m pytest -q tests/test_tool_catalog.py
 ```
