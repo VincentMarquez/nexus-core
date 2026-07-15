@@ -725,3 +725,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-eee4f605c5.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — work ledger + dual-control (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI 17 / wshobson 16 / soul 15 / cas 15 / openrouter-deep-research 15 / lumen 15 / …) plan=`docs/LATEST_IMPROVE_PLAN.md` First apply slice + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: deterministic decision package **2511.15755**, anti-collusion **2601.00360**, interleaved invariants **1301.6431**, CEMA causal **2302.10809**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN — prove mine→grade→ledger→gated apply):
+  - `src/nexus/work_ledger.py` — append-only SQLite `work_events` (`nexus.work_ledger/v1`); events mine_completed / grade_recorded / decision_packet / apply_*; dual-control refuse same agent/role; decision packet threshold; `protected_call` breaker; handoffs; causal chain demo
+  - `src/nexus/cli.py` — `nexus improve work-loop` · `nexus improve work-ledger`
+  - tests: `tests/test_work_ledger.py` (append-only, dual-control, breaker, integration, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` success criteria checked; this log
+- patterns: soul immutable ledger; openrouter-deep-research breaker; lumen decision audit; cas/mission-control SQLite; anti-collusion 2601.00360 (pattern only, no tree vendor)
+- non-goals kept: no full EDDI/mission-control UI; no Temporal/NATS; no worktree swarm in this PR; no vendored trees
+- next open: wire work_ledger accept into worktree_apply / alive self_approve · optional MCP work_ledger tools · P0.5 interleaving invariants on worker transitions
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 466 passed; `nexus improve work-loop --repo wshobson/agents` → apply_accepted + causal chain
+
+## Cycle 2026-07-15 23:56:22Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-8c2205e729.md`

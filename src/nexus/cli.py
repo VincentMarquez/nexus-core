@@ -2995,9 +2995,74 @@ def cmd_improve(args: argparse.Namespace) -> int:
                 )
         return 0 if report.get("ok") else 1
 
+    # First apply slice: mine → grade → decision → gated accept (work ledger)
+    if sub in ("work-loop", "work_loop", "first-slice", "first_slice"):
+        from . import work_ledger as wl
+
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        report = wl.run_first_slice(
+            root,
+            fixture=fixture,
+            repo=getattr(args, "repo", None),
+            run_id=getattr(args, "run_id", None),
+            score_threshold=float(
+                getattr(args, "min_score", None) or wl.DEFAULT_SCORE_THRESHOLD
+            ),
+            pattern_name=str(
+                getattr(args, "pattern", None) or wl.DEFAULT_PATTERN
+            ),
+            accept=not bool(getattr(args, "reject", False)),
+            grader=str(getattr(args, "grader", None) or wl.DEFAULT_ROLES["grader"]),
+            applier=str(
+                getattr(args, "implementer", None)
+                or getattr(args, "applier", None)
+                or wl.DEFAULT_ROLES["applier"]
+            ),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(wl.format_slice_report(report))
+        return 0 if report.get("ok") else 1
+
+    if sub in ("work-ledger", "work_ledger", "wledger"):
+        from . import work_ledger as wl
+
+        limit = int(getattr(args, "limit", 20) or 20)
+        run_id = getattr(args, "run_id", None)
+        with wl.WorkLedger.open(root) as led:
+            if run_id and getattr(args, "show_chain", False):
+                chain = led.causal_chain(str(run_id))
+                if getattr(args, "json", False):
+                    print(json.dumps(chain, indent=2, default=str))
+                else:
+                    print(wl.format_causal_chain(chain))
+                return 0
+            rows = led.tail(limit=limit, run_id=run_id)
+            if getattr(args, "json", False):
+                print(json.dumps(rows, indent=2, default=str))
+                return 0
+            if not rows:
+                print(f"(no work events in {wl.ledger_dir(root)})")
+                return 0
+            print(f"{'TYPE':<18} {'ROLE':<10} {'AGENT':<16} {'REPO':<24} ID")
+            for r in rows:
+                print(
+                    f"{str(r.get('event_type') or ''):<18} "
+                    f"{str(r.get('role') or ''):<10} "
+                    f"{str(r.get('agent') or ''):<16} "
+                    f"{str(r.get('repo') or ''):<24} "
+                    f"{str(r.get('id') or '')}"
+                )
+        return 0
+
     print(
         "usage: nexus improve smoke|apply|promote|ledger|demo-loop|"
-        "select|board|decide|prefer",
+        "select|board|decide|prefer|work-loop|work-ledger",
         file=sys.stderr,
     )
     return 2
@@ -4717,6 +4782,76 @@ def main(argv: Optional[list[str]] = None) -> int:
     imp_dec.add_argument("--no-index", action="store_true", dest="no_index")
     imp_dec.add_argument("--json", action="store_true")
     imp_dec.set_defaults(func=cmd_improve, improve_cmd="decide")
+
+    # First apply slice: work ledger mine→grade→decision→gated accept
+    imp_wl = imp_sub.add_parser(
+        "work-loop",
+        help=(
+            "First apply slice: append-only work ledger mine→grade→decision"
+            "→apply_accepted (dual-control + circuit breaker, offline)"
+        ),
+    )
+    imp_wl.add_argument("--path", default=".", help="project workdir")
+    imp_wl.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    imp_wl.add_argument("--repo", default=None, help="select repo from fixture")
+    imp_wl.add_argument("--run-id", default=None, dest="run_id")
+    imp_wl.add_argument(
+        "--min-score",
+        type=float,
+        default=15.0,
+        dest="min_score",
+        help="score threshold for apply accept (default: 15.0)",
+    )
+    imp_wl.add_argument(
+        "--pattern",
+        default="immutable work ledger",
+        help="pattern name stamped on decision packet",
+    )
+    imp_wl.add_argument(
+        "--reject",
+        action="store_true",
+        help="record apply_rejected instead of apply_accepted",
+    )
+    imp_wl.add_argument("--grader", default="grok:grade")
+    imp_wl.add_argument(
+        "--applier",
+        default="worker:apply",
+        dest="applier",
+        help="applier agent (must differ from grader)",
+    )
+    imp_wl.add_argument(
+        "--implementer",
+        default=None,
+        help="alias for --applier",
+    )
+    imp_wl.add_argument(
+        "--show-chain",
+        action="store_true",
+        dest="show_chain",
+        help="print lumen-style causal chain (also in text report)",
+    )
+    imp_wl.add_argument("--json", action="store_true")
+    imp_wl.set_defaults(func=cmd_improve, improve_cmd="work-loop")
+
+    imp_wled = imp_sub.add_parser(
+        "work-ledger",
+        help="tail append-only work ledger events / causal chain",
+    )
+    imp_wled.add_argument("--path", default=".", help="project workdir")
+    imp_wled.add_argument("--run-id", default=None, dest="run_id")
+    imp_wled.add_argument("--limit", type=int, default=20)
+    imp_wled.add_argument(
+        "--show-chain",
+        action="store_true",
+        dest="show_chain",
+        help="print causal chain for --run-id",
+    )
+    imp_wled.add_argument("--json", action="store_true")
+    imp_wled.set_defaults(func=cmd_improve, improve_cmd="work-ledger")
 
     imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 

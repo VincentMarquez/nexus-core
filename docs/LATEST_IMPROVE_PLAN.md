@@ -1,177 +1,156 @@
 # Latest improve plan (from full self-improve cycle)
 
-I'll read the full offloaded prompt to extract all evidence, then write the plan from that only.Reading the full offloaded prompt for complete evidence.Trying filesystem access to load the full offloaded prompt.# NEXUS Self-Improvement Plan  
-**Target:** `/path/to/nexus-core`  
-**Method:** Grok 4.5 grade → reason → hard-apply patterns (not whole trees)  
-**Evidence constraints:** Only papers/repos present in EVIDENCE. One paper title was mid-truncated in the prompt payload; id is kept, title is marked incomplete.
+Reading the full offloaded prompt so the plan uses complete evidence only.Reading the full offloaded prompt for complete evidence.The interactive prompt failed; reading the offloaded evidence file next so the plan stays complete and accurate.# NEXUS Self-Improvement Plan  
+**Research + engineering apply from mined repos + arXiv (Grok 4.5 graded)**  
+Target: `/path/to/nexus-core` · Scope: multi-agent durability, MCP, mine/alive loops, grading, demos
 
 ---
 
 ## Executive summary
 
-- **Close the loop:** Treat mine → Grok grade → improve → re-mine as a durable workflow with checkpoint/resume, immutable grade ledgers, and public retention of weak scores (not only winners).
-- **Steal orchestration, not frameworks:** Highest-value ports are ops patterns—domain MCP servers + eval CLI (AssetOpsBench), workspace board for goals/tasks/traces (routa), cross-session memory/handoffs (soul), supervised durability (MisterSmith/rojak), worktree isolation (cas/forge).
-- **MCP as the integration spine:** Memory, research, team orchestration, and domain tools should attach as MCP servers with circuit breakers, budgets, and shared state—not ad-hoc LLM glue.
-- **Durability first, then demos:** Checkpoint/resume and idempotent apply steps unlock long-horizon alive/mine loops; demos and Kanban/control-plane UX ride on that foundation.
-- **First proof PR:** Smallest end-to-end slice = immutable mine-eval grade ledger + eval CLI + “keep weak scores” policy, wired into existing Grok grading output under `.nexus_workspaces/mine_eval/`.
+- **Port patterns, not trees.** Highest-leverage sources are config-driven orchestration (EDDI), Markdown agent/plugin marketplace (wshobson/agents), SQLite control/ops plane (mission-control), worktree supervisor+workers (cas/forge), and MCP memory/ledger (soul) — all score ≥15 and map onto NEXUS mine/alive + MCP surfaces.
+- **Papers drive invariants, not features.** Steal verification of interleaved agents, deterministic multi-agent orchestration for incident-style decisions, claim-verification grading, causal decision audit, anti-collusion/governance, and order-of-action scheduling — wire them into durable loops and Grok grading, not new product UI.
+- **Close the self-improve loop first.** Smallest proof is: mine → grade (Grok 4.5) → backlog item → hard-apply PR → alive re-eval — with immutable ledger + circuit breakers so failed applies do not corrupt state.
+- **P0 is durability + observability.** SQLite (or existing store) work ledger, handoffs, circuit breakers on MCP/research calls, and an agent-decision audit trail before broad adapter/marketplace work.
+- **Demos = honest public evals.** Lumen-style agent-decision audit + AssetOpsBench-style evaluation harness + mission-control OpenAPI-parity ops views; demos must show graded mine results and one applied improvement with tests green.
 
 ---
 
 ## 10 arXiv papers — what to steal for this codebase
 
-| # | arXiv id | Idea (from EVIDENCE) | Concrete NEXUS change |
+| # | arXiv id | Idea (from evidence) | Concrete NEXUS change |
 |---|----------|----------------------|------------------------|
-| 1 | **2510.13343** | AOAD-MAT: ordered multi-agent action decisions (query: durable multi-agent workflow checkpoint/resume; report score 29) | Encode **explicit action-order policies** in mine/alive orchestrators (who acts when under shared state); persist order + partial results for resume after crash. |
-| 2 | **2604.03350** | Multi-stage workflow: model-based screening → data-driven surrogates (query: durable multi-agent workflow checkpoint/resume; score 28) | Split mine/alive into **staged pipelines** (screen → deep-eval → apply) with stage checkpoints so expensive Grok grading is not repeated. |
-| 3 | **2508.08322** | Present in research report path `rx-1bccfca000` (score 22); **title truncated in EVIDENCE** | Re-read local `NEXUS_RESEARCH_REPORT.md` before apply; treat as high-signal durable-orchestration paper once title/body available. |
-| 4 | **2512.03278** | Thucy: multi-agent claim verification over relational DBs (query: multi-agent communication/coordination; score 20) | Add a **claim-verify agent** over durable store (SQLite/Postgres): “this repo scored X / this PR applied pattern Y” with DB-backed audit for grading demos. |
-| 5 | **2602.04518** | Learn agent value systems via preference / inverse RL (score 14) | Use Grok grades as **preference signals** to tune mine ranking weights (idea vs skill) instead of hard-coded score thresholds only. |
-| 6 | **2303.16641** | Hierarchical game-theoretic decisions under adversarial agents (score 14) | Model **supervisor vs worker** (and adversarial/noisy tool output) with hierarchical policies + budgets/guardrails in the control plane. |
-| 7 | **2506.03053** | MAEBE: multi-agent emergent behavior framework (score 13) | Instrument alive loops for **emergent failure modes** (premature stop, thrash, collusion); log metrics for stopping discipline. |
-| 8 | **2511.15755** | Multi-agent LLM orchestration for deterministic incident-response decision support (score 8) | For ops demos: **deterministic playbooks** (template workflows) over free-form chat for incident-style mine/apply failures. |
-| 9 | **2603.20143** | Multi-agent orchestration: perception + generative recomposition for expert inspection (score 8) | Structure research demos as **perceive (mine digest) → recompose (improve plan) → inspect (grade again)**. |
-| 10 | **2302.10809** | Causal explanations for sequential multi-agent decisions (score 7) | Attach **causal decision audits** to grade/apply steps (why this repo/pattern was chosen)—pairs with lumen-style decision audit. |
+| 1 | **2511.15755** | Multi-agent LLM orchestration for **deterministic, high-quality decision support** (incident response) | Make mine/alive **apply decisions** structured and replayable: fixed role prompts + scoring rubric + deterministic merge of agent votes before hard-apply; log decision packet for demos. |
+| 2 | **2512.03278** | **Thucy**: multi-agent **claim verification** over relational data | Treat mined-repo “ideas/claims” as claims against workspace evidence: claim → evidence rows → pass/fail grade; feed Grok 4.5 grading with structured claim/evidence pairs. |
+| 3 | **1301.6431** | **Automatic verification** of parameterised **interleaved multi-agent** systems | Add a lightweight **interleaving invariant checker** for concurrent worker/supervisor steps (worktrees, MCP tools): forbid illegal state transitions in durable orchestration. |
+| 4 | **2302.10809** | **Causal explanations** for sequential multi-agent decisions | Persist **why** each agent step ran (parent goal, prior tool result, grade delta) in the work ledger; surface in demos/audit as causal chains, not just logs. |
+| 5 | **2506.03053** | **MAEBE**: multi-agent **emergent behavior** framework | Instrument alive loop for emergent failure modes (thrash, premature stop, ping-pong handoffs); grade runs on emergent metrics, not only task success. |
+| 6 | **2601.00360** | Map **human anti-collusion** mechanisms into multi-agent AI | Prevent mine graders / apply agents from **rubber-stamping** each other: independent Grok grade vs apply agent, dual-control on hard-apply, separation of mine score vs merge authority. |
+| 7 | **2303.16641** | Hierarchical game-theoretic decisions under **adversarial** agents | Model “bad mine” / poisoned plugin as adversarial: hierarchical gate (scout → grade → quarantine → apply); adversarial-resistant ranking for score≥threshold sources. |
+| 8 | **2510.13343** | **AOAD-MAT**: order of **action decisions** among agents | Explicit **action-order policy** for supervisor/workers (e.g. grade before apply, test before merge, ledger write before handoff); encode order as config, not ad-hoc code. |
+| 9 | **2602.04518** | Learn agent **value systems** via preference / inverse RL | Align Grok grading weights (idea/skill/method) with observed preference labels from successful applies; store preference traces for rubric iteration. |
+| 10 | **2008.06604** | **Decomposition + hierarchical approximation** for multi-agent control | Decompose improve tasks into hierarchy: research slice → port pattern → module PR → demo; hierarchical backlog matching P0/P1/P2 with local controllers per layer. |
 
-**Also present but lower priority (not in top 10 apply set):** `1301.6431` (parameterised interleaved MAS verification), `2008.06604` (hierarchical control decomposition), `2601.00360` (anti-collusion mechanisms)—use later for formal checks / anti-gaming of grades.
+*Present in evidence but deferred (not in top 10 apply set):* 2508.08322 (tool-use multi-LLM / Claude Code context — title truncated in evidence), 2603.20143 (expert multi-agent inspection orchestration), 2604.03350 (multi-stage stochastic ABM workflow). Use later for demo scenarios / multi-stage screening of mine candidates.
 
 ---
 
 ## 10 GitHub repos — portable patterns
 
-Selected from IMPROVE_OURS / Grok-graded list (highest scores, port patterns not trees).
+Selected from Grok-graded mine + IMPROVE_OURS (score ≥13); top portable patterns for NEXUS — not full trees.
 
-| Repo | Score | Pattern to steal | Where to port in NEXUS |
-|------|------:|------------------|------------------------|
-| **IBM/AssetOpsBench** | 16.0 | Domain MCP servers + multi-backend runners + **evaluation CLI** as installable package | `mine_eval` / grading package: eval CLI over Grok grades; modular MCP surfaces for domain tools |
-| **phodal/routa** | 16.0 | Externalize **goals, tasks, traces, review** onto a workspace board; dual-backend monorepo discipline | Alive/mine control board UI + durable task/trace store; monorepo crate/package splits |
-| **wshobson/agents** | 15.0 | Single-source **agent/plugin marketplace** + multi-harness generators + validation | Prompt/plugin catalog for mine/alive roles; generators + schema validation gates |
-| **builderz-labs/mission-control** | 15.0 | SQLite control plane: **tasks, spend, runtimes, webhooks**; OpenAPI parity; Vitest/Playwright | Ops layer: spend/runtime budgets for Grok calls; webhook hooks for mine completion |
-| **SolaceLabs/solace-agent-mesh** | 15.0 | Event-driven multi-agent mesh; **CVE-aware pins**; mature Makefile/test surface | Event bus between mine/alive/grade workers; Makefile CI targets; dependency pinning hygiene |
-| **labsai/EDDI** | 15.0 | **Config-driven** routing, memory, MCP/A2A/OpenAPI/OAuth middleware | Declarative agent routing config (not hard-coded graphs); MCP + OpenAPI integration style |
-| **ahmedEid1/lumen** | 15.0 | Durable **idempotent** build loop; decision audit; phased migration guards; **public evals keep weak scores** | Idempotent improve-apply; migration guards for schema; grade store retains low scores |
-| **Jovancoding/Network-AI** | 15.0 | Control plane: shared **state, budgets, guardrails**; dual packaging; CLI/MCP | Shared budget/guardrail module for heterogeneous agents; CLI + MCP dual entrypoints |
-| **choihyunsus/soul** | 15.0 | MCP **cross-session memory**: KV, entity/core memory, handoffs, **immutable ledger**; SQLite/vector | Session memory MCP for mine→alive handoff; immutable grade/apply ledger |
-| **MattMagg/MisterSmith** | 15.0 | Rust multi-crate **supervised execution** + NATS/Postgres durability + MCP + operator surfaces | Supervisor runtime for workers; durable job queue; operator APIs for demos |
+| Repo | Score | Pattern to port | Where to port in NEXUS |
+|------|------:|-----------------|-------------------------|
+| **labsai/EDDI** | 17.0 | Config-driven orchestration middleware: routing, memory, API orchestration, MCP/A2A/OpenAPI without custom glue | Control-plane config for agent routing + MCP tool registry; replace ad-hoc agent wiring with declarative routes/memory policies |
+| **wshobson/agents** | 16.0 | Single Markdown source for agents/plugins + validate/test/generate tooling; multi-harness adapters | Mine/alive agent definitions as Markdown; generator + validator for Claude/Codex/Cursor-style harnesses used by NEXUS workers |
+| **builderz-labs/mission-control** | 15.0 | Self-hosted SQLite control plane: task, observe, govern; install/deploy/test + OpenAPI parity | Ops surface for mine/alive runs: task table, status API, governance flags; OpenAPI contract tests for control endpoints |
+| **codingagentsystem/cas** | 15.0 | Supervisor/workers in **git worktrees** + SQLite/MCP **persistent memory** | Isolate hard-apply PRs in worktrees under `.nexus_workspaces/`; SQLite memory for cross-worker state |
+| **choihyunsus/soul** | 15.0 | MCP cross-session **memory, handoffs, immutable work ledger** (SQLite/vector) | MCP server (or extension) for handoffs between mine/grade/apply agents; append-only work ledger for durability demos |
+| **wheattoast11/openrouter-deep-research-mcp** | 15.0 | Production MCP: **circuit breakers**, embedding model routing, key rotation, pglite persistence | Harden research/MCP clients used in arXiv + mine paths; circuit breaker + key rotation around Grok/provider calls |
+| **automagik-dev/forge** | 15.0 | Productized multi-agent task platform: worktree isolation + MCP/agent orchestration | Demo CLI/workflow: goal → workers in worktrees → MCP tools; mirror NEXUS improve slice UX |
+| **ahmedEid1/lumen** | 15.0 | One-sentence goal → loop with **agent-decision audit**, **honest public evals**, phased-migration durability | Grading demos: public eval report of mine scores; decision audit on apply; phased migration for schema/ledger changes |
+| **IBM/AssetOpsBench** | 15.0 | Domain **MCP servers** + multi-provider runners + **evaluation harness** | Modular domain MCP packages (mine, grade, apply, research) + shared eval harness for Grok grades vs ground truth |
+| **Jovancoding/Network-AI** | 15.0 | TS multi-agent control plane: dual packaging, **security exports**, CLI/MCP, framework adapters | Governance/coordination layer over heterogeneous stack; security exports for tool allowlists; CLI/MCP for demos |
 
-**Honorable ports (next wave, still in EVIDENCE):**  
-`codingagentsystem/cas` & `automagik-dev/forge` (git worktree isolation), `StreetLamb/rojak` (Temporal durable workflows + HITL), `openai/swarm` (lightweight handoff semantics), `Intelligent-Internet/zenith` (stopping discipline / anti-premature-completion), `wheattoast11/openrouter-deep-research-mcp` (circuit breakers, key rotation), `7836246/claude-team-mcp` (workflow templates / expert teams).
+**Honorable (same evidence band; pull selectively):** MattMagg/MisterSmith (supervised exec + durable state + MCP), StreetLamb/rojak (Temporal-style durable workflows/HITL), SolaceLabs/solace-agent-mesh (Makefile multi-layer tests, CVE-pinned deps), phodal/routa (workspace board: goals/tasks/traces/review), Intelligent-Internet/zenith (anti-premature-completion / replanning), openai/swarm (clean handoff primitive), 7836246/claude-team-mcp (workflow templates + roles).
 
 ---
 
 ## Prioritized engineering backlog
 
-### P0 — Prove durability + grading loop (must ship first)
+### P0 — Prove durable self-improve loop (must ship first)
 
-| Item | Touch areas (modules / paths under nexus-core) |
-|------|--------------------------------------------------|
-| **P0.1 Immutable grade ledger** (soul + lumen) | `mine_eval` store; SQLite (or existing workspace DB); append-only grades with idea/skill/method fields already produced by Grok |
-| **P0.2 Keep weak scores public** (lumen) | Grade retention policy; filters that currently drop low scores; mine_eval report generators |
-| **P0.3 Evaluation CLI** (AssetOpsBench) | New thin CLI (e.g. `nexus grade report|compare|export`) over ledger; CI-friendly exit codes |
-| **P0.4 Stage checkpoints** (papers 2510.13343, 2604.03350) | Mine pipeline stages: scout → digest → Grok grade → IMPROVE_OURS plan → apply; checkpoint after each stage under `.nexus_workspaces/` |
-| **P0.5 Idempotent apply markers** (lumen) | Improve-apply path: content-addressed “pattern already ported” markers so re-runs don’t double-apply |
+| Item | Steal from | Files / modules to touch (concrete) |
+|------|------------|-------------------------------------|
+| **P0.1 Immutable work ledger + handoffs** | soul, cas, mission-control | MCP/memory layer; SQLite schema for `work_events` (append-only), `handoffs`, `agent_session`; wire into mine → grade → apply state machine |
+| **P0.2 Deterministic apply decision packet** | 2511.15755, EDDI, lumen | Orchestration config + decision recorder: roles, scores, vote merge, audit JSON; reject apply without packet |
+| **P0.3 Circuit breakers on MCP/LLM/research** | openrouter-deep-research-mcp | MCP client / provider router: breaker state, key rotation hooks, fail-open vs fail-closed for mine/alive |
+| **P0.4 Anti-collusion dual control** | 2601.00360, wshobson/agents | Separate **grader** path (Grok 4.5) from **applier** path; hard-apply requires grade_id + independent threshold; no self-grade merges |
+| **P0.5 Interleaving invariants for workers** | 1301.6431, cas, forge | Supervisor/worktree coordinator: legal transitions only (e.g. `graded → applying → testing → merged|aborted`); unit tests for illegal sequences |
 
-### P1 — MCP + multi-agent durability
+### P1 — Mine/grade quality + observability
 
-| Item | Touch areas |
-|------|-------------|
-| **P1.1 Memory/handoff MCP** (soul) | MCP server package: KV + handoff + ledger tools for alive/mine session continuity |
-| **P1.2 Supervisor + worktree workers** (cas, forge, MisterSmith) | Orchestrator: supervisor assigns worktrees; workers isolated; status events back to control plane |
-| **P1.3 Shared budgets & guardrails** (Network-AI, mission-control) | Central budget (tokens/spend/time) + guardrail middleware around Grok and tool calls |
-| **P1.4 Config-driven routing** (EDDI) | YAML/JSON agent routes: role → model → tools → memory scope |
-| **P1.5 Event mesh between loops** (solace-agent-mesh pattern, not Solace lock-in) | Internal pub/sub: `mine.completed`, `grade.ready`, `apply.started`, `alive.tick` |
-| **P1.6 Causal / decision audit trail** (lumen + paper 2302.10809) | Structured “why this pattern” records next to grades and apply commits |
+| Item | Steal from | Files / modules to touch |
+|------|------------|--------------------------|
+| **P1.1 Claim-verification grading** | Thucy 2512.03278, AssetOpsBench eval harness | Grader module: claim + evidence refs from clone path; structured grade schema (idea/skill already used — add claim_pass rate) |
+| **P1.2 Causal step explanations** | 2302.10809, lumen audit | Ledger enrichment: `cause_of` / `because_of_event_id`; demo renderer for causal chains |
+| **P1.3 Markdown agent/plugin marketplace pattern** | wshobson/agents | `agents/` or `plugins/` Markdown sources + `validate`/`generate` scripts; adapters for harnesses NEXUS already shells out to |
+| **P1.4 Action-order policy config** | AOAD-MAT 2510.13343, EDDI | Declarative order: research → mine → grade → plan → apply → alive; enforce in orchestrator, not docs only |
+| **P1.5 SQLite control plane API + OpenAPI parity** | mission-control | Task/observe/govern HTTP or internal API; OpenAPI spec + contract tests for status of mine_eval / improve runs |
+| **P1.6 Emergent-behavior metrics in alive** | MAEBE 2506.03053, zenith (secondary) | Alive loop counters: replan count, premature-stop detections, handoff thrash; feed re-grade |
 
-### P2 — Marketplace, demos, hardening
+### P2 — Productization, demos, scale patterns
 
-| Item | Touch areas |
-|------|-------------|
-| **P2.1 Agent/plugin catalog** (wshobson/agents) | Single-source role prompts + validation schemas for mine/alive/grader agents |
-| **P2.2 Workspace board UX** (routa) | Goals/tasks/traces/review board for demos of live improve loops |
-| **P2.3 Ops surfaces** (mission-control) | Tasks, spend, runtimes, webhooks; OpenAPI parity for control plane |
-| **P2.4 Workflow templates / teams** (claude-team-mcp, openai/swarm handoffs) | Named expert teams + handoff protocol for research vs coding vs review |
-| **P2.5 Stopping discipline** (zenith + MAEBE) | Alive-loop anti-premature-completion + thrash detectors |
-| **P2.6 Circuit breakers / key rotation** (openrouter-deep-research-mcp) | Research MCP resilience when calling external model APIs |
-| **P2.7 Preference-tuned ranking** (paper 2602.04518) | Learn ranking weights from historical Grok grades |
-| **P2.8 Claim-verify over DB** (Thucy / 2512.03278) | Demo: multi-agent verification of “improve applied correctly” claims |
+| Item | Steal from | Files / modules to touch |
+|------|------------|--------------------------|
+| **P2.1 Domain MCP package split** | AssetOpsBench, Network-AI | Separate MCP servers/packages: research, mine, grade, apply; security exports / tool allowlists |
+| **P2.2 Preference / value-system traces** | 2602.04518 | Store human or Grok preference labels on apply outcomes; periodic rubric weight suggestion (offline) |
+| **P2.3 Hierarchical improve decomposition** | 2008.06604, routa board patterns | Backlog DAG: goal → tasks → traces → review; workspace board fields if UI exists, else CLI report |
+| **P2.4 Release/test engineering** | solace-agent-mesh, phodal/routa, lumen | Multi-layer Makefile/test targets; phased migration for ledger schema; CVE-pin discipline in deps |
+| **P2.5 Handoff primitive cleanup** | openai/swarm, claude-team-mcp | Minimal Agent+handoff API for templates/roles in improve workflows |
+| **P2.6 Adversarial / quarantine gate** | 2303.16641, EDDI routing | Quarantine low-trust mines; hierarchical approve path before code lands outside worktree |
 
 ---
 
 ## First apply slice  
-*(smallest PR-sized change that proves the self-improve loop)*
+**(smallest PR-sized change that proves the loop)**
 
 ### Goal
-Prove **mine → Grok grade → durable retain → report** without yet porting full orchestration.
-
-### Status: **LANDED** (2026-07-15, Grok 4.5 CLI worker)
-
-| Criterion | Status |
-|-----------|--------|
-| Append-only grade ledger (weak scores retained) | ✅ `src/nexus/grade_ledger.py` |
-| Eval CLI list/top/weak/export | ✅ `nexus grade …` + `nexus-eval` entrypoint |
-| `checkpoint_stage` / `load_checkpoint` | ✅ + mine `step_evaluate` hook |
-| `why_selected` export audit | ✅ MD/JSON export |
-| Tests green | ✅ `tests/test_grade_ledger.py` + full suite |
+Prove **mine → Grok grade → durable ledger event → gated hard-apply decision** without porting a full product.
 
 ### Scope (one PR)
 
-1. **Append-only grade ledger** for existing Grok mine results  
-   - Fields already in evidence: `repo`, `score`, `idea`, `skill`, `method` (e.g. `grok:grok-4.5`), digest path, timestamp.  
-   - Storage: SQLite under `.nexus_workspaces/mine_eval/ledger/grades.sqlite` with **immutable insert-only** API (triggers + API reject UPDATE/DELETE).  
-   - Policy: **retain weak scores** (no filter `score < threshold` on write).  
-   - Idempotent on `(run_id, repo, method)` — re-runs do not duplicate rows.
+1. **Append-only work ledger** (SQLite or existing NEXUS store) with events:
+   - `mine_completed` (repo, score, path under `.nexus_workspaces/mine_eval/`)
+   - `grade_recorded` (method=`grok:grok-4.5`, idea/skill/total)
+   - `apply_proposed` / `apply_rejected` / `apply_accepted` (requires `grade_id`, dual-control check)
+2. **Decision packet** (JSON): source repo, score ≥ threshold (e.g. 15.0), pattern name, target module path, tests to run — **no code apply yet beyond a stub “pattern note” or single config flag** if needed to keep PR small.
+3. **Circuit breaker stub** around one external call path used by grade/research (open/half-open/closed states + test fakes).
+4. **Invariant**: apply_accepted cannot occur without prior grade_recorded from a **different** agent role (anti-collusion minimal).
 
-2. **Minimal eval CLI** (AssetOpsBench-shaped)  
-   - `nexus grade list` / `nexus-eval list` — all graded repos  
-   - `nexus grade top --n 10` — IMPROVE_OURS candidates  
-   - `nexus grade weak --max-score 14` — shows kept weak scores  
-   - `nexus grade export --format md` — feeds improve plan generation  
-   - `nexus grade ingest [--fixture PATH]` — cold-start from digests  
-   - `nexus grade checkpoint` — stage resume helper  
+### Explicit non-goals for this PR
+- No full EDDI/mission-control UI  
+- No Temporal, NATS, Solace, or new language runtime  
+- No 32-adapter Network-AI surface  
+- No worktree swarm (cas/forge) yet — that is P0.5 follow-up if ledger lands clean
 
-3. **One unit-tested checkpoint helper**  
-   - `checkpoint_stage(run_id, stage, payload)` / `load_checkpoint(run_id, stage)` used by mine pipeline after `grade` stage so restarts skip re-grading.  
-   - `repo_mine.step_evaluate` writes ledger + checkpoint; skips repos already in checkpoint.
+### Suggested touch points
+- Durable state / MCP memory module (new or existing)
+- Mine/alive orchestration entrypoints that already write to `.nexus_workspaces/`
+- Grading path that already records `method=grok:grok-4.5`
+- Tests next to those modules (prefer small pure tests + one integration test with temp SQLite)
 
-4. **Decision audit stub**  
-   - When exporting top-N, write `why_selected` from grade fields (score breakdown)—seed for causal audit (paper 2302.10809 / lumen).
+### Tests to run
+1. **Unit:** ledger append-only (no update/delete of events); illegal transition `apply_accepted` without `grade_recorded` fails  
+2. **Unit:** dual-control: same role cannot grade and accept  
+3. **Unit:** circuit breaker opens after N failures and blocks call  
+4. **Integration:** fixture mine row (e.g. `labsai/EDDI` score 17.0 or `choihyunsus/soul` score 15.0 from evidence) → grade event → decision packet → `apply_proposed` with pattern “immutable work ledger” → accept/reject path  
+5. **Regression:** existing mine_eval / research report paths still resolve under `.nexus_workspaces/`  
+6. **Demo script (optional but recommended):** print causal chain for one improve decision (lumen-style audit) to stdout for demo credibility  
 
-### Explicit non-goals for this PR (kept)
-- No full MCP server yet  
-- No worktree supervisor  
-- No UI board  
-- No Temporal/NATS  
-- No hard-apply of foreign repo code trees  
+### Success criteria (loop proved)
+- [x] One graded mined repo produces a ledger chain visible in demo  
+- [x] Hard-apply gate refuses missing/self grade  
+- [x] Breaker tests green without live network  
+- [x] PR-sized: reviewable in &lt; ~400 LOC of core logic + tests  
+- [x] Documents the **next** slice (P0.5 worktree isolation or P1.1 claim-verification grading) in the PR body  
 
-### Files landed
-- `src/nexus/grade_ledger.py` — ledger + checkpoint + ingest/export  
-- `src/nexus/grade_cli.py` — `nexus-eval` entrypoint  
-- `src/nexus/cli.py` — `nexus grade …`  
-- `src/nexus/repo_mine.py` — evaluate → ledger + checkpoint resume  
-- `pyproject.toml` — `nexus-eval` script  
-- `tests/test_grade_ledger.py`  
+### Landed this cycle (Grok 4.5 CLI worker)
 
-### Operator proof
+| Piece | Module / surface |
+|-------|------------------|
+| Append-only `work_events` | `src/nexus/work_ledger.py` (`nexus.work_ledger/v1`) under `.nexus_workspaces/work_ledger/` |
+| Events | `mine_completed` · `grade_recorded` · `decision_packet` · `apply_proposed` · `apply_rejected` · `apply_accepted` |
+| Dual-control | `apply_accepted` requires prior `grade_recorded` from a **different** agent/role |
+| Decision packet | `build_decision_packet` / `validate_decision_packet` (`nexus.decision_packet/v1`) |
+| Circuit breaker | `protected_call` + existing `CircuitBreaker` on grade path |
+| Causal chain | `causal_chain` / `format_causal_chain` (lumen-style demo audit) |
+| CLI | `nexus improve work-loop` · `nexus improve work-ledger` |
+| Tests | `tests/test_work_ledger.py` (15 cases) |
 
-```bash
-PYTHONPATH=src python3 -m nexus.cli grade ingest --fixture tests/fixtures/mine_eval_sample.json
-PYTHONPATH=src python3 -m nexus.cli grade top -n 10
-PYTHONPATH=src python3 -m nexus.cli grade weak --max-score 14
-PYTHONPATH=src python3 -m nexus.cli grade export --format md
-# or: nexus-eval top --n 10
-```
-
-### Immediate next PR (P0.5 / P1.1 preview)
-Wire ledger export into an **idempotent apply plan** consumer (markers only), then add soul-style MCP handoff so alive loop reads the same ledger.
+### Immediate next PR after slice
+**P0.5 + cas/forge worktree apply:** wire `work_ledger` accept into `worktree_apply` / alive `self_approve` so a real pattern port lands only after ledger dual-control + grade threshold; optional MCP tools `work_ledger_tail` / `work_loop`.
 
 ---
 
-### Apply order after first slice
-1. P0 complete (ledger + CLI + checkpoints + weak-score policy)  
-2. P1.1 memory/handoff MCP + P1.2 worktree supervisor  
-3. P1.3–P1.6 budgets, routing, events, audit  
-4. P2 demos (routa board, mission-control ops, plugin catalog)
-
-### Evidence hygiene
-- Do **not** invent paper ids or repos beyond EVIDENCE.  
-- Re-open truncated research payload / `NEXUS_RESEARCH_REPORT.md` for full title of **2508.08322** before citing it in product docs.  
-- Prefer pattern extraction from local clones under `.nexus_workspaces/scout_repos/` and `.nexus_workspaces/mine_eval/` over vendoring entire trees.
+*Sources constrained to EVIDENCE only: Grok-graded mined repos, IMPROVE_OURS plan (score ≥10), and arXiv ids/titles listed in the research harvest. No invented paper ids or repos.*
