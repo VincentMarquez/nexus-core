@@ -367,3 +367,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5536a7eec8.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (mission-control / lumen / AssetOpsBench / MisterSmith / wshobson / zenith / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT ordered decisions **2510.13343**, Thucy evidence **2512.03278**, CEMA causal lite **2302.10809**, context **2508.08322**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN §5):
+  - `src/nexus/grade_artifact.py` — `nexus.grade/v1` `{repo,score,idea,skill,method,path}`; offline list/get from IMPROVE_OURS; ordered `grade_read`→`apply_plan` with `next_agent` checkpoint; zenith `success_guard` (score+audit+resume_ok); routa-lite `format_board`
+  - `src/nexus/mcp_server.py` — tools `list_graded_candidates`, `get_grade`, `get_run_checkpoint`, `get_run_status`
+  - `src/nexus/improve_apply.py` — grade path field + status `next_agent` mapping
+  - `src/nexus/cli.py` — `nexus demo grade-loop [--repo] [--run-id]`
+  - tests: `tests/test_grade_artifact.py` (schema, resume, MCP contract, premature-stop)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` acceptance criteria checked; this log
+- patterns: lumen honest grades + audit; zenith anti-premature complete; mission-control MCP contract; routa board; AOAD-MAT next actor restore (pattern only, no tree vendor)
+- non-goals kept: no vendored monorepos, no full TUI, no preference IRL
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 276 passed
+
+## Cycle 2026-07-15 20:48:25Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f732b12d4d.md`

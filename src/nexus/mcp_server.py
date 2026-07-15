@@ -329,6 +329,64 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "list_graded_candidates",
+        "description": (
+            "List offline Grok grade artifacts (repo/score/idea/skill/method/path) "
+            "from IMPROVE_OURS / mine digests. First-apply slice P0.2/P0.3."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "min_score": {"type": "number", "default": 10.0},
+                "limit": {"type": "integer", "default": 20},
+            },
+        },
+    },
+    {
+        "name": "get_grade",
+        "description": (
+            "Get one Grok grade artifact by repo id (offline, no network)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "owner/name e.g. ahmedEid1/lumen",
+                },
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "get_run_checkpoint",
+        "description": (
+            "Read durable checkpoint for a grade_loop or improve_apply run "
+            "(next_agent + action_order — AOAD-MAT ordered resume)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "get_run_status",
+        "description": (
+            "Query grade_loop / improve_apply run status including success guard "
+            "(score threshold + audit + resume_ok)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    },
 ]
 
 
@@ -682,6 +740,72 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 )
             # presence only — never values
             return _tool_result(json.dumps(vault.status(), indent=2, default=str))
+
+        if name == "list_graded_candidates":
+            from . import grade_artifact as ga
+
+            root = _root()
+            rows = ga.list_graded_candidates(
+                root,
+                min_score=float(args.get("min_score") or ga.DEFAULT_SCORE_THRESHOLD),
+                limit=int(args.get("limit") or 20),
+            )
+            slim = [
+                {
+                    "repo": r.get("repo"),
+                    "score": r.get("score"),
+                    "idea": r.get("idea"),
+                    "skill": r.get("skill"),
+                    "method": r.get("method"),
+                    "path": r.get("path"),
+                }
+                for r in rows
+            ]
+            return _tool_result(
+                json.dumps(
+                    {"schema": ga.SCHEMA_VERSION, "count": len(slim), "candidates": slim},
+                    indent=2,
+                    default=str,
+                )
+            )
+
+        if name == "get_grade":
+            from . import grade_artifact as ga
+
+            root = _root()
+            repo = str(args.get("repo") or "").strip()
+            if not repo:
+                return _tool_result("repo required", is_error=True)
+            g = ga.get_grade(root, repo)
+            if not g:
+                return _tool_result(f"grade not found: {repo}", is_error=True)
+            return _tool_result(json.dumps(g, indent=2, default=str))
+
+        if name == "get_run_checkpoint":
+            from . import grade_artifact as ga
+
+            root = _root()
+            run_id = str(args.get("run_id") or "").strip()
+            if not run_id:
+                return _tool_result("run_id required", is_error=True)
+            try:
+                cp = ga.get_run_checkpoint(root, run_id)
+            except FileNotFoundError as e:
+                return _tool_result(str(e), is_error=True)
+            return _tool_result(json.dumps(cp, indent=2, default=str))
+
+        if name == "get_run_status":
+            from . import grade_artifact as ga
+
+            root = _root()
+            run_id = str(args.get("run_id") or "").strip()
+            if not run_id:
+                return _tool_result("run_id required", is_error=True)
+            try:
+                st = ga.get_run_status(root, run_id)
+            except FileNotFoundError as e:
+                return _tool_result(str(e), is_error=True)
+            return _tool_result(json.dumps(st, indent=2, default=str)[:12000])
 
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError

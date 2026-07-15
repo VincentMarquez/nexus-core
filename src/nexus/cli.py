@@ -362,6 +362,30 @@ def cmd_demo(args: argparse.Namespace) -> int:
     root = Path(__file__).resolve().parents[2]
     # First-apply slice: grade → durable phase FSM → decision audit
     slice_name = getattr(args, "slice", None) or getattr(args, "demo_slice", None)
+    if slice_name in {"grade-loop", "grade_loop"}:
+        from . import grade_artifact as ga
+
+        workdir = Path(getattr(args, "workdir", None) or root).resolve()
+        run_id = getattr(args, "run_id", None)
+        repo = getattr(args, "repo", None)
+        if run_id:
+            gl = workdir / ".nexus_workspaces" / "grade_loop" / str(run_id) / "checkpoint.json"
+            if gl.is_file():
+                run = ga.resume_ordered_loop(workdir, str(run_id))
+            else:
+                run = ga.start_ordered_loop(
+                    workdir, repo=repo, run_id=str(run_id), dry_run=True
+                )
+        else:
+            run = ga.start_ordered_loop(workdir, repo=repo, dry_run=True)
+        # Prove crash/resume: grade_read → save → reload → apply_plan
+        run.run_grade_read()
+        mid = ga.resume_ordered_loop(workdir, run.run_id)
+        assert mid.next_agent == "apply_plan"
+        status = mid.run_to_done()
+        print(ga.format_board(status))
+        return 0 if status.get("status") == "success" else 1
+
     if slice_name == "self-improve-slice" or getattr(args, "self_improve_slice", False):
         from . import improve_apply as ia
 
@@ -2310,8 +2334,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         "slice",
         nargs="?",
         default=None,
-        choices=["self-improve-slice"],
-        help="optional: self-improve-slice (grade→phase FSM→audit proof)",
+        choices=["self-improve-slice", "grade-loop"],
+        help="optional: self-improve-slice | grade-loop (grade_read→apply_plan + MCP board)",
+    )
+    p_demo.add_argument(
+        "--repo",
+        default=None,
+        help="with grade-loop: pick offline grade by owner/name",
     )
     p_demo.add_argument(
         "--all",

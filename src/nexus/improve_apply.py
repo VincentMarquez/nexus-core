@@ -231,11 +231,13 @@ def build_audit(
 def default_lumen_grade() -> dict[str, Any]:
     """EVIDENCE-backed fixture grade for ahmedEid1/lumen (score 15.0)."""
     return {
+        "schema": "nexus.grade/v1",
         "repo": "ahmedEid1/lumen",
         "score": 15.0,
         "idea": 7.0,
         "skill": 8.0,
         "method": DEFAULT_METHOD,
+        "path": ".nexus_workspaces/mine_eval/ahmedEid1__lumen",
         "pattern": (
             "idempotent phases + migration-phase guards + decision audit "
             "(honest public evals)"
@@ -248,19 +250,32 @@ def default_lumen_grade() -> dict[str, Any]:
 
 
 def load_grade_fixture(path: Path | str) -> dict[str, Any]:
-    """Load a grade JSON file, or synthesize from a mine_eval/scout directory name."""
+    """Load a grade JSON file, or synthesize from a mine_eval/scout directory name.
+
+    Prefer the P0.2 ``nexus.grade/v1`` contract when fields are present.
+    """
     p = Path(path)
     if p.is_file() and p.suffix.lower() == ".json":
-        data = json.loads(p.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise AuditValidationError("grade fixture JSON must be an object")
-        return data
+        try:
+            from .grade_artifact import load_grade
+
+            return load_grade(p)
+        except Exception:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise AuditValidationError("grade fixture JSON must be an object")
+            # fill path for contract compatibility
+            if not data.get("path"):
+                data["path"] = str(p)
+            return data
 
     # Directory fixture: derive repo slug from name like ahmedEid1__lumen
     name = p.name if p.exists() else str(path).rstrip("/").split("/")[-1]
     if name == "ahmedEid1__lumen" or "lumen" in name.lower():
         g = default_lumen_grade()
         g["fixture_path"] = str(p)
+        if not g.get("path"):
+            g["path"] = str(p)
         return g
 
     # Generic synthetic grade from directory slug
@@ -272,6 +287,7 @@ def load_grade_fixture(path: Path | str) -> dict[str, Any]:
         "skill": 5.0,
         "method": DEFAULT_METHOD,
         "pattern": f"portable pattern from mined repo {repo}",
+        "path": str(p),
         "fixture_path": str(p),
     }
 
@@ -638,9 +654,19 @@ class ImproveApplyRun:
         return self.status()
 
     def status(self) -> dict[str, Any]:
+        # Map phase FSM → ordered next_agent (grade_read → apply_plan)
+        next_agent = {
+            "briefed": "grade_read",
+            "context_packed": "apply_plan",
+            "applying": "apply_plan",
+            "audited": "done",
+            "done": "done",
+        }.get(self.phase, self.phase)
         return {
             "run_id": self.run_id,
             "phase": self.phase,
+            "next_agent": next_agent,
+            "action_order": ["grade_read", "apply_plan"],
             "dry_run": self.dry_run,
             "grade": {
                 "repo": self.grade.get("repo"),
@@ -650,6 +676,7 @@ class ImproveApplyRun:
                 "method": self.grade.get("method") or DEFAULT_METHOD,
                 "pattern": self.grade.get("pattern"),
                 "arxiv_id": self.grade.get("arxiv_id"),
+                "path": self.grade.get("path"),
             },
             "audit_path": self.audit_path,
             "context_pack_path": self.context_pack_path,
