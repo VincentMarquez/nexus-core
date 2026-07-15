@@ -3,6 +3,10 @@
 Checkpoints use atomic write-then-rename (Temporal / Durable Functions shape).
 Each status/step transition also appends to an append-only JSONL event journal
 (replay + audit; edict/MisterSmith-inspired, filesystem-only).
+
+Also records swarm-style handoffs when the active agent changes, injects last-N
+journal lines on resume (context engineering), and fail-closes on review veto
+(edict-style).
 """
 
 from __future__ import annotations
@@ -22,6 +26,9 @@ from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
 from .steps import StepPolicy, structural_ok
 from .trust import TrustLog
+
+# Review step verdicts that hard-fail the pipeline (edict fail-closed audit).
+REVIEW_VETO_VERDICTS = frozenset({"reject", "veto", "fail", "deny", "blocked"})
 
 
 class TaskStatus(str, Enum):
@@ -131,7 +138,38 @@ class DurableEngine:
 
     def events(self, task_id: str, *, limit: Optional[int] = None) -> list[dict[str, Any]]:
         """Return the append-only event log for a task (replay / audit)."""
-        return read_jsonl(self._events_path(task_id), limit=limit)
+        rows = read_jsonl(self._events_path(task_id))
+        if limit is not None and limit >= 0:
+            # keep the most recent *limit* events for operator convenience
+            rows = rows[-limit:] if limit else []
+        return rows
+
+    def journal_context(self, task_id: str, *, limit: int = 8) -> str:
+        """Shallow last-N journal block for agent prompts (context engineering)."""
+        if not self.journal or limit <= 0:
+            return ""
+        rows = self.events(task_id, limit=limit)
+        if not rows:
+            return ""
+        lines = ["# RECENT TASK JOURNAL (read before acting)"]
+        for r in rows:
+            parts = [str(r.get("event", "?"))]
+            if r.get("step") is not None:
+                parts.append(f"step={r['step']}")
+            if r.get("agent"):
+                parts.append(f"agent={r['agent']}")
+            if r.get("status"):
+                parts.append(f"status={r['status']}")
+            if r.get("detail"):
+                parts.append(str(r["detail"])[:80])
+            extra_bits = []
+            for k in ("from_agent", "to_agent", "decision"):
+                if r.get(k):
+                    extra_bits.append(f"{k}={r[k]}")
+            if extra_bits:
+                parts.append(" ".join(extra_bits))
+            lines.append("- " + " ".join(parts))
+        return "\n".join(lines) + "\n"
 
     def save(self, task: Task) -> None:
         path = self._task_path(task.task_id)
@@ -167,6 +205,8 @@ class DurableEngine:
         steps = list(self.policy)
         start_step = task.current_step
         stopped_early = False
+        # seed prior agent from meta so resume still emits handoffs correctly
+        prev_agent: Optional[str] = task.meta.get("last_agent")
         for step in steps:
             if step.number <= task.current_step:
                 continue
@@ -175,6 +215,14 @@ class DurableEngine:
                 break
 
             agent_name = self.panel.resolve(step)
+            # Swarm-style handoff when control transfers to a different agent
+            if prev_agent and prev_agent != agent_name:
+                self.record_event(
+                    task.task_id, "handoff",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=f"{prev_agent}->{agent_name}",
+                    extra={"from_agent": prev_agent, "to_agent": agent_name},
+                )
             self.record_event(
                 task.task_id, "step_start",
                 step=step.number, agent=agent_name, status=task.status.value,
@@ -187,6 +235,10 @@ class DurableEngine:
                 "success_criteria": task.success_criteria,
                 "prior": {n: task.outputs.get(n) for n in range(1, step.number)},
             }
+            # Context engineering: shallow journal on resume / mid-run only
+            journal_blk = ""
+            if task.current_step > 0:
+                journal_blk = self.journal_context(task.task_id, limit=8)
             prompt = (
                 f"Step {step.number} {step.name}: {step.description}\n"
                 f"Objective: {task.objective}\n"
@@ -194,6 +246,8 @@ class DurableEngine:
                 f"{ctx['cascade']}\n"
                 f"Memory hits: {len(ctx['memory'])}\n"
             )
+            if journal_blk:
+                prompt += journal_blk
 
             # Human gate — pause before running the approval step body
             if step.human and not self.auto_approve:
@@ -210,6 +264,8 @@ class DurableEngine:
                         )
                         return task
                     task.current_step = step.number
+                    task.meta["last_agent"] = agent_name
+                    prev_agent = agent_name
                     self.save(task)
                     self.record_event(
                         task.task_id, "step_complete",
@@ -267,6 +323,28 @@ class DurableEngine:
                     )
                     return task
 
+            # Edict-style formal review veto (fail-closed)
+            if step.name == "review":
+                raw_verdict = str(output.get("verdict") or "").strip().lower()
+                if raw_verdict in REVIEW_VETO_VERDICTS:
+                    task.status = TaskStatus.failed
+                    task.meta["error"] = f"review veto: {raw_verdict}"
+                    task.outputs[step.number] = dict(output)
+                    task.meta["last_agent"] = agent_name
+                    self.save(task)
+                    self.record_event(
+                        task.task_id, "veto",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail=task.meta["error"],
+                        extra={"verdict": raw_verdict},
+                    )
+                    self.record_event(
+                        task.task_id, "failed",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail=task.meta["error"],
+                    )
+                    return task
+
             verdict = self.judge.evaluate(
                 step=step, task=run_task, output=output, implementer=agent_name
             )
@@ -297,6 +375,7 @@ class DurableEngine:
             task.outputs[step.number] = {**output, "_verdict": verdict.to_dict()}
             task.current_step = step.number
             task.meta["last_agent"] = agent_name
+            prev_agent = agent_name
             if "artifacts" in output:
                 task.meta["_artifact_path"] = (output["artifacts"] or [None])[0]
             self.save(task)
@@ -356,6 +435,7 @@ class DurableEngine:
         return self.run(task)
 
     def list_tasks(self) -> list[dict[str, Any]]:
+        """Operator task board (MisterSmith / threadwork shape): status + last event."""
         d = self.settings.state_dir / "tasks"
         if not d.is_dir():
             return []
@@ -368,13 +448,25 @@ class DurableEngine:
                 continue
             try:
                 t = Task.from_dict(json.loads(p.read_text(encoding="utf-8")))
+                n_events = 0
+                last_event = ""
+                last_agent = t.meta.get("last_agent") or ""
+                if self.journal:
+                    rows = self.events(t.task_id)
+                    n_events = len(rows)
+                    if rows:
+                        last_event = str(rows[-1].get("event") or "")
+                        if not last_agent:
+                            last_agent = str(rows[-1].get("agent") or "")
                 out.append(
                     {
                         "task_id": t.task_id,
                         "status": t.status.value,
                         "current_step": t.current_step,
                         "objective": t.objective[:120],
-                        "events": len(self.events(t.task_id)) if self.journal else 0,
+                        "events": n_events,
+                        "last_event": last_event,
+                        "last_agent": last_agent,
                     }
                 )
             except Exception:

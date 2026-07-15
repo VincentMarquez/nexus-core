@@ -1203,6 +1203,86 @@ def cmd_usage(args: argparse.Namespace) -> int:
     return 2
 
 
+def _task_settings(args: argparse.Namespace):
+    """Resolve Settings for task inspect commands (state-dir override or env)."""
+    from .config import Settings
+
+    state = getattr(args, "state_dir", None) or os.environ.get("NEXUS_STATE_DIR")
+    if state:
+        return Settings(state_dir=Path(state))
+    return Settings()
+
+
+def cmd_task(args: argparse.Namespace) -> int:
+    """Operator surface: list tasks / show checkpoint / pretty-print event journal."""
+    from .engine import DurableEngine
+
+    settings = _task_settings(args)
+    engine = DurableEngine(settings=settings, auto_approve=True, journal=True)
+    sub = getattr(args, "task_cmd", None)
+
+    if sub == "list":
+        rows = engine.list_tasks()
+        if not rows:
+            print(f"(no tasks in {settings.state_dir / 'tasks'})")
+            return 0
+        print(
+            f"{'TASK_ID':<24} {'STATUS':<14} {'STEP':>4} {'EVENTS':>6} "
+            f"{'LAST':<14} {'AGENT':<12}  OBJECTIVE"
+        )
+        for r in rows:
+            print(
+                f"{r['task_id']:<24} {r['status']:<14} {r['current_step']:>4} "
+                f"{r.get('events', 0):>6} {str(r.get('last_event') or '')[:14]:<14} "
+                f"{str(r.get('last_agent') or '')[:12]:<12}  {r.get('objective', '')}"
+            )
+        return 0
+
+    if sub == "show":
+        try:
+            task = engine.load(args.task_id)
+        except FileNotFoundError:
+            print(f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        print(json.dumps(task.to_dict(), indent=2, default=str))
+        return 0
+
+    if sub == "events":
+        rows = engine.events(args.task_id, limit=int(getattr(args, "limit", 50) or 50))
+        path = engine._events_path(args.task_id)
+        if not rows:
+            if not path.is_file():
+                print(f"no journal for task {args.task_id!r} ({path})", file=sys.stderr)
+                return 1
+            print(f"(empty journal: {path})")
+            return 0
+        if getattr(args, "json", False):
+            print(json.dumps(rows, indent=2, default=str))
+            return 0
+        print(f"# events for {args.task_id}  ({len(rows)} shown)  path={path}")
+        for r in rows:
+            ts = r.get("ts")
+            try:
+                ts_s = time.strftime("%H:%M:%S", time.localtime(float(ts))) if ts else "??:??:??"
+            except (TypeError, ValueError, OSError):
+                ts_s = "??:??:??"
+            step = r.get("step")
+            step_s = f"s{step}" if step is not None else "  "
+            agent = (r.get("agent") or "")[:16]
+            ev = r.get("event", "?")
+            detail = (r.get("detail") or "")[:60]
+            extra = ""
+            if r.get("from_agent") or r.get("to_agent"):
+                extra = f"  {r.get('from_agent', '')}->{r.get('to_agent', '')}"
+            elif r.get("verdict"):
+                extra = f"  verdict={r['verdict']}"
+            print(f"{ts_s}  {step_s:>3}  {ev:<14}  {agent:<16}  {detail}{extra}")
+        return 0
+
+    print(f"unknown task subcommand: {sub}", file=sys.stderr)
+    return 2
+
+
 def cmd_alive(args: argparse.Namespace) -> int:
     """Self-improvement under user goals + token budget."""
     from . import alive as al
@@ -1284,6 +1364,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "procure",
         "arxiv",
         "research",
+        "task",
         "-h",
         "--help",
     }
@@ -2064,6 +2145,31 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="skip LLM brief (structured summary only)",
     )
     rs.set_defaults(func=cmd_research)
+
+    # --- durable task inspect (event journal / operator surface) ---
+    tk = sub.add_parser("task", help="list / inspect durable tasks and event journals")
+    tk_sub = tk.add_subparsers(dest="task_cmd", required=True)
+    tk_list = tk_sub.add_parser("list", help="list checkpointed tasks")
+    tk_list.add_argument(
+        "--state-dir",
+        default=None,
+        help="state directory (default: .nexus_state or NEXUS_STATE_DIR)",
+    )
+    tk_list.set_defaults(func=cmd_task)
+    tk_ev = tk_sub.add_parser("events", help="pretty-print append-only task event journal")
+    tk_ev.add_argument("task_id", help="task id (e.g. t1)")
+    tk_ev.add_argument("--limit", type=int, default=50, help="show last N events (default 50)")
+    tk_ev.add_argument("--json", action="store_true", help="emit raw JSON array")
+    tk_ev.add_argument(
+        "--state-dir",
+        default=None,
+        help="state directory (default: .nexus_state or NEXUS_STATE_DIR)",
+    )
+    tk_ev.set_defaults(func=cmd_task)
+    tk_show = tk_sub.add_parser("show", help="show task checkpoint JSON summary")
+    tk_show.add_argument("task_id")
+    tk_show.add_argument("--state-dir", default=None)
+    tk_show.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

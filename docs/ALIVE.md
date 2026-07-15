@@ -166,6 +166,8 @@ Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `
   "arxiv_queries": ["multi agent orchestration"],
   "min_score": 12,
   "fetch_count": 6,
+  "use_limit": 10,
+  "arxiv_count": 10,
   "apply": false,
   "self_approve": false,
   "use_ollama": true,
@@ -176,8 +178,31 @@ Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `
 }
 ```
 
+| Field | Role |
+|-------|------|
+| `fetch_count` | How many GitHub candidates to fetch per query |
+| `use_limit` | Max scored clones to keep for improve-ours (full cycle uses **10**) |
+| `arxiv_count` | Max new arXiv papers per research step (full cycle uses **10**; ledger skips seen ids) |
+| `grader` / `worker` | Prefer `grok` for hard grade/apply; Ollama is light fallback |
+
+Full 10+10 cycle: `PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle.py`
+
+## Operator: durable task board
+
+After any pipeline run, inspect checkpoints and the append-only event journal:
+
+```bash
+nexus task list
+nexus task show <task_id>
+nexus task events <task_id> --limit 20
+```
+
+See also [cookbook 01 crash→resume](cookbook/01_crash_resume.md).
+
 ## Related
 
 - [REPO_MINE.md](REPO_MINE.md) — score/use foreign repos  
 - [SCHEDULE_AGENTS.md](SCHEDULE_AGENTS.md) — ChatGPT/Claude on a timer  
 - [RESILIENCE.md](RESILIENCE.md) — power/WiFi dead-man  
+- [SELF_IMPROVE_CYCLE.md](SELF_IMPROVE_CYCLE.md) — latest Grok reason plan  
+- [LATEST_IMPROVE_PLAN.md](LATEST_IMPROVE_PLAN.md) — first-apply / P1 status

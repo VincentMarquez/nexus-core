@@ -74,6 +74,8 @@ def test_engine_atomic_checkpoint_and_journal(tmp_path: Path):
     listed = engine.list_tasks()
     assert listed and listed[0]["task_id"] == "j1"
     assert listed[0]["events"] >= len(events2)
+    assert listed[0].get("last_event") == "completed"
+    assert listed[0].get("last_agent")
 
 
 def test_engine_journal_can_disable(tmp_path: Path):
@@ -83,3 +85,21 @@ def test_engine_journal_can_disable(tmp_path: Path):
     engine.run(task, max_steps=2)
     assert engine.events("noj") == []
     assert not (settings.state_dir / "tasks" / "noj.events.jsonl").exists()
+
+
+def test_engine_events_limit_is_tail(tmp_path: Path):
+    """events(limit=N) returns the last N rows (operator timeline)."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="tail1",
+        objective="tail",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    engine.run(task, max_steps=4)
+    all_rows = engine.events("tail1")
+    assert len(all_rows) >= 3
+    tail = engine.events("tail1", limit=2)
+    assert len(tail) == 2
+    assert tail[-1] == all_rows[-1]
+    assert tail[0] == all_rows[-2]

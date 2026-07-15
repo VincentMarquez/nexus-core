@@ -38,3 +38,36 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ec0777735b.md`
+
+## Cycle 2026-07-15 hard-apply P1 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (wshobson/agents 16, MisterSmith 15, rojak/openclaw-hawkins 14, swarm/edict/…) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-62b77a6ce8.md` (and prior `rx-ec0777735b`)
+- apply slice (P1 operator + multi-agent communication):
+  - `src/nexus/engine.py` — swarm-style `handoff` events; edict review veto (`verdict` reject/veto/…); `journal_context()` injected on resume; `events(limit=)` is tail
+  - `src/nexus/cli.py` — `nexus task list|show|events` operator surface
+  - tests: `tests/test_engine.py` (handoff/veto/context), `tests/test_task_cli.py`, `tests/test_persist.py` tail limit
+- patterns: openai/swarm (handoff), edict (veto), context engineering arXiv 2508.08322 (journal in prompt), MisterSmith/DriftQ (CLI inspect)
+- docs: `docs/SELF_IMPROVE_CYCLE.md`, `docs/LATEST_IMPROVE_PLAN.md`
+
+## Cycle 2026-07-15 17:48:45Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-62b77a6ce8.md`
+
+## Cycle 2026-07-15 hard-apply P1 complete (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (wshobson/agents 16 … swarm/edict 13) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-03b7641275.md` (+ prior rx-62b77a6ce8 / rx-ec0777735b)
+- apply slice (P1 finish + operator board polish):
+  - `src/nexus/cli.py` — `task` in known-commands allowlist (was remapped to `start`); list columns for last event/agent
+  - `src/nexus/engine.py` — handoff + veto + journal_context (already staged); `list_tasks` returns `last_event`/`last_agent`
+  - tests: `tests/test_task_cli.py`, `tests/test_engine.py`, `tests/test_persist.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook crash-resume inspect
+- patterns: openai/swarm (handoff), edict (veto/audit), MisterSmith/threadwork (task board), arXiv 2508.08322 (journal context)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 95 passed
+
+## Cycle 2026-07-15 17:56:31Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-03b7641275.md`
