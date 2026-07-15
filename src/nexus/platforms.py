@@ -174,9 +174,9 @@ def python_for_mcp() -> str:
     if os.environ.get("NEXUS_PYTHON"):
         return os.environ["NEXUS_PYTHON"]
     # When nexus was started from a venv, sys.executable finds the package
-    exe = Path(sys.executable).resolve()
-    if exec.is_file() and "python" in exec.name:
-        return str(exe)
+    py_exe = Path(sys.executable).resolve()
+    if py_exe.is_file() and "python" in py_exe.name:
+        return str(py_exe)
     return shutil.which("python3") or "python3"
 
 
