@@ -2,6 +2,34 @@
 
 Reply to **issues**, **pull requests**, and comments from one place — automatically on GitHub, and interactively from your laptop.
 
+**You can use this on your own personal repos when you create them.** The loop is the same: respond → test → share → repeat. Turn on **fully autonomous** if you want it to keep running, and feed **new arXiv papers** into the improve path so research keeps pushing the code.
+
+## Personal repos + full autonomy + arXiv
+
+| Goal | Command |
+|------|---------|
+| Enable loop on a **new/existing personal project** | `nexus github init --path ~/code/my-app` |
+| Always-on laptop loop | `nexus github watch --repo YOU/my-app --autonomous --interval 120` |
+| One poll cycle (debug) | `nexus github watch --once --autonomous` |
+| Pull papers → notes (+ issue) | `nexus github improve --arxiv "topic" --repo YOU/my-app` |
+| Papers → notes → **try to apply** via `nexus do` | `nexus github improve --arxiv "topic" --apply` |
+| Watch + daily arXiv | `nexus github watch --autonomous --arxiv "topic" --arxiv-every 86400` |
+
+```text
+create personal repo
+      → nexus github init
+      → push community-bot.yml
+      → Actions: cloud loop on every comment/PR
+      → optional: watch --autonomous on your machine
+      → optional: improve --arxiv "…" to inject research
+      → optional: --apply to run repair jobs from papers
+```
+
+Portable workflow template (for copy/paste):  
+`connectors/examples/community-bot.workflow.yml`
+
+**Safety:** autonomy is **opt-in**. Without `--autonomous`, `watch` only observes. Without `--apply`, arXiv improve only writes notes (and can open a tracking issue). Nothing auto-merges.
+
 ## ML architecture
 
 ![GitHub community ML architecture](assets/arch-github-community.svg)

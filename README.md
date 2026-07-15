@@ -192,6 +192,9 @@ Design bet: **tests are the reward signal**, not “the model said OK.” Drafts
 |------|----------------|--------------|
 | **Automatic** | `.github/workflows/community-bot.yml` | First reply on issue/PR open; also on `@nexus` / `/triage` |
 | **Loop** | same workflow + `nexus github loop 12` | On every human response / PR `synchronize`: install → pytest → smoke → **share results** on the thread |
+| **Watch (always-on)** | `nexus github watch --autonomous` | Laptop daemon: keep polling your repo forever → reply → test → post → again |
+| **Init (personal repos)** | `nexus github init --path ~/my-repo` | Drop the same workflow into **any** personal repo when you create it |
+| **Improve (arXiv)** | `nexus github improve --arxiv "topic"` | Pull new papers → notes (+ optional issue) → optional `--apply` fix job |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
 | **Reply** | `nexus github reply 12` | Post auto-draft (or `--body "…"`) |
@@ -204,6 +207,36 @@ nexus github inbox
 nexus github reply 12         # or: --body "Thanks — fixed on main."
 nexus github loop 12          # run tests now and post results on #12
 nexus github auto --dry-run   # safe preview before bulk first-replies
+
+# Personal repo: enable the loop when you create the project
+nexus github init --path ~/code/my-new-app
+cd ~/code/my-new-app && git add .github && git commit -m "chore: NEXUS community loop" && git push
+
+# Fully autonomous (opt-in) — keeps running until Ctrl-C
+nexus github watch --repo YOU/my-new-app --workdir . --autonomous --interval 120
+
+# Research loop: new arXiv papers → improve this codebase
+nexus github improve --repo YOU/my-new-app --arxiv "multi agent orchestration" --max 6
+nexus github improve --arxiv "your topic" --apply   # also runs nexus do (powerful)
+# Or while watching:
+nexus github watch --autonomous --arxiv "your topic" --arxiv-every 86400
+```
+
+```text
+        ┌─────────────────────────────────────────────────────────┐
+        │  YOUR personal repo (any)  ·  or  ·  nexus-core itself  │
+        └───────────────────────────┬─────────────────────────────┘
+                                    │
+     create repo ──► nexus github init ──► community-bot.yml on GitHub
+                                    │
+         human / CI events          │         optional research
+                │                   │                │
+                ▼                   ▼                ▼
+         pick up thread      evidence tests    arXiv papers
+                │                   │                │
+                └────────► post results / notes ◄────┘
+                                    │
+                    ◄── next reply or next day ──►  (watch --autonomous)
 ```
 
 ```text
@@ -219,8 +252,12 @@ you / contributor replies on issue or PR
   posts PASS/FAIL + logs on the thread
         │
         └──► next reply / new commits → loop again
+              (watch --autonomous keeps this spinning)
 ```
 
+- **Works on personal repos** — not locked to nexus-core: `init` + `--repo YOU/name`.  
+- **Fully autonomous is opt-in** — Actions on push events, or `watch --autonomous` on a machine you control. Without `--autonomous`, watch only observes.  
+- **`--apply` / arXiv improve** can open issues and run `nexus do` repair; leave it off for notes-only.  
 - **No extra secrets** for default replies and the test loop (`GITHUB_TOKEN` only).  
 - Markers: `<!-- nexus-community-bot -->` (greetings) and `<!-- nexus-community-loop sha=… -->` (results; deduped per commit).  
 - Opt out of one loop run: comment `/skip-loop` or `/noloop`.  
@@ -309,7 +346,7 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `./run` | Install + auto start + agents |
 | `./run https://github.com/…` | Start **and** GitHub job |
 | `nexus do owner/repo` | Clone → install → check → fix |
-| `nexus github inbox` / `reply` / `loop` / `auto` | Community one-stop + test loop |
+| `nexus github inbox` / `loop` / `watch` / `init` / `improve` | Community loop on any personal repo + arXiv improve |
 | `nexus research "…"` | arXiv job → brief + report |
 | `nexus arxiv search` / `get` | arXiv API helpers |
 | `nexus procure demo` | Procurement engine + experts |
@@ -405,7 +442,7 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 | Rubric-style judge | ✅ |
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
-| GitHub community bot + inbox + test loop | ✅ |
+| GitHub community bot + personal-repo loop + arXiv improve | ✅ |
 | arXiv search / research jobs | ✅ |
 | Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |

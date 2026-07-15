@@ -519,7 +519,7 @@ def cmd_github(args: argparse.Namespace) -> int:
         if not getattr(args, "repo", None):
             print(
                 "usage:\n"
-                "  nexus github inbox|reply|draft|auto|loop|status\n"
+                "  nexus github inbox|reply|draft|auto|loop|watch|init|improve|status\n"
                 "  nexus github do <owner/repo>                 # repair job\n"
                 "  nexus do <owner/repo>                        # same job"
             )
@@ -677,6 +677,72 @@ def cmd_github(args: argparse.Namespace) -> int:
             print(f"error: {e}")
             return 1
 
+    if sub == "init":
+        from . import github_autonomy as ga
+
+        path = Path(getattr(args, "path", None) or Path.cwd())
+        try:
+            res = ga.bootstrap_personal_repo(
+                path,
+                force=bool(getattr(args, "force", False)),
+            )
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2))
+        print("\nNext:")
+        for line in res.get("next") or []:
+            print(" ", line)
+        return 0
+
+    if sub == "watch":
+        from . import github_autonomy as ga
+
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        kwargs = dict(
+            workdir=workdir,
+            autonomous=bool(getattr(args, "autonomous", False)),
+            dry_run=bool(getattr(args, "dry_run", False)),
+            arxiv_query=getattr(args, "arxiv", None) or None,
+            arxiv_every_s=float(getattr(args, "arxiv_every", 86400) or 86400),
+            apply_improve=bool(getattr(args, "apply", False)),
+        )
+        if getattr(args, "once", False):
+            res = ga.watch_once(repo, **kwargs)
+            print(json.dumps(res, indent=2))
+            return 0
+        return ga.watch_forever(
+            repo,
+            interval_s=float(getattr(args, "interval", 120) or 120),
+            max_cycles=int(getattr(args, "max_cycles", 0) or 0),
+            **kwargs,
+        )
+
+    if sub == "improve":
+        from . import github_autonomy as ga
+
+        q = getattr(args, "arxiv", None) or getattr(args, "query", None)
+        if not q:
+            print("usage: nexus github improve --arxiv \"topic\" [--repo YOU/REPO] [--apply]")
+            return 2
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        try:
+            res = ga.improve_from_arxiv(
+                q,
+                repo=repo,
+                workdir=workdir,
+                max_results=int(getattr(args, "max", 6) or 6),
+                apply=bool(getattr(args, "apply", False)),
+                dry_run=bool(getattr(args, "dry_run", False)),
+                download_pdf=bool(getattr(args, "pdf", False)),
+                post_issue=not bool(getattr(args, "no_issue", False)),
+            )
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("research_status") != "failed" else 1
+
     print(f"unknown github subcommand: {sub}")
     return 2
 
@@ -709,7 +775,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         and raw[0] == "github"
         and _looks_like_github(raw[1])
         and raw[1]
-        not in {"inbox", "reply", "draft", "auto", "loop", "status", "do"}
+        not in {
+            "inbox",
+            "reply",
+            "draft",
+            "auto",
+            "loop",
+            "watch",
+            "init",
+            "improve",
+            "status",
+            "do",
+        }
     ):
         raw = ["github", "do", *raw[1:]]
     elif not raw or raw[0] not in known:
@@ -901,6 +978,97 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="post even if this commit sha was already reported",
     )
     gh_loop.set_defaults(func=cmd_github)
+
+    gh_init = gh_sub.add_parser(
+        "init",
+        help="bootstrap community-bot workflow into a personal repo path",
+    )
+    gh_init.add_argument(
+        "--path",
+        default=".",
+        help="local path to your repo (default: cwd)",
+    )
+    gh_init.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite existing community-bot.yml",
+    )
+    gh_init.set_defaults(func=cmd_github)
+
+    gh_watch = gh_sub.add_parser(
+        "watch",
+        help="continuous loop: poll issues/PRs, run tests, post (opt-in --autonomous)",
+    )
+    gh_watch.add_argument("--repo", dest="repo_flag", default=None)
+    gh_watch.add_argument("--workdir", default=None)
+    gh_watch.add_argument(
+        "--interval",
+        type=float,
+        default=120,
+        help="seconds between cycles (default 120)",
+    )
+    gh_watch.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="actually post replies/loop results (default is observe-only)",
+    )
+    gh_watch.add_argument(
+        "--once",
+        action="store_true",
+        help="single cycle then exit",
+    )
+    gh_watch.add_argument(
+        "--max-cycles",
+        type=int,
+        default=0,
+        help="stop after N cycles (0 = forever)",
+    )
+    gh_watch.add_argument(
+        "--arxiv",
+        default=None,
+        help="optional arXiv topic to re-pull periodically while watching",
+    )
+    gh_watch.add_argument(
+        "--arxiv-every",
+        type=float,
+        default=86400,
+        help="seconds between arXiv improve runs (default 1 day)",
+    )
+    gh_watch.add_argument(
+        "--apply",
+        action="store_true",
+        help="with --arxiv, also run nexus do repair after research (powerful)",
+    )
+    gh_watch.add_argument("--dry-run", action="store_true")
+    gh_watch.set_defaults(func=cmd_github)
+
+    gh_imp = gh_sub.add_parser(
+        "improve",
+        help="arXiv papers → improvement notes (+ optional fix job)",
+    )
+    gh_imp.add_argument(
+        "--arxiv",
+        "--query",
+        dest="arxiv",
+        default=None,
+        help='topic / arXiv query, e.g. "durable multi-agent systems"',
+    )
+    gh_imp.add_argument("--repo", dest="repo_flag", default=None)
+    gh_imp.add_argument("--workdir", default=None)
+    gh_imp.add_argument("--max", type=int, default=6)
+    gh_imp.add_argument("--pdf", action="store_true", help="download PDFs")
+    gh_imp.add_argument(
+        "--apply",
+        action="store_true",
+        help="after research, run nexus do to try applying insights (opt-in)",
+    )
+    gh_imp.add_argument(
+        "--no-issue",
+        action="store_true",
+        help="do not open a tracking GitHub issue",
+    )
+    gh_imp.add_argument("--dry-run", action="store_true")
+    gh_imp.set_defaults(func=cmd_github)
 
     gh_st = gh_sub.add_parser("status", help="show gh auth + target repo")
     gh_st.add_argument("--repo", dest="repo_flag", default=None)

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.2 — 2026-07-15
+
+### Added
+- **Personal repos**: `nexus github init --path …` drops community-bot into any project
+- **Fully autonomous watch**: `nexus github watch --autonomous` (opt-in; default observe-only)
+- **arXiv improve**: `nexus github improve --arxiv "topic"` → notes + issue; `--apply` runs `nexus do`
+- Watch can re-pull papers on a schedule: `--arxiv` + `--arxiv-every`
+- Portable template: `connectors/examples/community-bot.workflow.yml`
+- README: personal-repo loop diagram + init / watch / improve commands
+
 ## 0.7.1 — 2026-07-15
 
 ### Added
