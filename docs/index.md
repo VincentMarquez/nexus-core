@@ -16,6 +16,13 @@ nexus stop
 
 Agents (Claude / Codex / Gemini / Ollama) turn on automatically when installed; otherwise safe mocks run so nothing is blocked.
 
+### Or paste any GitHub repo
+
+```bash
+./run https://github.com/owner/repo
+# clone → install → test → fix loop → NEXUS_REPORT.md
+```
+
 ## What you get
 
 | Capability | Docs |

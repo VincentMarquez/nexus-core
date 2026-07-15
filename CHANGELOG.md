@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-07-15
+
+### Added
+- **`nexus do <github-url>`** / **`nexus github`**: clone → detect stack → install → run checks → agent/heuristic fix loop → `NEXUS_REPORT.md`
+- **`./run https://github.com/owner/repo`**: zero-config path that starts the stack then runs the job
+- Accept bare `owner/repo` slugs; durable job state under `.nexus_state/github_jobs/`
+- Command allowlist + workdir jail for safe automated fixes
+- Cookbook 06: GitHub URL → fix
+
 ## 0.4.2 — 2026-07-15
 
 ### Changed

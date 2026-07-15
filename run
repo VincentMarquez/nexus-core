@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Zero-config entrypoint: clone → ./run → stack is up with agents.
-# No prior install step. Creates .venv, installs the package, starts everything.
+# Zero-config entrypoint:
+#   ./run                              → start stack + agents
+#   ./run https://github.com/org/repo  → start stack, then clone/install/fix that repo
+#   ./run owner/repo --goal "…"
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +35,16 @@ echo "→ installing / updating package…"
 python -m pip install -q -U pip
 python -m pip install -q -e .
 
-# Forward extra flags to nexus start (e.g. ./run --no-cli --model gemma2:2b)
-# Default: fully automatic (agents on when installed, model pull, browser open).
+# If first arg looks like a GitHub URL / owner/repo → nexus do
+if [[ $# -ge 1 ]]; then
+  arg1="${1:-}"
+  if [[ "$arg1" == *github.com* ]] \
+    || [[ "$arg1" == git@github.com:* ]] \
+    || [[ "$arg1" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+    echo "→ GitHub target detected — clone / install / run / fix"
+    exec nexus do "$@"
+  fi
+fi
+
+# Default: fully automatic stack start
 exec nexus start --yes "$@"

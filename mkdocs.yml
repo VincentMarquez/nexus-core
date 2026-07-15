@@ -44,6 +44,7 @@ nav:
       - Local LLM (Ollama): cookbook/03_local_llm_ollama.md
       - Workspace MCP: cookbook/04_workspace_mcp.md
       - GLM-5.2 / colibrì: cookbook/05_glm52_colibri.md
+      - GitHub URL → fix: cookbook/06_github_do.md
       - PyPI publish: PYPI.md
   - Architecture:
       - Overview: ARCHITECTURE.md

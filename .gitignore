@@ -6,6 +6,7 @@ __pycache__/
 dist/
 build/
 site/
+.nexus_workspaces/
 .mypy_cache/
 .ruff_cache/
 # runtime state from demos

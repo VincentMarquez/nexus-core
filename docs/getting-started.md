@@ -32,6 +32,16 @@ nexus status
 nexus stop
 ```
 
+## Paste a GitHub repo
+
+```bash
+./run https://github.com/owner/repo
+nexus do owner/repo --goal "make tests pass"
+nexus do owner/repo --resume gh-owner-repo-xxxxxxxx
+```
+
+Clones into `.nexus_workspaces/`, installs, runs checks, and tries to fix failures (agents when the stack is up). See [cookbook 06](cookbook/06_github_do.md).
+
 ## Demos
 
 ```bash

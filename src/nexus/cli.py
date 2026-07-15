@@ -355,10 +355,63 @@ def cmd_mcp(args: argparse.Namespace) -> int:
     return mcp_server.main(argv)
 
 
+def _looks_like_github(s: str) -> bool:
+    if not s or s.startswith("-"):
+        return False
+    if s.startswith(("https://github.com/", "http://github.com/", "git@github.com:")):
+        return True
+    if "github.com/" in s:
+        return True
+    # owner/repo slug (no spaces, single slash)
+    if s.count("/") == 1 and " " not in s and not s.startswith("."):
+        a, b = s.split("/", 1)
+        if a and b and all(c.isalnum() or c in "._-" for c in a + b):
+            return True
+    return False
+
+
+def cmd_do(args: argparse.Namespace) -> int:
+    """Paste a GitHub URL → clone, install, run checks, fix with agents."""
+    from .github_job import GithubJobRunner, ensure_panel_for_job
+    from .runtime import RuntimeManager
+
+    # Bring stack up so real agents can help (unless user opts out)
+    if not getattr(args, "no_start", False):
+        rt = RuntimeManager()
+        if not rt.bus_healthy():
+            print("→ stack not running — starting automatically (agents will help)…")
+            start_args = argparse.Namespace(
+                model=None,
+                yes=True,
+                with_cli=True,
+                no_cli=bool(getattr(args, "no_cli", False)),
+                no_pull=bool(getattr(args, "no_pull", False)),
+                no_smoke=True,
+                no_open=bool(getattr(args, "no_open", True)),
+            )
+            # default no browser during do unless --open
+            if getattr(args, "open", False):
+                start_args.no_open = False
+            else:
+                start_args.no_open = True
+            rc = cmd_start(start_args)
+            if rc != 0:
+                print("  warning: stack start failed — continuing with heuristics/mocks")
+
+    panel = None if getattr(args, "heuristic_only", False) else ensure_panel_for_job()
+    runner = GithubJobRunner(panel=panel)
+    job = runner.run(
+        args.repo,
+        goal=args.goal or "",
+        resume_id=args.resume,
+        max_fix_rounds=int(args.fix_rounds),
+    )
+    return 0 if job.status == "completed" else 1
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
-    # Zero-config: bare `nexus` (or only flags) → automatic start
     known = {
         "start",
         "stop",
@@ -366,19 +419,28 @@ def main(argv: Optional[list[str]] = None) -> int:
         "doctor",
         "demo",
         "mcp",
+        "do",
+        "github",
         "-h",
         "--help",
     }
-    if not raw or raw[0] not in known:
-        # allow `nexus --no-cli` etc.
+
+    # nexus https://github.com/owner/repo  →  nexus do …
+    if raw and _looks_like_github(raw[0]):
+        raw = ["do", *raw]
+    elif not raw or raw[0] not in known:
         if raw and raw[0] in known:
             pass
         else:
+            # bare flags → start; anything else unknown still start
             raw = ["start", "--yes", *raw]
 
     ap = argparse.ArgumentParser(
         prog="nexus",
-        description="NEXUS Core — durable multi-agent stack (auto-starts with agents when available)",
+        description=(
+            "NEXUS Core — auto multi-agent stack. "
+            "Paste a GitHub URL to clone, run, and fix a project."
+        ),
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -427,6 +489,54 @@ def main(argv: Optional[list[str]] = None) -> int:
     pm.add_argument("--port", type=int, default=8765)
     pm.add_argument("--project-root", default=None)
     pm.set_defaults(func=cmd_mcp)
+
+    def _add_do_parser(name: str, help_text: str):
+        d = sub.add_parser(name, help=help_text)
+        d.add_argument(
+            "repo",
+            help="GitHub URL or owner/repo (e.g. https://github.com/psf/requests)",
+        )
+        d.add_argument(
+            "--goal",
+            "-g",
+            default="",
+            help="what you want (default: install, run checks, fix until green)",
+        )
+        d.add_argument("--resume", default=None, help="resume job id")
+        d.add_argument(
+            "--fix-rounds",
+            type=int,
+            default=3,
+            help="max agent/heuristic fix iterations (default 3)",
+        )
+        d.add_argument(
+            "--no-start",
+            action="store_true",
+            help="do not auto-start the NEXUS stack",
+        )
+        d.add_argument("--no-cli", action="store_true", help="start stack without CLI agents")
+        d.add_argument("--no-pull", action="store_true", help="do not pull Ollama models on start")
+        d.add_argument(
+            "--open",
+            action="store_true",
+            help="open dashboard browser when auto-starting",
+        )
+        d.add_argument(
+            "--heuristic-only",
+            action="store_true",
+            help="skip LLM agents; clone/install/check with rules only",
+        )
+        d.set_defaults(func=cmd_do)
+        return d
+
+    _add_do_parser(
+        "do",
+        "GitHub URL → clone, install, run checks, fix with agents",
+    )
+    _add_do_parser(
+        "github",
+        "alias for: nexus do <github-url>",
+    )
 
     args = ap.parse_args(raw)
     return int(args.func(args))

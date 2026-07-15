@@ -36,35 +36,55 @@ cd nexus-core
 
 That’s it. **`./run` installs the package if needed and starts everything automatically.**
 
-| What happens | Detail |
-|--------------|--------|
+### Paste a GitHub repo — NEXUS does the rest
+
+```bash
+./run https://github.com/owner/repo
+./run owner/repo --goal "make the tests pass and fix whatever is broken"
+# same after install:
+nexus do https://github.com/owner/repo
+nexus do owner/repo -g "run checks and repair failures"
+```
+
+| Step | What NEXUS does |
+|------|-----------------|
+| Start | Brings up bus + agents if needed |
+| Clone | Shallow clone into `.nexus_workspaces/` |
+| Detect | Python / Node / Go / Rust (install + test commands) |
+| Install | pip / npm / yarn / pnpm / go / cargo / make (allowlisted) |
+| Check | pytest, npm test, go test, cargo test, … |
+| Fix | Up to 3 rounds of agent/heuristic patches + re-run |
+| Report | `NEXUS_REPORT.md` in the workdir (resumable job state) |
+
+| What `./run` alone does | Detail |
+|-------------------------|--------|
 | Python venv | Created at `.venv` if missing |
 | Package install | `pip install -e .` |
 | Hardware detect | CPU / RAM / GPU / tools |
 | Ollama | Starts if installed; **auto-pulls** a safe small model |
 | Event bus + dashboard | Opens in your browser |
-| Agents | **Uses real CLIs when installed** (claude / codex / gemini); mocks otherwise so demos still work |
-| First contact | Sends a short smoke message so you see an agent reply |
+| Agents | **Uses real CLIs when installed** (claude / codex / gemini); mocks otherwise |
+| First contact | Short smoke message so you see an agent reply |
 
-Same effect: `make` · `make start` · `nexus` · `nexus start`
+Same stack start: `make` · `make start` · `nexus` · `nexus start`
 
 ```bash
 # after PyPI publish:
 pip install nexus-multi-agent && nexus start
 
-# opt-outs if you want them:
-./run --no-cli          # mock claude/gpt/gemini only
-./run --no-pull         # don’t download models
-./run --no-smoke        # skip first agent ping
-./run --model gemma2:2b # force a model
+# opt-outs:
+./run --no-cli
+./run --no-pull
+nexus do owner/repo --heuristic-only   # no LLM, rules only
+nexus do owner/repo --no-start         # use existing stack
 ```
 
 Then:
 
 ```bash
 make demo          # crash → resume proof
-nexus status       # what's running
-nexus stop         # tear down
+nexus status
+nexus stop
 ```
 
 > If this saves you a failed overnight agent run, a star helps others find it.
@@ -104,14 +124,14 @@ make install && make start && make demo && make demo-judge && make smoke
 | Command | Does |
 |---------|------|
 | `./run` | **Preferred** — install + auto start + agents |
-| `nexus` / `nexus start` | Same stack (after install) |
+| `./run https://github.com/…` | Start stack **and** clone/install/fix that repo |
+| `nexus do owner/repo` | GitHub → workdir → checks → fix loop |
+| `nexus` / `nexus start` | Stack only (after install) |
 | `nexus doctor` | Hardware + tool detection |
 | `nexus start --no-cli` | Stack without real CLI agents |
-| `nexus start --model …` | Force Ollama model |
 | `nexus status` / `nexus stop` | Status / tear down |
 | `nexus demo` | Crash → resume demo |
-| `nexus mcp` | Stdio MCP (Claude Desktop) |
-| `nexus mcp --http` | Workspace MCP tools API |
+| `nexus mcp` / `nexus mcp --http` | Workspace MCP |
 
 Dashboard URL is printed after start (auto port if 3099 is busy).
 
@@ -206,6 +226,7 @@ Docs site: **https://vincentmarquez.github.io/nexus-core/**
 | Minimal dashboard | ✅ |
 | Ollama + CLI bridges | ✅ |
 | Workspace MCP (`nexus mcp`) | ✅ |
+| **GitHub URL → clone / run / fix** (`nexus do`) | ✅ |
 | Human approve CLI | ✅ |
 | Smoke evals + scoreboard | ✅ |
 | Docker Compose bus | ✅ |

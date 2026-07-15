@@ -9,6 +9,7 @@ Copy-paste recipes. Each is self-contained.
 | 03 | [Local LLM (Ollama)](03_local_llm_ollama.md) | Auto local model on the bus |
 | 04 | [Workspace MCP](04_workspace_mcp.md) | Tools for AI clients |
 | 05 | [GLM-5.2 / colibrì](05_glm52_colibri.md) | Heavy MoE as an agent |
+| 06 | [GitHub URL → fix](06_github_do.md) | Clone, run, fix a repo |
 
 Prereq for most recipes:
 

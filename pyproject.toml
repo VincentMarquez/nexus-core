@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # PyPI name: nexus-core is already taken (unrelated ETL package).
 name = "nexus-multi-agent"
-version = "0.4.2"
+version = "0.5.0"
 description = "Multi-agent tasks that resume after a crash — judge, local LLM, bus, MCP, one-command start"
 readme = "README.md"
 requires-python = ">=3.10"
