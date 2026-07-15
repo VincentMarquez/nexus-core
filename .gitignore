@@ -17,7 +17,3 @@ site/
 .DS_Store
 results/
 results/*_artifact.txt
-
-
-.nexus_workspaces/
-.nexus_state/
