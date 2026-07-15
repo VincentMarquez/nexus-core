@@ -40,6 +40,12 @@ HITL resume (P7):
   ``waiting_human`` (rojak Temporal resume / mission-control operator shape).
 - CLI: ``nexus task resume <id> --approve|--reject`` records a ``human_decision``
   journal event and continues or fail-closes.
+
+Wall-clock budget (P8):
+- ``meta.max_wall_s`` / constraint ``max_wall_s=…`` hard-stop by elapsed wall time
+  (cycgraph multi-budget / latency-tracker shape; may overshoot by one step).
+- ``task_max_wall_s()`` + ``task_elapsed_s()``; journal ``budget`` events carry
+  ``kind=wall``; ``cost()`` / ``evidence()`` expose elapsed + remaining wall.
 """
 
 from __future__ import annotations
@@ -91,6 +97,59 @@ def task_max_tokens(task: "Task") -> Optional[int]:
     return None
 
 
+def task_max_wall_s(task: "Task") -> Optional[float]:
+    """Resolve per-task wall-clock hard-cap in seconds (None = unlimited).
+
+    Sources (first match wins):
+    - ``task.meta["max_wall_s"]`` or ``task.meta["max_wall_seconds"]``
+    - constraint strings like ``max_wall_s=30``, ``max_wall_s: 30``,
+      ``max_seconds=30``, ``max_wall=30``
+
+    cycgraph multi-budget / latency shape: pair with ``max_tokens`` for dual caps.
+    """
+    meta = task.meta or {}
+    for key in ("max_wall_s", "max_wall_seconds", "max_seconds"):
+        raw = meta.get(key)
+        if raw is not None and raw != "":
+            try:
+                n = float(raw)
+                return n if n > 0 else None
+            except (TypeError, ValueError):
+                pass
+    for c in task.constraints or []:
+        s = str(c).strip().lower().replace(" ", "")
+        for prefix in (
+            "max_wall_s=",
+            "max_wall_s:",
+            "max_wall_seconds=",
+            "max_wall_seconds:",
+            "max_seconds=",
+            "max_seconds:",
+            "max_wall=",
+            "max_wall:",
+        ):
+            if s.startswith(prefix):
+                try:
+                    n = float(s[len(prefix) :])
+                    return n if n > 0 else None
+                except ValueError:
+                    break
+    return None
+
+
+def task_elapsed_s(task: "Task", *, now: Optional[float] = None) -> Optional[float]:
+    """Elapsed wall seconds since ``meta.started_at`` (None if not started)."""
+    raw = (task.meta or {}).get("started_at")
+    if raw is None or raw == "":
+        return None
+    try:
+        started = float(raw)
+    except (TypeError, ValueError):
+        return None
+    t = float(now if now is not None else time.time())
+    return max(0.0, t - started)
+
+
 def task_norms(task: "Task") -> dict[str, Any]:
     """Interpret constraints + meta as structured operator norms.
 
@@ -106,7 +165,8 @@ def task_norms(task: "Task") -> dict[str, Any]:
     for c in raw:
         s = c.strip()
         low = s.lower().replace(" ", "")
-        # budget already handled by task_max_tokens; still surface as rule
+        # token budget
+        budget_matched = False
         for prefix in ("max_tokens=", "max_tokens:"):
             if low.startswith(prefix):
                 try:
@@ -115,36 +175,63 @@ def task_norms(task: "Task") -> dict[str, Any]:
                         rules.append({"kind": "budget", "key": "max_tokens", "value": n, "source": c})
                 except ValueError:
                     rules.append({"kind": "budget", "key": "max_tokens", "value": None, "source": c})
+                budget_matched = True
+                break
+        if budget_matched:
+            continue
+        # wall-clock budget (P8)
+        for prefix in (
+            "max_wall_s=",
+            "max_wall_s:",
+            "max_wall_seconds=",
+            "max_wall_seconds:",
+            "max_seconds=",
+            "max_seconds:",
+            "max_wall=",
+            "max_wall:",
+        ):
+            if low.startswith(prefix):
+                try:
+                    n = float(low[len(prefix) :])
+                    if n > 0:
+                        rules.append({"kind": "budget", "key": "max_wall_s", "value": n, "source": c})
+                except ValueError:
+                    rules.append({"kind": "budget", "key": "max_wall_s", "value": None, "source": c})
+                budget_matched = True
+                break
+        if budget_matched:
+            continue
+        for kind, prefixes in (
+            ("require", ("require:", "require=", "must:", "must=")),
+            ("deny", ("deny:", "deny=", "forbid:", "forbid=", "no:")),
+        ):
+            matched = False
+            for p in prefixes:
+                if low.startswith(p.replace(" ", "")) or s.lower().startswith(p):
+                    # keep original value after first separator
+                    sep = ":" if ":" in s else ("=" if "=" in s else None)
+                    val = s.split(sep, 1)[1].strip() if sep else s
+                    rules.append({"kind": kind, "value": val, "source": c})
+                    if kind == "require":
+                        require.append(val)
+                    else:
+                        deny.append(val)
+                    matched = True
+                    break
+            if matched:
                 break
         else:
-            for kind, prefixes in (
-                ("require", ("require:", "require=", "must:", "must=")),
-                ("deny", ("deny:", "deny=", "forbid:", "forbid=", "no:")),
-            ):
-                matched = False
-                for p in prefixes:
-                    if low.startswith(p.replace(" ", "")) or s.lower().startswith(p):
-                        # keep original value after first separator
-                        sep = ":" if ":" in s else ("=" if "=" in s else None)
-                        val = s.split(sep, 1)[1].strip() if sep else s
-                        rules.append({"kind": kind, "value": val, "source": c})
-                        if kind == "require":
-                            require.append(val)
-                        else:
-                            deny.append(val)
-                        matched = True
-                        break
-                if matched:
-                    break
-            else:
-                # unstructured constraint → soft norm
-                if s:
-                    rules.append({"kind": "constraint", "value": s, "source": c})
+            # unstructured constraint → soft norm
+            if s:
+                rules.append({"kind": "constraint", "value": s, "source": c})
 
     cap = task_max_tokens(task)
+    wall = task_max_wall_s(task)
     # meta-level norms (not duplicated if already in rules)
     if cap is not None and not any(r.get("key") == "max_tokens" for r in rules):
         rules.append({"kind": "budget", "key": "max_tokens", "value": cap, "source": "meta.max_tokens"})
+    if wall is not None and not any(r.get("key") == "max_wall_s" for r in rules):
+        rules.append({"kind": "budget", "key": "max_wall_s", "value": wall, "source": "meta.max_wall_s"})
 
     if (task.meta or {}).get("require_human") in (True, "true", "1", 1):
         rules.append({"kind": "require", "value": "human", "source": "meta.require_human"})
@@ -157,6 +244,7 @@ def task_norms(task: "Task") -> dict[str, Any]:
         "require": require,
         "deny": deny,
         "max_tokens": cap,
+        "max_wall_s": wall,
         "n_rules": len(rules),
     }
 
@@ -325,6 +413,9 @@ class DurableEngine:
 
         prev = task.status
         task.status = TaskStatus.running
+        # P8: durable wall-clock origin (preserved across crash-resume)
+        if not task.meta.get("started_at"):
+            task.meta["started_at"] = time.time()
         self.save(task)
         self.record_event(
             task.task_id, "status",
@@ -360,8 +451,40 @@ class DurableEngine:
                     step=task.current_step, status=task.status.value,
                     detail=task.meta["error"],
                     extra={
+                        "kind": "tokens",
                         "max_tokens": cap,
                         "tokens_total": spent,
+                        "remaining": 0,
+                        "phase": "pre_step",
+                    },
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
+
+            # Pre-step wall-clock gate (cycgraph multi-budget / latency hard-stop)
+            wall_cap = task_max_wall_s(task)
+            elapsed = task_elapsed_s(task)
+            if wall_cap is not None and elapsed is not None and elapsed >= wall_cap:
+                task.status = TaskStatus.failed
+                task.meta["error"] = (
+                    f"task wall budget exceeded: elapsed_s={elapsed:.3f} max_wall_s={wall_cap}"
+                )
+                task.meta["budget_exhausted"] = True
+                task.meta["wall_exhausted"] = True
+                task.meta["elapsed_s"] = round(elapsed, 3)
+                self.save(task)
+                self.record_event(
+                    task.task_id, "budget",
+                    step=task.current_step, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={
+                        "kind": "wall",
+                        "max_wall_s": wall_cap,
+                        "elapsed_s": round(elapsed, 3),
                         "remaining": 0,
                         "phase": "pre_step",
                     },
@@ -575,11 +698,43 @@ class DurableEngine:
                     step=step.number, agent=agent_name, status=task.status.value,
                     detail=task.meta["error"],
                     extra={
+                        "kind": "tokens",
                         "max_tokens": cap,
                         "tokens_total": spent,
                         "remaining": 0,
                         "phase": "post_step",
                         "step_tokens": step_tokens,
+                    },
+                )
+                self.record_event(
+                    task.task_id, "failed",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                )
+                return task
+
+            # Post-step wall-clock hard-stop (may overshoot by one completed step)
+            wall_cap = task_max_wall_s(task)
+            elapsed = task_elapsed_s(task)
+            if wall_cap is not None and elapsed is not None and elapsed > wall_cap:
+                task.status = TaskStatus.failed
+                task.meta["error"] = (
+                    f"task wall budget exceeded: elapsed_s={elapsed:.3f} max_wall_s={wall_cap}"
+                )
+                task.meta["budget_exhausted"] = True
+                task.meta["wall_exhausted"] = True
+                task.meta["elapsed_s"] = round(elapsed, 3)
+                self.save(task)
+                self.record_event(
+                    task.task_id, "budget",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={
+                        "kind": "wall",
+                        "max_wall_s": wall_cap,
+                        "elapsed_s": round(elapsed, 3),
+                        "remaining": 0,
+                        "phase": "post_step",
                     },
                 )
                 self.record_event(
@@ -601,10 +756,14 @@ class DurableEngine:
 
         task.status = TaskStatus.completed
         task.meta["completed_at"] = time.time()
+        el = task_elapsed_s(task)
+        if el is not None:
+            task.meta["elapsed_s"] = round(el, 3)
         self.save(task)
         self.record_event(
             task.task_id, "completed",
             step=task.current_step, status=task.status.value,
+            extra={"elapsed_s": task.meta.get("elapsed_s")} if el is not None else None,
         )
         return task
 
@@ -822,10 +981,47 @@ class DurableEngine:
         remaining: Optional[int]
         if cap is None:
             remaining = None
-            exhausted = bool(task.meta.get("budget_exhausted"))
+            token_exhausted = False
         else:
             remaining = max(0, cap - total_tokens)
-            exhausted = bool(task.meta.get("budget_exhausted")) or total_tokens > cap
+            token_exhausted = total_tokens > cap
+
+        wall_cap = task_max_wall_s(task)
+        # Prefer stored elapsed on terminal tasks; else live clock from started_at
+        if task.meta.get("elapsed_s") is not None and task.status in (
+            TaskStatus.completed,
+            TaskStatus.failed,
+        ):
+            try:
+                elapsed: Optional[float] = float(task.meta["elapsed_s"])
+            except (TypeError, ValueError):
+                elapsed = task_elapsed_s(task)
+        else:
+            elapsed = task_elapsed_s(task)
+
+        remaining_wall: Optional[float]
+        if wall_cap is None:
+            remaining_wall = None
+            wall_exhausted = bool(task.meta.get("wall_exhausted"))
+        else:
+            el = float(elapsed or 0.0)
+            remaining_wall = max(0.0, round(wall_cap - el, 3))
+            wall_exhausted = bool(task.meta.get("wall_exhausted")) or el > wall_cap
+
+        # Honor explicit fail-closed flags from the engine run path
+        if task.meta.get("wall_exhausted"):
+            wall_exhausted = True
+        if task.meta.get("budget_exhausted") and not task.meta.get("wall_exhausted"):
+            # token-path hard-stop without wall
+            err = str(task.meta.get("error") or "")
+            if "max_tokens=" in err or "tokens_total=" in err:
+                token_exhausted = True
+
+        exhausted = bool(
+            token_exhausted
+            or wall_exhausted
+            or task.meta.get("budget_exhausted")
+        )
         return {
             "task_id": task.task_id,
             "found": True,
@@ -842,9 +1038,15 @@ class DurableEngine:
             "by_step": by_step,
             "steps": step_rows,
             "ledger": ledger,
-            # P5: per-task hard budget (None = unlimited)
+            # P5: per-task hard token budget (None = unlimited)
             "max_tokens": cap,
             "remaining_tokens": remaining,
+            # P8: wall-clock budget (cycgraph multi-budget)
+            "max_wall_s": wall_cap,
+            "elapsed_s": None if elapsed is None else round(float(elapsed), 3),
+            "remaining_wall_s": remaining_wall,
+            "wall_exhausted": wall_exhausted,
+            "started_at": task.meta.get("started_at"),
             "budget_exhausted": exhausted,
         }
 
@@ -983,6 +1185,12 @@ class DurableEngine:
             "avg_score": cost_sum.get("avg_score"),
             "by_agent": cost_sum.get("by_agent") or {},
             "thresholds": cost_sum.get("thresholds") or decision_thresholds(),
+            "max_tokens": cost_sum.get("max_tokens"),
+            "max_wall_s": cost_sum.get("max_wall_s"),
+            "elapsed_s": cost_sum.get("elapsed_s"),
+            "remaining_wall_s": cost_sum.get("remaining_wall_s"),
+            "wall_exhausted": cost_sum.get("wall_exhausted", False),
+            "budget_exhausted": cost_sum.get("budget_exhausted", False),
         }
 
         return {
@@ -1750,8 +1958,12 @@ class DurableEngine:
             "error": task.meta.get("error"),
             "tokens_total": int(task.meta.get("tokens_total") or 0),
             "max_tokens": task_max_tokens(task),
+            "max_wall_s": task_max_wall_s(task),
+            "elapsed_s": cost_sum.get("elapsed_s"),
             "budget_exhausted": budget_exhausted,
+            "wall_exhausted": bool(cost_sum.get("wall_exhausted") or task.meta.get("wall_exhausted")),
             "waiting_step": task.meta.get("waiting_step"),
+            "started_at": task.meta.get("started_at"),
             "completed_at": task.meta.get("completed_at"),
         }
 
@@ -1784,6 +1996,10 @@ class DurableEngine:
             "request_count": cost_sum.get("request_count", 0),
             "max_tokens": cost_sum.get("max_tokens"),
             "remaining_tokens": cost_sum.get("remaining_tokens"),
+            "max_wall_s": cost_sum.get("max_wall_s"),
+            "elapsed_s": cost_sum.get("elapsed_s"),
+            "remaining_wall_s": cost_sum.get("remaining_wall_s"),
+            "wall_exhausted": cost_sum.get("wall_exhausted", False),
             "budget_exhausted": cost_sum.get("budget_exhausted", False),
             "by_agent": cost_sum.get("by_agent") or {},
             "thresholds": cost_sum.get("thresholds") or {},

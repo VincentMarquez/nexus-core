@@ -1417,10 +1417,32 @@ def cmd_task(args: argparse.Namespace) -> int:
         cap = rep.get("max_tokens")
         if cap is not None:
             rem = rep.get("remaining_tokens")
-            exh = "EXHAUSTED" if rep.get("budget_exhausted") else "ok"
+            # token-only exhaustion label (wall has its own line)
+            tok_exh = (
+                rep.get("budget_exhausted")
+                and not rep.get("wall_exhausted")
+            ) or (
+                cap is not None
+                and rep.get("remaining_tokens") == 0
+                and int(rep.get("total_tokens") or 0) > int(cap or 0)
+            )
+            exh = "EXHAUSTED" if tok_exh or (
+                rep.get("budget_exhausted") and rep.get("max_wall_s") is None
+            ) else "ok"
+            if rep.get("budget_exhausted") and not rep.get("wall_exhausted"):
+                exh = "EXHAUSTED"
             print(f"budget:       max={cap}  remaining={rem}  {exh}")
         else:
             print("budget:       unlimited")
+        wall = rep.get("max_wall_s")
+        elapsed = rep.get("elapsed_s")
+        if wall is not None:
+            rem_w = rep.get("remaining_wall_s")
+            exh_w = "EXHAUSTED" if rep.get("wall_exhausted") else "ok"
+            el_s = f"{elapsed}" if elapsed is not None else "?"
+            print(f"wall:         max={wall}s  elapsed={el_s}s  remaining={rem_w}s  {exh_w}")
+        elif elapsed is not None:
+            print(f"wall:         elapsed={elapsed}s  (unlimited)")
         if thr:
             print(f"thresholds:   pass>={thr.get('pass')}  revise>={thr.get('revise')}")
         if rep.get("by_agent"):

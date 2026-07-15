@@ -2,20 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 70_
+_Rows: 80_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| 1709.01586 | Robust Semi-Cooperative Multi-Agent Coordination in the Presence of St | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2401.16216 | A mechanism for discovering semantic relationships among agent communi | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2409.01907 | Focus Agent: LLM-Powered Virtual Focus Group | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2412.05449 | Towards Effective GenAI Multi-Agent Collaboration: Design and Evaluati | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2502.07165 | Don't Just Demo, Teach Me the Principles: A Principle-Based Multi-Agen | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2508.00032 | Strategic Communication and Language Bias in Multi-Agent LLM Coordinat | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2602.03128 | Understanding Multi-Agent LLM Frameworks: A Unified Benchmark and Expe | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2602.04418 | SPEAR: An Engineering Case Study of Multi-Agent Coordination for Smart | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2603.15054 | Interference-Aware K-Step Reachable Communication in Multi-Agent Reinf | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
-| 2604.09703 | Cayley Graph Optimization for Scalable Multi-Agent Communication Topol | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
 | 1410.2632 | Evaluation of a Conversation Management Toolkit for Multi Agent Progra | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
 | 1807.02648 | How game complexity affects the playing behavior of synthetic agents | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
 | 1809.07124 | Pommerman: A Multi-Agent Playground | 1 | 2026-07-15T18:17:30Z | durable multi agent workflow checkpoint  |
@@ -56,3 +46,13 @@ _Rows: 70_
 | 2604.11028 | Federated Single-Agent Robotics: Multi-Robot Coordination Without Intr | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
 | 2605.11376 | LLM-X: A Scalable Negotiation-Oriented Exchange for Communication Amon | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
 | 2606.05868 | YouZhi: Towards High-Concurrency Financial LLMs via Adaptive GQA-to-ML | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 1905.11863 | MolSSI and BioExcel Workflow Workshop 2018 Report | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2201.04612 | Agent-Temporal Attention for Reward Redistribution in Episodic Multi-A | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2207.01222 | KubeAdaptor: A Docking Framework for Workflow Containerization on Kube | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2309.16263 | Cooperation Dynamics in Multi-Agent Systems: Exploring Game-Theoretic  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2407.00662 | Multi-Agent Training for Pommerman: Curriculum Learning and Population | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2407.20371 | Gender, Race, and Intersectional Bias in Resume Screening via Language | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2409.02645 | Emergent Language: A Survey and Taxonomy | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2507.19543 | Agent WARPP: Workflow Adherence via Runtime Parallel Personalization | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2602.09771 | A large scale multi-modal workflow for battery characterization: from  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
+| 2606.22213 | Resume Screening, Fast and Slow: (Biased) AI Recommendations' Influenc | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
