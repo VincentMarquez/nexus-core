@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from nexus.agents import AgentPanel
-from nexus.judge import RubricJudge
+from nexus.judge import (
+    PASS_THRESHOLD,
+    REVISE_THRESHOLD,
+    RubricJudge,
+    decision_thresholds,
+)
 from nexus.steps import StepPolicy
 
 
@@ -18,3 +23,9 @@ def test_judge_passes_with_evidence(tmp_path: Path):
     assert v.score >= 0.45
     # cross-vendor preferred: implementer=openai mock, reviewer=anthropic
     assert v.judge_agent in panel.agents
+    # value-system thresholds are explicit for audit
+    assert v.thresholds == decision_thresholds()
+    assert v.thresholds["pass"] == PASS_THRESHOLD
+    assert v.thresholds["revise"] == REVISE_THRESHOLD
+    d = v.to_dict()
+    assert "thresholds" in d

@@ -105,3 +105,33 @@ def test_task_replay_and_explain_cli(tmp_path: Path, capsys):
 
     rc = main(["task", "explain", "missing", "--state-dir", state])
     assert rc == 1
+
+
+def test_task_cost_cli(tmp_path: Path, capsys):
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli3",
+        objective="cli cost rollup",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    state = str(settings.state_dir)
+
+    rc = main(["task", "cost", "cli3", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "cost cli3" in out
+    assert "total_tokens:" in out
+    assert "by_agent:" in out or "steps:" in out
+
+    rc = main(["task", "cost", "cli3", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"task_id"' in out
+    assert "cli3" in out
+    assert "total_tokens" in out
+
+    rc = main(["task", "cost", "missing", "--state-dir", state])
+    assert rc == 1

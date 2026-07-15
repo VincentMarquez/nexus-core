@@ -88,3 +88,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-703f35888a.md`
+
+## Cycle 2026-07-15 hard-apply P3 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (mission-control / MisterSmith / wshobson/agents / EDDI / maestro-flow / rojak / …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-5b885ba84d.md` (+ prior rx-703f35888a / rx-03b7641275 / …)
+- apply slice (P3 task cost + value thresholds — First apply this session):
+  - `src/nexus/engine.py` — `cost()` rollup; `score`/`tokens`/`thresholds` on `step_complete`; cost brief in `explain()`
+  - `src/nexus/usage.py` — `by_task()` / `summarize_records()` ledger rollup
+  - `src/nexus/judge.py` — `PASS_THRESHOLD` / `REVISE_THRESHOLD` / `decision_thresholds()` on Verdict
+  - `src/nexus/cli.py` — `nexus task cost` (+ `--json`); explain/replay show score/tokens
+  - tests: `tests/test_engine.py`, `tests/test_task_cli.py`, `tests/test_usage_alive.py`, `tests/test_judge.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook cost inspect
+- patterns: mission-control task-costs, arXiv value systems (2602.04518), CEMA score trail
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 101 passed
+
+## Cycle 2026-07-15 18:12:24Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5b885ba84d.md`

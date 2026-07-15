@@ -12,6 +12,10 @@ Operator observability (P2):
 - ``replay(task_id)`` — normalized timeline from the journal (open-multi-agent plan-replay).
 - ``explain(task_id)`` — causal decision chain from events + step outputs (CEMA-style).
 - ``why`` on step_complete — short judge rationale for post-hoc audit.
+
+Ops / cost (P3):
+- ``cost(task_id)`` — task-level token + score rollup from journal (mission-control shape).
+- ``score`` / ``tokens`` / ``thresholds`` on step_complete — value-system + spend audit.
 """
 
 from __future__ import annotations
@@ -26,11 +30,12 @@ from typing import Any, Optional
 from .agents import AgentPanel
 from .cascade import CascadeIndex
 from .config import Settings
-from .judge import RubricJudge
+from .judge import RubricJudge, decision_thresholds
 from .memory import MemorySpine
 from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
 from .steps import StepPolicy, structural_ok
 from .trust import TrustLog
+from .usage import estimate_tokens
 
 # Review step verdicts that hard-fail the pipeline (edict fail-closed audit).
 REVIEW_VETO_VERDICTS = frozenset({"reject", "veto", "fail", "deny", "blocked"})
@@ -384,9 +389,16 @@ class DurableEngine:
             prev_agent = agent_name
             if "artifacts" in output:
                 task.meta["_artifact_path"] = (output["artifacts"] or [None])[0]
+            # mission-control style per-step token estimate (prompt + output size)
+            step_tokens = estimate_tokens(prompt) + estimate_tokens(
+                json.dumps(output, default=str)
+            )
+            prev_tok = int(task.meta.get("tokens_total") or 0)
+            task.meta["tokens_total"] = prev_tok + step_tokens
             self.save(task)
-            # CEMA-style short causal "why" from judge rationale (audit / explain)
+            # CEMA-style short causal "why" + value-system score/thresholds + tokens
             why = str(getattr(verdict, "rationale", "") or "")[:200]
+            thr = getattr(verdict, "thresholds", None) or decision_thresholds()
             self.record_event(
                 task.task_id, "step_complete",
                 step=step.number, agent=agent_name, status=task.status.value,
@@ -394,6 +406,9 @@ class DurableEngine:
                 extra={
                     "decision": getattr(verdict, "decision", ""),
                     "why": why,
+                    "score": round(float(getattr(verdict, "score", 0.0) or 0.0), 4),
+                    "tokens": step_tokens,
+                    "thresholds": thr,
                 },
             )
 
@@ -502,11 +517,103 @@ class DurableEngine:
                 "status": r.get("status") or "",
                 "detail": r.get("detail") or "",
             }
-            for k in ("from_agent", "to_agent", "decision", "why", "verdict", "approve"):
+            for k in (
+                "from_agent", "to_agent", "decision", "why", "verdict", "approve",
+                "score", "tokens", "thresholds",
+            ):
                 if r.get(k) not in (None, ""):
                     entry[k] = r[k]
             timeline.append(entry)
         return timeline
+
+    def cost(self, task_id: str) -> dict[str, Any]:
+        """Task-level token / score rollup (mission-control cost-tracker shape).
+
+        Primary source: journal ``step_complete`` rows (tokens + judge score).
+        Also merges optional global usage ledger rows tagged with meta.task_id.
+        Read-only; does not re-run agents.
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "error": f"task not found: {task_id}",
+            }
+
+        events = self.events(task_id)
+        by_agent: dict[str, int] = {}
+        by_step: dict[str, int] = {}
+        scores: list[float] = []
+        journal_tokens = 0
+        step_rows: list[dict[str, Any]] = []
+        thresholds: dict[str, float] = decision_thresholds()
+
+        for e in events:
+            if e.get("event") != "step_complete":
+                continue
+            tok = int(e.get("tokens") or 0)
+            journal_tokens += tok
+            agent = str(e.get("agent") or "") or "unknown"
+            by_agent[agent] = by_agent.get(agent, 0) + tok
+            sn = e.get("step")
+            if sn is not None:
+                by_step[str(sn)] = by_step.get(str(sn), 0) + tok
+            sc = e.get("score")
+            if sc is not None:
+                try:
+                    scores.append(float(sc))
+                except (TypeError, ValueError):
+                    pass
+            thr = e.get("thresholds")
+            if isinstance(thr, dict) and thr:
+                thresholds = {str(k): float(v) for k, v in thr.items()}
+            step_rows.append(
+                {
+                    "step": sn,
+                    "name": e.get("detail") or "",
+                    "agent": agent,
+                    "tokens": tok,
+                    "score": sc,
+                    "decision": e.get("decision") or "",
+                }
+            )
+
+        meta_tokens = int(task.meta.get("tokens_total") or 0)
+        # Prefer journal sum; fall back to meta if older tasks lack per-step tokens
+        total_tokens = journal_tokens if journal_tokens else meta_tokens
+
+        ledger: dict[str, Any] = {}
+        try:
+            from . import usage as um
+
+            # ledger lives under project root; try state_dir parent then cwd
+            for root in (self.settings.state_dir.parent, Path.cwd()):
+                ledger = um.by_task(task_id, root)
+                if ledger.get("request_count"):
+                    break
+        except Exception:
+            ledger = {}
+
+        avg_score = round(sum(scores) / len(scores), 4) if scores else None
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "status": task.status.value,
+            "total_tokens": total_tokens,
+            "journal_tokens": journal_tokens,
+            "meta_tokens": meta_tokens,
+            "ledger_tokens": int(ledger.get("total_tokens") or 0),
+            "request_count": len(step_rows),
+            "avg_tokens_per_step": round(total_tokens / len(step_rows)) if step_rows else 0,
+            "avg_score": avg_score,
+            "thresholds": thresholds,
+            "by_agent": by_agent,
+            "by_step": by_step,
+            "steps": step_rows,
+            "ledger": ledger,
+        }
 
     def explain(self, task_id: str) -> dict[str, Any]:
         """Causal decision chain for a task (CEMA-style sequential explanations).
@@ -568,12 +675,22 @@ class DurableEngine:
                 "agent": e.get("agent") or "",
                 "decision": e.get("decision") or "",
                 "why": e.get("why") or "",
+                "score": e.get("score"),
+                "tokens": e.get("tokens"),
             }
         for sn, out in (task.outputs or {}).items():
             sn_i = int(sn)
             row = by_step.setdefault(
                 sn_i,
-                {"step": sn_i, "name": "", "agent": "", "decision": "", "why": ""},
+                {
+                    "step": sn_i,
+                    "name": "",
+                    "agent": "",
+                    "decision": "",
+                    "why": "",
+                    "score": None,
+                    "tokens": None,
+                },
             )
             verdict = out.get("_verdict") if isinstance(out, dict) else None
             if isinstance(verdict, dict):
@@ -583,6 +700,8 @@ class DurableEngine:
                     row["why"] = str(verdict.get("rationale") or "")[:200]
                 if not row.get("agent") and verdict.get("implementer"):
                     row["agent"] = str(verdict.get("implementer") or "")
+                if row.get("score") is None and verdict.get("score") is not None:
+                    row["score"] = verdict.get("score")
             if isinstance(out, dict) and out.get("approved") is not None and not row.get("why"):
                 row["why"] = "human approved" if out.get("approved") else "human rejected"
                 row["decision"] = row.get("decision") or (
@@ -608,6 +727,14 @@ class DurableEngine:
         elif task.status == TaskStatus.completed:
             story_bits.append("COMPLETED")
 
+        cost_sum = self.cost(task_id)
+        cost_brief = {
+            "total_tokens": cost_sum.get("total_tokens", 0),
+            "avg_score": cost_sum.get("avg_score"),
+            "by_agent": cost_sum.get("by_agent") or {},
+            "thresholds": cost_sum.get("thresholds") or decision_thresholds(),
+        }
+
         return {
             "task_id": task.task_id,
             "found": True,
@@ -622,4 +749,5 @@ class DurableEngine:
             "failures": failures,
             "steps": steps,
             "story": " | ".join(story_bits) if story_bits else "(no steps recorded)",
+            "cost": cost_brief,
         }

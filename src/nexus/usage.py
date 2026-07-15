@@ -164,6 +164,61 @@ def totals(workdir: Optional[Path] = None) -> dict[str, Any]:
     }
 
 
+def by_task(
+    task_id: str,
+    workdir: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Mission-control-style cost rollup for one task_id (from ledger meta.task_id).
+
+    Rows without ``meta.task_id`` matching are ignored. Safe / read-only.
+    """
+    tid = str(task_id or "").strip()
+    matched: list[dict[str, Any]] = []
+    for r in _iter_ledger(workdir):
+        meta = r.get("meta") or {}
+        if not isinstance(meta, dict):
+            continue
+        if str(meta.get("task_id") or "") != tid:
+            continue
+        matched.append(r)
+    return summarize_records(matched, task_id=tid)
+
+
+def summarize_records(
+    rows: list[dict[str, Any]],
+    *,
+    task_id: str = "",
+) -> dict[str, Any]:
+    """Aggregate token stats from ledger-like rows (mission-control calculateStats)."""
+    by_source: dict[str, int] = {}
+    by_agent: dict[str, int] = {}
+    by_step: dict[str, int] = {}
+    total = 0
+    for r in rows:
+        tok = int(r.get("tokens") or 0)
+        total += tok
+        src = str(r.get("source") or "unknown")
+        by_source[src] = by_source.get(src, 0) + tok
+        meta = r.get("meta") if isinstance(r.get("meta"), dict) else {}
+        agent = str((meta or {}).get("agent") or r.get("agent") or "")
+        if agent:
+            by_agent[agent] = by_agent.get(agent, 0) + tok
+        step = (meta or {}).get("step", r.get("step"))
+        if step is not None and step != "":
+            key = str(step)
+            by_step[key] = by_step.get(key, 0) + tok
+    n = len(rows)
+    return {
+        "task_id": task_id,
+        "total_tokens": total,
+        "request_count": n,
+        "avg_tokens_per_request": round(total / n) if n else 0,
+        "by_source": by_source,
+        "by_agent": by_agent,
+        "by_step": by_step,
+    }
+
+
 def check_budget(
     tokens: int,
     workdir: Optional[Path] = None,

@@ -8,19 +8,21 @@ Model: Grok 4.5 · 10 repos graded · 10 arXiv papers · hard apply
 |-------|--------|
 | **P0 First apply** — atomic checkpoints + event journal + opt-in memory decay | **Landed** |
 | **P1** — operator CLI + handoff events + journal context + review veto | **Landed** |
-| **P2 First apply** — replay timeline + causal explain + `why` on step_complete | **Landed** (this session) |
-| **P3** — OTel / dashboard timeline / judge prefs / cost rollup | Backlog |
+| **P2** — replay timeline + causal explain + `why` on step_complete | **Landed** |
+| **P3 First apply** — task cost rollup + judge value thresholds | **Landed** (this session) |
+| **P4** — OTel / dashboard timeline | Backlog |
 
-## First apply slice (this session — P2)
+## First apply slice (this session — P3)
 
-**Goal:** Operator-grade post-hoc observability without re-running agents.
+**Goal:** Operator-grade spend + value-system audit per task (no re-run).
 
-Patterns: open-multi-agent **plan-replay**, arXiv **CEMA** causal explanations (2302.10809), mission-control / MisterSmith **inspect**, incident-response multi-agent audit (2511.15755).
+Patterns: mission-control **task-costs** / cost-tracker, arXiv **value systems** (2602.04518), CEMA score trail, usage ledger `meta.task_id` rollup.
 
-1. **`DurableEngine.replay(task_id)`** — normalized timeline from `*.events.jsonl` (no agent re-execution).
-2. **`DurableEngine.explain(task_id)`** — causal chain: steps, handoffs, vetoes, failures, one-line `story`.
-3. **`why` field on `step_complete`** — truncated judge rationale for audit + journal context.
-4. **CLI** — `nexus task replay|explain` with `--json` / `--state-dir` / optional `--limit` on replay.
+1. **`DurableEngine.cost(task_id)`** — journal-based token + score rollup (`by_agent`, `by_step`, thresholds).
+2. **`score` / `tokens` / `thresholds` on `step_complete`** — value-system cutoffs + estimated spend.
+3. **`usage.by_task(task_id)`** — optional global ledger rollup when `meta.task_id` is set.
+4. **CLI** — `nexus task cost` (+ `--json`); explain/replay show score/tokens.
+5. **Judge** — `PASS_THRESHOLD` / `REVISE_THRESHOLD` + `decision_thresholds()` on Verdict.
 
 ## Prior slices (already in tree)
 
@@ -38,35 +40,43 @@ Patterns: open-multi-agent **plan-replay**, arXiv **CEMA** causal explanations (
 4. Edict review veto (fail-closed).
 5. `events(limit=N)` is tail.
 
-## File map (P2)
+### P2
+
+1. `engine.replay` / `engine.explain`.
+2. `why` on `step_complete`.
+3. CLI `nexus task replay|explain`.
+
+## File map (P3)
 
 | Item | Files | Tests |
 |------|-------|-------|
-| replay / explain / why | `src/nexus/engine.py` | `tests/test_engine.py` |
+| cost / score / tokens | `src/nexus/engine.py` | `tests/test_engine.py` |
+| by_task rollup | `src/nexus/usage.py` | `tests/test_usage_alive.py` |
+| thresholds | `src/nexus/judge.py` | `tests/test_judge.py` |
 | CLI | `src/nexus/cli.py` | `tests/test_task_cli.py` |
 | Plans / log | this file, `docs/SELF_IMPROVE_CYCLE.md`, `docs/ALIVE_IMPROVEMENTS.md` | — |
 | Cookbook | `cookbook/01_crash_resume.md` | — |
 
-## Next (P3 backlog)
+## Next (P4 backlog)
 
 | Priority | Change | Module |
 |----------|--------|--------|
-| P3 | Optional Prometheus/OTel counters | `nexus.usage` / extra |
-| P3 | Dashboard event timeline | `bridge/dashboard` |
-| P3 | Preference / value logging for judge thresholds | `nexus.judge` |
-| P3 | Task-level usage/cost rollup | `nexus.engine` + `nexus.usage` |
+| P4 | Optional Prometheus/OTel counters | `nexus.usage` / extra |
+| P4 | Dashboard event timeline | `bridge/dashboard` |
+| P4 | Preference learning over judge thresholds | `nexus.judge` |
+| P4 | Real provider usage injection (not estimate) | `nexus.usage` + bridges |
 
 ## Evidence sources (this cycle)
 
-- **Repos:** mission-control, solace-agent-mesh, AssetOpsBench, routa, maestro-flow, EDDI, open-multi-agent, nocturne, MisterSmith, openclaw-hawkins, swarm/edict (prior).
-- **arXiv:** CEMA causal explanations (2302.10809), multi-agent incident orchestration (2511.15755), context engineering (2508.08322), agent identity ASAF (2606.09832), communication survey (2203.08975).
+- **Repos:** mission-control (task costs), solace-agent-mesh, AssetOpsBench, routa, maestro-flow, EDDI, MisterSmith, openclaw-hawkins, rojak, wshobson/agents.
+- **arXiv:** value systems / preference RL (2602.04518), CEMA (2302.10809), multi-agent orchestration audit (2511.15755), context engineering (2508.08322), communication survey (2203.08975).
 
 ## Done criteria
 
 - `pytest` green
 - Full pipeline still completes and resumes mid-run
-- `step_complete` rows include `why` (and `decision`)
-- `nexus task replay|explain` work (not remapped to `start`)
+- `step_complete` rows include `score`, `tokens`, `thresholds`
+- `nexus task cost` works (not remapped to `start`)
 - No vendored upstream trees; no secrets committed
 
 ## Commands
@@ -74,8 +84,8 @@ Patterns: open-multi-agent **plan-replay**, arXiv **CEMA** causal explanations (
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 nexus task list
-nexus task events <task_id> --limit 20
-nexus task replay <task_id>
+nexus task cost <task_id>
+nexus task cost <task_id> --json
 nexus task explain <task_id>
-nexus task explain <task_id> --json
+nexus task replay <task_id>
 ```

@@ -1214,7 +1214,7 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events + replay/explain (mission-control inspect)."""
+    """Operator surface: list/show/events + replay/explain/cost (mission-control inspect)."""
     from .engine import DurableEngine
 
     settings = _task_settings(args)
@@ -1278,6 +1278,10 @@ def cmd_task(args: argparse.Namespace) -> int:
                 extra = f"  verdict={r['verdict']}"
             elif r.get("why"):
                 extra = f"  why={str(r['why'])[:40]}"
+            if r.get("tokens") is not None:
+                extra += f"  tok={r['tokens']}"
+            if r.get("score") is not None:
+                extra += f"  score={r['score']}"
             print(f"{ts_s}  {step_s:>3}  {ev:<14}  {agent:<16}  {detail}{extra}")
         return 0
 
@@ -1314,6 +1318,10 @@ def cmd_task(args: argparse.Namespace) -> int:
                 bits.append(f"{r.get('from_agent', '')}->{r.get('to_agent', '')}")
             if r.get("decision"):
                 bits.append(f"dec={r['decision']}")
+            if r.get("score") is not None:
+                bits.append(f"score={r['score']}")
+            if r.get("tokens") is not None:
+                bits.append(f"tok={r['tokens']}")
             if r.get("why"):
                 bits.append(f"why={str(r['why'])[:36]}")
             if r.get("verdict"):
@@ -1339,6 +1347,18 @@ def cmd_task(args: argparse.Namespace) -> int:
         if rep.get("error"):
             print(f"error:        {rep['error']}")
         print(f"story:        {rep.get('story', '')}")
+        cost = rep.get("cost") or {}
+        if cost:
+            thr = cost.get("thresholds") or {}
+            thr_s = (
+                f"pass>={thr.get('pass')} revise>={thr.get('revise')}"
+                if thr
+                else ""
+            )
+            print(
+                f"cost:         tokens={cost.get('total_tokens', 0)}  "
+                f"avg_score={cost.get('avg_score')}  {thr_s}"
+            )
         if rep.get("handoffs"):
             print("handoffs:")
             for h in rep["handoffs"]:
@@ -1358,11 +1378,50 @@ def cmd_task(args: argparse.Namespace) -> int:
             print("steps:")
             for s in rep["steps"]:
                 why = (s.get("why") or "")[:70]
+                score_s = f" score={s['score']}" if s.get("score") is not None else ""
+                tok_s = f" tok={s['tokens']}" if s.get("tokens") is not None else ""
                 print(
                     f"  s{s.get('step')}: {s.get('name') or '?'}  "
                     f"agent={s.get('agent') or '-'}  "
-                    f"decision={s.get('decision') or '-'}  "
+                    f"decision={s.get('decision') or '-'}{score_s}{tok_s}  "
                     f"why={why or '-'}"
+                )
+        return 0
+
+    if sub == "cost":
+        # mission-control task cost rollup (journal + optional usage ledger)
+        rep = engine.cost(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        thr = rep.get("thresholds") or {}
+        print(f"# cost {rep['task_id']}")
+        print(f"status:       {rep.get('status')}")
+        print(f"total_tokens: {rep.get('total_tokens', 0)}")
+        print(f"steps:        {rep.get('request_count', 0)}  avg/step={rep.get('avg_tokens_per_step', 0)}")
+        print(f"avg_score:    {rep.get('avg_score')}")
+        if thr:
+            print(f"thresholds:   pass>={thr.get('pass')}  revise>={thr.get('revise')}")
+        if rep.get("by_agent"):
+            print("by_agent:")
+            for agent, tok in sorted(rep["by_agent"].items(), key=lambda x: -x[1]):
+                print(f"  {agent}: {tok}")
+        if rep.get("by_step"):
+            print("by_step:")
+            for sn, tok in sorted(rep["by_step"].items(), key=lambda x: int(x[0]) if str(x[0]).isdigit() else 0):
+                print(f"  s{sn}: {tok}")
+        if rep.get("steps"):
+            print("steps:")
+            for s in rep["steps"]:
+                print(
+                    f"  s{s.get('step')}: {s.get('name') or '?'}  "
+                    f"agent={s.get('agent') or '-'}  "
+                    f"tok={s.get('tokens') or 0}  "
+                    f"score={s.get('score')}  "
+                    f"dec={s.get('decision') or '-'}"
                 )
         return 0
 
@@ -2276,6 +2335,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_explain.add_argument("--json", action="store_true", help="emit JSON object")
     tk_explain.add_argument("--state-dir", default=None)
     tk_explain.set_defaults(func=cmd_task)
+    tk_cost = tk_sub.add_parser(
+        "cost",
+        help="task token/score rollup (mission-control cost tracker; journal-based)",
+    )
+    tk_cost.add_argument("task_id")
+    tk_cost.add_argument("--json", action="store_true", help="emit JSON object")
+    tk_cost.add_argument("--state-dir", default=None)
+    tk_cost.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

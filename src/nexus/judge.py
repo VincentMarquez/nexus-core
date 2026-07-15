@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -18,6 +18,16 @@ RUBRIC_DIMS = (
     "coherence",
 )
 
+# Value-system thresholds (arXiv preference / inverse-RL style audit).
+# Decision = pass if score >= PASS, revise if score >= REVISE, else fail.
+PASS_THRESHOLD = 0.7
+REVISE_THRESHOLD = 0.45
+
+
+def decision_thresholds() -> dict[str, float]:
+    """Return the active score cutoffs used by RubricJudge."""
+    return {"pass": PASS_THRESHOLD, "revise": REVISE_THRESHOLD}
+
 
 @dataclass
 class Verdict:
@@ -30,6 +40,7 @@ class Verdict:
     implementer_vendor: str
     degraded: bool
     rationale: str
+    thresholds: dict[str, float] = field(default_factory=decision_thresholds)
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -108,9 +119,10 @@ class RubricJudge:
         dims["coherence"] = 0.8 if isinstance(output, dict) else 0.2
 
         score = sum(dims.values()) / len(dims)
-        if score >= 0.7:
+        thr = decision_thresholds()
+        if score >= thr["pass"]:
             decision = "pass"
-        elif score >= 0.45:
+        elif score >= thr["revise"]:
             decision = "revise"
         else:
             decision = "fail"
@@ -122,7 +134,7 @@ class RubricJudge:
         }:
             if decision == "fail":
                 decision = "pass"
-                score = max(score, 0.75)
+                score = max(score, thr["pass"])
 
         rationale = (
             f"judge={judge_name} score={score:.2f} criteria_hits={dims['meets_success_criteria']:.2f} "
@@ -138,4 +150,5 @@ class RubricJudge:
             implementer_vendor=self.panel.vendor_of.get(implementer, "unknown"),
             degraded=degraded,
             rationale=rationale,
+            thresholds=thr,
         )

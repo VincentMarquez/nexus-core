@@ -17,6 +17,47 @@ def test_estimate_and_budget(tmp_path, monkeypatch):
         um.check_budget(2000, tmp_path, raise_on_exceed=True)
 
 
+def test_usage_by_task_rollup(tmp_path, monkeypatch):
+    """Mission-control-style ledger rollup keyed by meta.task_id."""
+    monkeypatch.chdir(tmp_path)
+    um.save_budget(
+        um.Budget(enabled=False, daily_tokens=1_000_000, monthly_tokens=10_000_000),
+        tmp_path,
+    )
+    um.record(
+        50,
+        source="agent:planner",
+        label="step:1",
+        meta={"task_id": "job-a", "agent": "planner", "step": 1},
+        workdir=tmp_path,
+        enforce=False,
+    )
+    um.record(
+        150,
+        source="agent:coder",
+        label="step:2",
+        meta={"task_id": "job-a", "agent": "coder", "step": 2},
+        workdir=tmp_path,
+        enforce=False,
+    )
+    um.record(
+        999,
+        source="other",
+        label="unrelated",
+        meta={"task_id": "job-b"},
+        workdir=tmp_path,
+        enforce=False,
+    )
+    roll = um.by_task("job-a", tmp_path)
+    assert roll["task_id"] == "job-a"
+    assert roll["total_tokens"] == 200
+    assert roll["request_count"] == 2
+    assert roll["by_agent"]["planner"] == 50
+    assert roll["by_agent"]["coder"] == 150
+    assert roll["by_step"]["1"] == 50
+    assert um.by_task("missing", tmp_path)["total_tokens"] == 0
+
+
 def test_alive_init_and_dry(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     cfg = al.AliveConfig(goal="test goal", queries=["agents"], enabled=True)

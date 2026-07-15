@@ -174,3 +174,45 @@ def test_replay_timeline_and_explain(tmp_path: Path):
 
     missing = engine.explain("does-not-exist")
     assert missing["found"] is False
+
+
+def test_step_complete_score_tokens_and_cost(tmp_path: Path):
+    """P3: judge score + token estimates journaled; cost() rolls them up."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cost1",
+        objective="cost rollup demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    assert int(task.meta.get("tokens_total") or 0) > 0
+
+    completes = [e for e in engine.events("cost1") if e.get("event") == "step_complete"]
+    assert completes
+    with_tokens = [e for e in completes if e.get("tokens")]
+    assert with_tokens, "step_complete should carry tokens"
+    with_score = [e for e in completes if e.get("score") is not None]
+    assert with_score, "step_complete should carry judge score"
+    # value-system thresholds present on judged steps
+    with_thr = [e for e in completes if isinstance(e.get("thresholds"), dict)]
+    assert with_thr
+    thr = with_thr[0]["thresholds"]
+    assert thr.get("pass") == 0.7
+    assert thr.get("revise") == 0.45
+
+    rep = engine.cost("cost1")
+    assert rep["found"] is True
+    assert rep["total_tokens"] > 0
+    assert rep["request_count"] >= 1
+    assert rep["by_agent"]
+    assert rep["avg_score"] is not None
+    assert rep["thresholds"]["pass"] == 0.7
+
+    explained = engine.explain("cost1")
+    assert explained["cost"]["total_tokens"] == rep["total_tokens"]
+    assert explained["cost"]["avg_score"] == rep["avg_score"]
+
+    missing = engine.cost("nope")
+    assert missing["found"] is False

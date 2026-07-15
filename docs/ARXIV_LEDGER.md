@@ -2,7 +2,7 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 20_
+_Rows: 30_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
@@ -26,3 +26,13 @@ _Rows: 20_
 | 2603.20143 | Synergistic Perception and Generative Recomposition: A Multi-Agent Orc | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
 | 2604.03350 | From Model-Based Screening to Data-Driven Surrogates: A Multi-Stage Wo | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
 | 2606.09832 | Agentic Social Affordance Framework (ASAF): Agent Identity Design as a | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
+| 1709.01586 | Robust Semi-Cooperative Multi-Agent Coordination in the Presence of St | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2401.16216 | A mechanism for discovering semantic relationships among agent communi | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2409.01907 | Focus Agent: LLM-Powered Virtual Focus Group | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2412.05449 | Towards Effective GenAI Multi-Agent Collaboration: Design and Evaluati | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2502.07165 | Don't Just Demo, Teach Me the Principles: A Principle-Based Multi-Agen | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2508.00032 | Strategic Communication and Language Bias in Multi-Agent LLM Coordinat | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2602.03128 | Understanding Multi-Agent LLM Frameworks: A Unified Benchmark and Expe | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2602.04418 | SPEAR: An Engineering Case Study of Multi-Agent Coordination for Smart | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2603.15054 | Interference-Aware K-Step Reachable Communication in Multi-Agent Reinf | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
+| 2604.09703 | Cayley Graph Optimization for Scalable Multi-Agent Communication Topol | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
