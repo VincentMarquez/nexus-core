@@ -238,10 +238,15 @@ nexus github scout "multi agent durable" --workdir . --connect --prove
 # clones land in .nexus_workspaces/scout_repos/  ·  evidence notes in .nexus_state/repo_scout/
 nexus github connect langchain-ai/langgraph --workdir . --prove   # one repo
 
-# Discover + grade + USE other repos (not follow/star people)
-nexus github mine run -q "multi agent durable" -n 8 --min-score 12
-# SQLite: .nexus_state/repo_mine.sqlite  ·  notes: .nexus_state/repo_mine/USE_LATEST.md
-# clones kept under .nexus_workspaces/scout_repos/ for you to port patterns from
+# Discover + grade + USE other repos (not follow/star) → improve OURS
+nexus github mine run -q "multi agent durable" -n 8 --min-score 12 --improve
+nexus github mine improve-ours                    # write IMPROVE_OURS.md plan
+nexus github mine improve-ours --apply --repo YOU/REPO   # port patterns (opt-in)
+# SQLite: .nexus_state/repo_mine.sqlite  ·  clones: .nexus_workspaces/scout_repos/
+
+# Schedule ChatGPT/Claude-friendly machine jobs (cron text)
+nexus schedule -q "multi agent durable" --mcp-http
+# → heartbeat + mine + optional MCP HTTP for ChatGPT Connectors (tunnel required)
 
 # Research loop: arXiv papers + other repos → improve this codebase
 nexus github improve --arxiv "multi agent orchestration" --with-scout --max 6

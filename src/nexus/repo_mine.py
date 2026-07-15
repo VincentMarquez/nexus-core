@@ -543,6 +543,148 @@ def step_use(
     }
 
 
+def step_improve_ours(
+    workdir: Path,
+    *,
+    min_score: float = 12.0,
+    limit: int = 3,
+    apply: bool = False,
+    our_repo: Optional[str] = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Turn scored/used external repos into a plan (and optional fix job) for *this* project.
+
+    This is the chase: discover → score → use clones → **improve our code**.
+    """
+    workdir = Path(workdir).resolve()
+    conn = connect(workdir)
+    rows = list_entries(conn, min_score=min_score, limit=50)
+    # prefer used + high score
+    rows.sort(
+        key=lambda r: (
+            0 if r.get("used") else 1,
+            -float(r.get("score") or 0),
+        )
+    )
+    picks = [r for r in rows if r.get("idea") is not None][:limit]
+    conn.close()
+
+    if not picks:
+        return {
+            "step": "improve_ours",
+            "ok": False,
+            "error": "no scored repos — run: nexus github mine run -q \"…\" first",
+        }
+
+    lines = [
+        "# Improve *our* project from mined repos",
+        "",
+        f"Target workdir: `{workdir}`",
+        f"Sources (score ≥ {min_score}):",
+        "",
+    ]
+    goals: list[str] = []
+    for r in picks:
+        path = r.get("local_path") or ""
+        lines += [
+            f"## {r.get('repo')} (score {r.get('score')})",
+            f"- idea={r.get('idea')} skill={r.get('skill')}",
+            f"- {r.get('summary') or r.get('description') or ''}",
+            f"- local clone: `{path}`",
+            f"- url: {r.get('html_url')}",
+            "",
+            "Port **patterns**, not the whole tree. Prefer tests + small modules.",
+            "",
+        ]
+        goals.append(
+            f"From {r.get('repo')} ({path}): {r.get('summary') or r.get('description') or 'patterns'}"
+        )
+
+    goal = (
+        "Improve this repository by adopting useful patterns from these local clones "
+        "(do not follow or star anyone; do not vendor entire upstream trees). "
+        "Keep tests green; small scoped changes only. Sources:\n- "
+        + "\n- ".join(goals)
+    )
+    lines += [
+        "## Combined engineering goal",
+        "",
+        "```",
+        goal,
+        "```",
+        "",
+        "## Commands",
+        "",
+        "```bash",
+        "# plan only (this file)",
+        "nexus github mine improve-ours --min-score " + str(min_score),
+        "# apply via durable job (opt-in)",
+        "nexus github mine improve-ours --apply",
+        "make demo-all-quick",
+        "```",
+        "",
+    ]
+
+    out_dir = workdir / ".nexus_state" / "repo_mine"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    plan_path = out_dir / "IMPROVE_OURS.md"
+    if not dry_run:
+        plan_path.write_text("\n".join(lines), encoding="utf-8")
+
+    apply_result = None
+    if apply and not dry_run:
+        from .github_job import GithubJobRunner, ensure_panel_for_job
+
+        target = our_repo or os.environ.get("NEXUS_GITHUB_REPO") or ""
+        if not target:
+            # try git remote
+            try:
+                raw = gc._run_gh(
+                    ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                    timeout=20,
+                )
+                target = raw.strip()
+            except Exception:
+                target = ""
+        if not target:
+            apply_result = {
+                "error": "set --repo owner/name or NEXUS_GITHUB_REPO for --apply",
+            }
+        else:
+            panel = None
+            try:
+                panel = ensure_panel_for_job()
+            except Exception:
+                panel = None
+            try:
+                jr = GithubJobRunner(panel=panel)
+                job = jr.run(target, goal=goal, max_fix_rounds=2)
+                apply_result = {
+                    "status": getattr(job, "status", None),
+                    "job_id": getattr(job, "job_id", None),
+                    "repo": target,
+                }
+            except Exception as e:
+                apply_result = {"error": str(e), "repo": target}
+
+    return {
+        "step": "improve_ours",
+        "ok": True,
+        "sources": [
+            {
+                "repo": r.get("repo"),
+                "score": r.get("score"),
+                "path": r.get("local_path"),
+            }
+            for r in picks
+        ],
+        "plan": str(plan_path),
+        "goal_preview": goal[:500],
+        "apply": apply_result,
+        "chase": "score → use clones → improve our code",
+    }
+
+
 def run_pipeline(
     workdir: Path,
     *,
@@ -555,8 +697,11 @@ def run_pipeline(
     use_limit: int = 5,
     use_ollama: bool = True,
     prove: bool = True,
+    improve: bool = False,
+    apply_improve: bool = False,
+    our_repo: Optional[str] = None,
 ) -> dict[str, Any]:
-    """fetch → evaluate → use (mine for code, never follow/star)."""
+    """fetch → evaluate → use → optional improve-ours (mine for code, never follow/star)."""
     print(f"=== NEXUS repo mine (use, don't follow) ===")
     print(f"  query: {query!r}")
     f = step_fetch(
@@ -582,4 +727,14 @@ def run_pipeline(
     print(f"  use: {u['used']} kept for your project")
     if u.get("notes"):
         print(f"  notes: {u['notes']}")
-    return {"fetch": f, "evaluate": e, "use": u}
+    imp = None
+    if improve or apply_improve:
+        imp = step_improve_ours(
+            workdir,
+            min_score=min_score,
+            limit=min(use_limit, 3),
+            apply=apply_improve,
+            our_repo=our_repo,
+        )
+        print(f"  improve_ours: plan={imp.get('plan')} apply={imp.get('apply')}")
+    return {"fetch": f, "evaluate": e, "use": u, "improve_ours": imp}

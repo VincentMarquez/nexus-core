@@ -75,6 +75,7 @@ nav:
       - Platforms + local LLM: PLATFORMS.md
       - Resilience (power/WiFi): RESILIENCE.md
       - Repo mine (use, not follow): REPO_MINE.md
+      - Schedule ChatGPT/Claude: SCHEDULE_AGENTS.md
       - Bridges: BRIDGES_AND_BUS.md
       - GLM-5.2: GLM52.md
   - Launch:

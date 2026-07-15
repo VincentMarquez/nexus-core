@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.3 — 2026-07-15
+
+### Added
+- **improve-ours**: scored clones → plan + optional `--apply` to improve *this* project
+- **`nexus schedule`**: cron lines for heartbeat, mine, MCP HTTP (ChatGPT/Claude)
+- Docs: `SCHEDULE_AGENTS.md` — schedule cloud AIs on NEXUS + mine→improve chase
+
 ## 0.8.2 — 2026-07-15
 
 ### Added

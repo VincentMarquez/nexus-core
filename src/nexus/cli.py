@@ -920,6 +920,15 @@ def cmd_github(args: argparse.Namespace) -> int:
                 )
                 conn.close()
                 res = {"step": "list", "count": len(rows), "entries": rows}
+            elif msub in ("improve-ours", "improve_ours"):
+                res = rm.step_improve_ours(
+                    workdir,
+                    min_score=float(getattr(args, "min_score", 12) or 12),
+                    limit=int(getattr(args, "limit", 3) or 3),
+                    apply=bool(getattr(args, "apply", False)),
+                    our_repo=getattr(args, "repo_flag", None) or getattr(args, "repo", None),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                )
             elif msub == "run":
                 res = rm.run_pipeline(
                     workdir,
@@ -934,7 +943,7 @@ def cmd_github(args: argparse.Namespace) -> int:
                     prove=not bool(getattr(args, "no_prove", False)),
                 )
             else:
-                print("usage: nexus github mine fetch|evaluate|use|list|run")
+                print("usage: nexus github mine fetch|evaluate|use|list|run|improve-ours")
                 return 2
         except Exception as e:
             print(f"error: {e}")
@@ -1119,6 +1128,23 @@ def cmd_recovery(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_schedule(args: argparse.Namespace) -> int:
+    """Print cron lines so heartbeat/mine/MCP can run unattended; ChatGPT/Claude attach via MCP."""
+    from . import schedule_install as si
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    text = si.install_bundle(
+        root,
+        mine_query=getattr(args, "query", None) or "multi agent durable",
+        heartbeat=not bool(getattr(args, "no_heartbeat", False)),
+        mine=not bool(getattr(args, "no_mine", False)),
+        mcp_http=bool(getattr(args, "mcp_http", False)),
+    )
+    print(text)
+    print("# Docs: docs/SCHEDULE_AGENTS.md")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -1134,6 +1160,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "platforms",
         "heartbeat",
         "recovery",
+        "schedule",
         "procure",
         "arxiv",
         "research",
@@ -1597,6 +1624,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     ml.add_argument("--limit", type=int, default=30)
     ml.add_argument("--workdir", default=None)
     ml.set_defaults(func=cmd_github)
+    mi = gh_mine_sub.add_parser(
+        "improve-ours",
+        help="from scored clones → plan (and optional --apply) to improve THIS project",
+    )
+    mi.add_argument("--min-score", type=float, default=12.0)
+    mi.add_argument("--limit", type=int, default=3)
+    mi.add_argument("--workdir", default=None)
+    mi.add_argument("--repo", dest="repo_flag", default=None, help="owner/name for --apply job")
+    mi.add_argument("--apply", action="store_true", help="run nexus do to port patterns (opt-in)")
+    mi.add_argument("--dry-run", action="store_true")
+    mi.set_defaults(func=cmd_github)
     mr = gh_mine_sub.add_parser("run", help="fetch → evaluate → use (full pipeline)")
     mr.add_argument("--query", "-q", default="multi agent durable resume")
     mr.add_argument("--count", "-n", type=int, default=6)
@@ -1608,6 +1646,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     mr.add_argument("--workdir", default=None)
     mr.add_argument("--heuristic-only", action="store_true")
     mr.add_argument("--no-prove", action="store_true")
+    mr.add_argument("--improve", action="store_true", help="also write IMPROVE_OURS.md")
+    mr.add_argument("--apply", action="store_true", help="with --improve, run fix job")
+    mr.add_argument("--repo", dest="repo_flag", default=None)
     mr.set_defaults(func=cmd_github)
     gh_mine.set_defaults(func=cmd_github, mine_cmd="run")
 
@@ -1741,6 +1782,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     rc_auto.add_argument("--allow-reboot", action="store_true")
     rc_auto.set_defaults(func=cmd_recovery)
     rc.set_defaults(func=cmd_recovery, recovery_cmd="status")
+
+    sch = sub.add_parser(
+        "schedule",
+        help="print cron lines: heartbeat + mine + optional MCP for ChatGPT/Claude",
+    )
+    sch.add_argument("--path", default=".")
+    sch.add_argument("--query", "-q", default="multi agent durable")
+    sch.add_argument("--no-heartbeat", action="store_true")
+    sch.add_argument("--no-mine", action="store_true")
+    sch.add_argument(
+        "--mcp-http",
+        action="store_true",
+        help="include @reboot nexus mcp --http (tunnel for ChatGPT connectors)",
+    )
+    sch.set_defaults(func=cmd_schedule)
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")

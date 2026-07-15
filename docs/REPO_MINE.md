@@ -45,13 +45,26 @@ nexus github mine list --used
 
 Ollama prompt grades for **reuse**, not social popularity.
 
-## After mine
+## After mine — improve **our** code
 
 ```bash
 ls .nexus_workspaces/scout_repos/
 less .nexus_state/repo_mine/USE_LATEST.md
-nexus do . -g "adopt pattern X from owner/repo; keep tests green"
+
+# Plan from top scores (always safe)
+nexus github mine improve-ours --min-score 12
+less .nexus_state/repo_mine/IMPROVE_OURS.md
+
+# Port patterns into THIS project (opt-in durable job)
+nexus github mine improve-ours --apply --repo VincentMarquez/nexus-core
 make demo-all-quick
+```
+
+Full pipeline with plan step:
+
+```bash
+nexus github mine run -q "multi agent" --improve
+nexus github mine run -q "multi agent" --improve --apply --repo YOU/REPO
 ```
 
 ## vs `github scout`
