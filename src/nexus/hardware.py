@@ -198,7 +198,7 @@ def detect(ollama_host: str = "http://127.0.0.1:11434") -> HardwareProfile:
     if not tools.get("ollama"):
         notes.append("Ollama not found — install from https://ollama.com for local LLMs")
     elif not models:
-        notes.append("Ollama installed but no models yet — will pull a small default if you approve")
+        notes.append("Ollama installed but no models yet — ./run will auto-pull a small default")
     if mem["available"] < 8:
         notes.append("Low free RAM — prefer tiny models")
     if any(g.get("backend") == "unified" for g in _gpu_info()):

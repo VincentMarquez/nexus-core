@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""NEXUS Core CLI — one-command local stack.
+"""NEXUS Core CLI — zero-config local stack.
 
-  nexus start          # detect hardware, bus, dashboard, local LLM
-  nexus status
-  nexus stop
-  nexus doctor
-  nexus demo
+  nexus              # same as: nexus start  (fully automatic)
+  nexus start        # hardware, bus, dashboard, local LLM, agents if present
+  nexus stop | status | doctor | demo | mcp
 """
 
 from __future__ import annotations
@@ -13,8 +11,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .hardware import detect
 from .runtime import RuntimeManager, shutil_which
@@ -50,7 +51,6 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     rt = RuntimeManager()
     print("=== Runtime ===")
     print(json.dumps(rt.status(), indent=2))
-    ok = hw.tools.get("node") and (hw.tools.get("ollama") or True)
     return 0 if hw.tools.get("node") else 1
 
 
@@ -69,7 +69,7 @@ def cmd_stop(_: argparse.Namespace) -> int:
 
 def _confirm(prompt: str, *, default: bool = False, yes: bool = False) -> bool:
     if yes:
-        return default if default else True
+        return True
     suffix = " [Y/n] " if default else " [y/N] "
     try:
         ans = input(prompt + suffix).strip().lower()
@@ -80,6 +80,125 @@ def _confirm(prompt: str, *, default: bool = False, yes: bool = False) -> bool:
     return ans in {"y", "yes"}
 
 
+def _model_installed(model: str, models: list[str]) -> bool:
+    if model in models:
+        return True
+    prefix = model.split(":")[0]
+    return any(m.startswith(prefix) and "embed" not in m.lower() for m in models)
+
+
+def _resolve_model_name(model: str, models: list[str]) -> str:
+    if model in models:
+        return model
+    prefix = model.split(":")[0]
+    for m in models:
+        if m.startswith(prefix) and "embed" not in m.lower():
+            return m
+    return model
+
+
+def enable_agent_bridges(
+    rt: RuntimeManager,
+    hw,
+    *,
+    use_cli: bool,
+    ollama_ok: bool,
+    model: str,
+) -> dict[str, str]:
+    """Start bridges for local + known agent slots.
+
+    Returns mapping agent_name → backend description.
+    Real CLIs are used when installed and use_cli=True; otherwise mock
+    so the stack always has agents ready for demos / orchestration.
+    """
+    backends: dict[str, str] = {}
+
+    # --- local LLM ---
+    if ollama_ok and model:
+        print(f"→ local LLM bridge: agent=local model={model}")
+        rt.start_ollama_bridge("local", model)
+        backends["local"] = f"ollama:{model}"
+    else:
+        print("→ mock bridge: local (no Ollama model yet)")
+        rt.start_mock_bridge("local")
+        backends["local"] = "mock"
+
+    # Agent slots the bus expects
+    # claude / gpt / gemini — real CLI when available and allowed
+    cli_specs = [
+        ("claude", "claude", ["claude", "--print"]),
+        ("gpt", "codex", ["codex", "exec", "--skip-git-repo-check"]),
+        ("gemini", "gemini", ["gemini"]),
+    ]
+
+    for agent, tool_key, cmd in cli_specs:
+        if use_cli and hw.tools.get(tool_key):
+            print(f"→ CLI bridge: {agent}  ({' '.join(cmd)})")
+            # replace any previous mock
+            rt.stop(f"bridge-{agent}")
+            rt.start_cli_bridge(agent, cmd)
+            backends[agent] = f"cli:{tool_key}"
+        else:
+            print(f"→ mock bridge: {agent}" + (" (CLI not installed)" if use_cli else " (--no-cli)"))
+            rt.start_mock_bridge(agent)
+            backends[agent] = "mock"
+
+    return backends
+
+
+def _bus_post_message(port: int, agent: str, prompt: str, timeout: float = 90.0) -> Optional[dict[str, Any]]:
+    """Best-effort smoke call so the user sees an agent answer on first boot."""
+    url = f"http://127.0.0.1:{port}/api/message"
+    body = json.dumps({"agent": agent, "prompt": prompt}).encode()
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _smoke_agent(port: int, backends: dict[str, str]) -> None:
+    """Ping the best available agent so the dashboard shows activity."""
+    # Prefer real backends over mock
+    order = []
+    for name, backend in backends.items():
+        if backend.startswith("ollama:") or backend.startswith("cli:"):
+            order.append(name)
+    for name, backend in backends.items():
+        if name not in order:
+            order.append(name)
+    if not order:
+        return
+    agent = order[0]
+    print(f"→ first-contact smoke: agent={agent} ({backends[agent]})")
+    result = _bus_post_message(
+        port,
+        agent,
+        "Reply with exactly: NEXUS_READY. One short line only.",
+        timeout=120.0,
+    )
+    if not result:
+        print("  smoke: no response (bus message API may differ — stack is still up)")
+        return
+    if result.get("error") and not result.get("ok", True):
+        print(f"  smoke: {result.get('error')}")
+        return
+    text = (
+        result.get("response")
+        or result.get("text")
+        or result.get("content")
+        or result.get("output")
+        or json.dumps(result)[:200]
+    )
+    print(f"  smoke reply: {str(text).strip()[:240]}")
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     rt = RuntimeManager()
     hw = detect()
@@ -87,11 +206,15 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     if not hw.tools.get("node"):
         print("ERROR: Node.js is required for the dashboard/bus.")
-        print("  Install Node 18+ then re-run: nexus start")
+        print("  Install Node 18+ then re-run: ./run   or   nexus start")
         return 1
 
     agents = ["local", "claude", "gpt", "gemini"]
     model = args.model or hw.recommended_model or "gemma2:2b"
+    yes = bool(args.yes) or not sys.stdin.isatty()
+    # Auto mode: enable every installed CLI unless user opts out
+    use_cli = not bool(getattr(args, "no_cli", False))
+    do_smoke = not bool(getattr(args, "no_smoke", False))
 
     # --- Ollama ---
     ollama_ok = False
@@ -100,47 +223,50 @@ def cmd_start(args: argparse.Namespace) -> int:
         ollama_ok = rt.ensure_ollama_serve()
         if ollama_ok:
             print("  ollama API: ok")
-            # refresh models
             hw = detect()
             model = args.model or hw.recommended_model or model
-            if model not in hw.ollama_models and not any(
-                m.startswith(model.split(":")[0]) for m in hw.ollama_models
-            ):
-                if args.yes or _confirm(
-                    f"Pull local model '{model}' now? (may take a while)",
-                    default=True,
-                    yes=args.yes,
-                ):
+            if not _model_installed(model, hw.ollama_models):
+                # Auto-pull by default (zero-config). Skip only with --no-pull.
+                should_pull = not getattr(args, "no_pull", False)
+                if not yes and should_pull:
+                    should_pull = _confirm(
+                        f"Pull local model '{model}' now? (may take a while)",
+                        default=True,
+                        yes=False,
+                    )
+                if should_pull and not getattr(args, "no_pull", False):
                     print(f"→ ollama pull {model} (log: .nexus_state/logs/ollama-pull.log)")
                     if not rt.pull_model(model):
                         print("  pull failed — check .nexus_state/logs/ollama-pull.log")
-                        # try an already-installed model
                         if hw.ollama_models:
                             model = hw.recommended_model or hw.ollama_models[0]
                             print(f"  falling back to installed: {model}")
+                            ollama_ok = True
+                        else:
+                            print("  no model — local agent will use mock fallback")
+                            ollama_ok = False
+                    else:
+                        hw = detect()
+                        model = _resolve_model_name(model, hw.ollama_models)
                 else:
                     if hw.ollama_models:
-                        model = hw.recommended_model or [
-                            m for m in hw.ollama_models if "embed" not in m.lower()
-                        ][0]
+                        model = hw.recommended_model or next(
+                            (m for m in hw.ollama_models if "embed" not in m.lower()),
+                            hw.ollama_models[0],
+                        )
                         print(f"  using installed model: {model}")
                     else:
                         print("  no model — local agent will use mock fallback")
                         ollama_ok = False
             else:
-                # use best matching installed name
-                if model not in hw.ollama_models:
-                    for m in hw.ollama_models:
-                        if m.startswith(model.split(":")[0]) and "embed" not in m.lower():
-                            model = m
-                            break
+                model = _resolve_model_name(model, hw.ollama_models)
         else:
             print("  could not start ollama serve")
     else:
         print("→ Ollama not installed — starting mock local agent instead")
-        print("  install: https://ollama.com  then re-run nexus start")
+        print("  install: https://ollama.com  then re-run ./run for a real local LLM")
 
-    # --- Bus (auto port if 3099 busy) ---
+    # --- Bus ---
     print("→ starting event bus + dashboard…")
     rt.start_bus(agents)
     if not rt.wait_bus(20):
@@ -149,49 +275,11 @@ def cmd_start(args: argparse.Namespace) -> int:
     print(f"  bus:       http://127.0.0.1:{rt.bus_port}/health")
     print(f"  dashboard: http://127.0.0.1:{rt.bus_port}/dashboard")
 
-    # --- Bridges ---
-    if ollama_ok and model:
-        print(f"→ local LLM bridge: agent=local model={model}")
-        rt.start_ollama_bridge("local", model)
-    else:
-        print("→ mock bridge: local")
-        rt.start_mock_bridge("local")
-
-    # Always provide a mock claude so demos work offline
-    print("→ mock bridge: claude (safe default)")
-    rt.start_mock_bridge("claude")
-
-    # Optional real CLIs — only if approved
-    cli_enabled = []
-    if args.with_cli or (
-        not args.yes
-        and (hw.tools.get("claude") or hw.tools.get("codex") or hw.tools.get("gemini"))
-        and _confirm(
-            "Enable real CLI bridges for installed tools? (claude/codex/gemini)",
-            default=False,
-            yes=False,
-        )
-    ):
-        if hw.tools.get("claude"):
-            # stop mock claude first
-            rt.stop("bridge-claude")
-            print("→ CLI bridge: claude")
-            rt.start_cli_bridge("claude", ["claude", "--print"])
-            cli_enabled.append("claude")
-        if args.with_cli and hw.tools.get("codex"):
-            print("→ CLI bridge: gpt (codex)")
-            rt.start_cli_bridge("gpt", ["codex", "exec", "--skip-git-repo-check"])
-            cli_enabled.append("gpt")
-        if args.with_cli and hw.tools.get("gemini"):
-            print("→ CLI bridge: gemini")
-            rt.start_cli_bridge("gemini", ["gemini"])
-            cli_enabled.append("gemini")
-    elif args.with_cli:
-        # non-interactive force
-        if hw.tools.get("claude"):
-            rt.stop("bridge-claude")
-            rt.start_cli_bridge("claude", ["claude", "--print"])
-            cli_enabled.append("claude")
+    # --- Agents (auto) ---
+    print("→ wiring agents (real tools when installed, mock otherwise)…")
+    backends = enable_agent_bridges(
+        rt, hw, use_cli=use_cli, ollama_ok=ollama_ok, model=model
+    )
 
     # Dashboard
     if not args.no_open:
@@ -199,9 +287,6 @@ def cmd_start(args: argparse.Namespace) -> int:
         rt.open_dashboard()
 
     # wait for local bridge online
-    import time
-    import urllib.request
-
     for _ in range(25):
         try:
             with urllib.request.urlopen(
@@ -215,18 +300,27 @@ def cmd_start(args: argparse.Namespace) -> int:
             pass
         time.sleep(0.2)
 
+    if do_smoke:
+        _smoke_agent(rt.bus_port, backends)
+
+    real = [f"{k}={v}" for k, v in backends.items() if v != "mock"]
+    mock = [k for k, v in backends.items() if v == "mock"]
+
     url = f"http://127.0.0.1:{rt.bus_port}/dashboard"
     print()
-    print("=== NEXUS is up ===")
+    print("=== NEXUS is up (automatic) ===")
     print(f"  Dashboard:  {url}")
     print(f"  Bus API:    http://127.0.0.1:{rt.bus_port}/api/status")
-    print(f"  Local LLM:  {'ollama:' + model if ollama_ok else 'mock'}")
-    print(f"  CLI agents: {', '.join(cli_enabled) if cli_enabled else 'off (use: nexus start --with-cli)'}")
+    print(f"  Agents ON:  {', '.join(real) if real else '(none — using mocks)'}")
+    if mock:
+        print(f"  Agents mock:{', '.join(mock)}  (install CLI / Ollama to upgrade)")
     print()
-    print("Next:")
-    print(f"  python examples/call_bus.py --base http://127.0.0.1:{rt.bus_port} --agent local --prompt 'Hello'")
+    print("You don't need to do anything else for the stack to run.")
+    print("Orchestration will use real agents when present, mocks when not.")
+    print()
+    print("Useful:")
     print(f"  NEXUS_BUS_PORT={rt.bus_port} python examples/run_with_bus.py --base http://127.0.0.1:{rt.bus_port}")
-    print("  nexus demo")
+    print("  nexus demo          # crash → resume proof")
     print("  nexus stop")
     print()
     print("Logs: .nexus_state/logs/")
@@ -234,15 +328,12 @@ def cmd_start(args: argparse.Namespace) -> int:
         "hardware": hw.to_dict(),
         "runtime": rt.status(),
         "model": model,
-        "cli": cli_enabled,
+        "backends": backends,
         "dashboard": url,
+        "auto": True,
     }
-    (rt.state_dir / "last_start.json").write_text(json_dump(snap), encoding="utf-8")
+    (rt.state_dir / "last_start.json").write_text(json.dumps(snap, indent=2), encoding="utf-8")
     return 0
-
-
-def json_dump(obj) -> str:
-    return json.dumps(obj, indent=2)
 
 
 def cmd_demo(_: argparse.Namespace) -> int:
@@ -265,16 +356,63 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    raw = list(sys.argv[1:] if argv is None else argv)
+
+    # Zero-config: bare `nexus` (or only flags) → automatic start
+    known = {
+        "start",
+        "stop",
+        "status",
+        "doctor",
+        "demo",
+        "mcp",
+        "-h",
+        "--help",
+    }
+    if not raw or raw[0] not in known:
+        # allow `nexus --no-cli` etc.
+        if raw and raw[0] in known:
+            pass
+        else:
+            raw = ["start", "--yes", *raw]
+
     ap = argparse.ArgumentParser(
         prog="nexus",
-        description="NEXUS Core — durable multi-agent stack on your machine",
+        description="NEXUS Core — durable multi-agent stack (auto-starts with agents when available)",
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("start", help="auto-detect hardware, start bus+dashboard+local LLM")
+    p = sub.add_parser(
+        "start",
+        help="auto-detect hardware, start bus+dashboard+local LLM+agents",
+    )
     p.add_argument("--model", default=None, help="Ollama model name (default: auto)")
-    p.add_argument("--yes", "-y", action="store_true", help="non-interactive defaults")
-    p.add_argument("--with-cli", action="store_true", help="enable real CLI bridges when installed")
+    p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="non-interactive (default when stdin is not a TTY, or via ./run)",
+    )
+    p.add_argument(
+        "--with-cli",
+        action="store_true",
+        help="(default) enable real CLI bridges when installed",
+    )
+    p.add_argument(
+        "--no-cli",
+        action="store_true",
+        help="do not enable real CLI agents (mock only for claude/gpt/gemini)",
+    )
+    p.add_argument(
+        "--no-pull",
+        action="store_true",
+        help="do not auto-pull an Ollama model",
+    )
+    p.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="skip first-contact agent smoke message",
+    )
     p.add_argument("--no-open", action="store_true", help="do not open browser")
     p.set_defaults(func=cmd_start)
 
@@ -290,7 +428,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     pm.add_argument("--project-root", default=None)
     pm.set_defaults(func=cmd_mcp)
 
-    args = ap.parse_args(argv)
+    args = ap.parse_args(raw)
     return int(args.func(args))
 
 

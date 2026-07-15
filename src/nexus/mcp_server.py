@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 
 SERVER_NAME = "nexus-workspace"
-SERVER_VERSION = "0.4.1"
+SERVER_VERSION = "0.4.2"
 PROTOCOL_VERSION = "2024-11-05"
 
 

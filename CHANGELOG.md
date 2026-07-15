@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2 — 2026-07-15
+
+### Changed
+- **Zero-config start**: `./run` creates venv, installs package, starts stack
+- **Agents auto-on** when CLI tools are installed (claude / codex / gemini); mock otherwise
+- **Auto-pull** a safe Ollama model by default
+- Bare `nexus` / `make` → automatic start
+- First-contact smoke message so the dashboard shows agent activity
+
+### Added
+- Flags: `--no-cli`, `--no-pull`, `--no-smoke` to opt out of automation
+
 ## 0.4.1 — 2026-07-15
 
 ### Fixed

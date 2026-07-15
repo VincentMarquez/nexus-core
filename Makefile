@@ -1,4 +1,10 @@
-.PHONY: install test smoke demo demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
+.PHONY: all install test smoke demo demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
+
+# Default: zero-config bootstrap + automatic start with agents
+all: run
+
+run:
+	@bash ./run
 
 install:
 	python3 -m venv .venv || true
@@ -22,12 +28,16 @@ demo-judge:
 scoreboard:
 	. .venv/bin/activate && python evals/scoreboard.py
 
-# One-command local stack: hardware detect → bus → dashboard → Ollama
+# Fully automatic: bus + dashboard + Ollama + CLI agents when installed
 start:
-	. .venv/bin/activate && nexus start -y
+	. .venv/bin/activate && nexus start --yes
 
+# Explicit aliases (same as start now; kept for docs / old habits)
 start-cli:
-	. .venv/bin/activate && nexus start -y --with-cli
+	. .venv/bin/activate && nexus start --yes
+
+start-mock:
+	. .venv/bin/activate && nexus start --yes --no-cli
 
 stop:
 	. .venv/bin/activate && nexus stop
@@ -42,7 +52,7 @@ bus:
 	cd bridge && NEXUS_STATE_DIR=../.nexus_state npm start
 
 dashboard:
-	@echo "Run: make start   (opens dashboard automatically)"
+	@echo "Run: ./run   (opens dashboard automatically)"
 	@echo "Or:  http://127.0.0.1:3099/dashboard"
 
 mcp-http:

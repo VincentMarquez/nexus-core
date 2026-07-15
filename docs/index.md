@@ -9,14 +9,12 @@
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-nexus start -y          # bus + dashboard + local LLM
+./run                   # install + bus + dashboard + agents (auto)
 nexus demo              # crash → resume
 nexus stop
 ```
 
-Or: `make install && make start && make demo`
+Agents (Claude / Codex / Gemini / Ollama) turn on automatically when installed; otherwise safe mocks run so nothing is blocked.
 
 ## What you get
 

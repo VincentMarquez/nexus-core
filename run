@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Zero-config entrypoint: clone → ./run → stack is up with agents.
+# No prior install step. Creates .venv, installs the package, starts everything.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+echo "=== NEXUS Core — auto start ==="
+echo "  repo: $ROOT"
+echo
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required (3.10+)."
+  exit 1
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "ERROR: Node.js 18+ is required for the dashboard/event bus."
+  echo "  Install: https://nodejs.org  then re-run ./run"
+  exit 1
+fi
+
+if [[ ! -d .venv ]]; then
+  echo "→ creating Python venv (.venv)…"
+  python3 -m venv .venv
+fi
+
+# shellcheck disable=SC1091
+source .venv/bin/activate
+
+echo "→ installing / updating package…"
+python -m pip install -q -U pip
+python -m pip install -q -e .
+
+# Forward extra flags to nexus start (e.g. ./run --no-cli --model gemma2:2b)
+# Default: fully automatic (agents on when installed, model pull, browser open).
+exec nexus start --yes "$@"

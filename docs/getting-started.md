@@ -1,28 +1,35 @@
 # Getting started
 
-## Install
+## Zero config (recommended)
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core
+./run
+```
+
+This creates `.venv`, installs the package, starts the bus + dashboard, auto-starts Ollama (and pulls a small model if needed), and **enables real CLI agents when they are installed** (claude / codex / gemini). Missing tools get safe **mock** bridges so demos still work.
+
+Requires: **Python 3.10+** and **Node 18+**. Ollama and AI CLIs are optional.
+
+## Manual install
+
+```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 # after publish: pip install nexus-multi-agent
+nexus start          # same automatic behavior
 ```
 
-## One-command stack
+## Control flags
 
 ```bash
-nexus doctor              # hardware + tools
-nexus start -y            # bus, dashboard, Ollama if present
+./run --no-cli       # mock agents only (no real CLIs)
+./run --no-pull      # don’t pull Ollama models
+./run --no-smoke     # skip first agent ping
+./run --model gemma2:2b
 nexus status
 nexus stop
-```
-
-CLI agents (Claude/Codex/Gemini) only when you opt in:
-
-```bash
-nexus start -y --with-cli
 ```
 
 ## Demos

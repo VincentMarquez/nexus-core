@@ -26,23 +26,38 @@
 
 ---
 
-## Quick start
+## Quick start (zero config)
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
-cd nexus-core && make install && make start
-
-# after PyPI publish:
-# pip install nexus-multi-agent && nexus start -y
+cd nexus-core
+./run
 ```
 
-**What `make start` / `nexus start` does automatically**
+That’s it. **`./run` installs the package if needed and starts everything automatically.**
 
-1. Detects CPU / RAM / GPU (and unified memory)  
-2. Starts **Ollama** if installed and picks a safe local model  
-3. Starts the **JS event bus** + opens the **dashboard**  
-4. Wires a **local LLM bridge** (or mock if Ollama is missing)  
-5. Keeps real **CLI agents off** until `--with-cli` or you approve  
+| What happens | Detail |
+|--------------|--------|
+| Python venv | Created at `.venv` if missing |
+| Package install | `pip install -e .` |
+| Hardware detect | CPU / RAM / GPU / tools |
+| Ollama | Starts if installed; **auto-pulls** a safe small model |
+| Event bus + dashboard | Opens in your browser |
+| Agents | **Uses real CLIs when installed** (claude / codex / gemini); mocks otherwise so demos still work |
+| First contact | Sends a short smoke message so you see an agent reply |
+
+Same effect: `make` · `make start` · `nexus` · `nexus start`
+
+```bash
+# after PyPI publish:
+pip install nexus-multi-agent && nexus start
+
+# opt-outs if you want them:
+./run --no-cli          # mock claude/gpt/gemini only
+./run --no-pull         # don’t download models
+./run --no-smoke        # skip first agent ping
+./run --model gemma2:2b # force a model
+```
 
 Then:
 
@@ -88,11 +103,11 @@ make install && make start && make demo && make demo-judge && make smoke
 
 | Command | Does |
 |---------|------|
+| `./run` | **Preferred** — install + auto start + agents |
+| `nexus` / `nexus start` | Same stack (after install) |
 | `nexus doctor` | Hardware + tool detection |
-| `nexus start` | Full auto stack |
-| `nexus start -y` | Non-interactive defaults |
-| `nexus start -y --with-cli` | Also enable installed CLIs |
-| `nexus start --model gemma4:e4b` | Force a model |
+| `nexus start --no-cli` | Stack without real CLI agents |
+| `nexus start --model …` | Force Ollama model |
 | `nexus status` / `nexus stop` | Status / tear down |
 | `nexus demo` | Crash → resume demo |
 | `nexus mcp` | Stdio MCP (Claude Desktop) |
