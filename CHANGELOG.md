@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.5 — 2026-07-15
+
+### Added
+- **Multi-platform mesh**: `nexus platforms status|connect|flow`
+- Auto-wire **Grok CLI** MCP + optional local Ollama model; **Cursor** `.cursor/mcp.json`; Claude example
+- Workspace MCP tools for all clients: `run_project_checks`, `bus_status`, `github_community_status`, `list_platforms`
+- Docs: `docs/PLATFORMS.md` — local LLM tool parity inside Grok CLI (and later Cursor/etc.)
+
 ## 0.7.4 — 2026-07-15
 
 ### Added

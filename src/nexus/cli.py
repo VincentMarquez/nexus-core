@@ -859,6 +859,64 @@ def cmd_github(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_platforms(args: argparse.Namespace) -> int:
+    """Detect and auto-connect Grok CLI / Cursor / Claude / local LLM tool mesh."""
+    from . import platforms as plat
+
+    sub = getattr(args, "platforms_cmd", None) or "status"
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+
+    if sub == "status":
+        plats = plat.detect_platforms(project_root=root)
+        print("=== NEXUS multi-platform mesh ===")
+        print(f"project: {root}")
+        print(plat.format_status_table(plats))
+        print()
+        flow = plat.agent_flow_map()
+        print("Shared tools:", ", ".join(flow["shared_tools"]))
+        print("Handoff:", flow["handoff"])
+        print("Rule:", flow["rule"])
+        print()
+        print("connect:  nexus platforms connect")
+        print("start:    nexus start -y   # local LLM + CLI agents on bus")
+        return 0
+
+    if sub == "connect":
+        res = plat.connect_all(
+            root,
+            grok=not bool(getattr(args, "no_grok", False)),
+            cursor=not bool(getattr(args, "no_cursor", False)),
+            claude=not bool(getattr(args, "no_claude", False)),
+            local_model=not bool(getattr(args, "no_local_model", False)),
+            force=bool(getattr(args, "force", False)),
+            ollama_model=getattr(args, "model", None),
+        )
+        print(json.dumps(res, indent=2))
+        if getattr(args, "start", False):
+            print("→ starting NEXUS stack so local LLM joins the bus…")
+            start_args = argparse.Namespace(
+                model=getattr(args, "model", None),
+                yes=True,
+                with_cli=True,
+                no_cli=False,
+                no_pull=False,
+                no_smoke=True,
+                no_open=True,
+            )
+            return cmd_start(start_args)
+        print("\nNext:")
+        for line in res.get("next") or []:
+            print(" ", line)
+        return 0 if all(r.get("ok", True) for r in res.get("results") or []) else 1
+
+    if sub == "flow":
+        print(json.dumps(plat.agent_flow_map(), indent=2))
+        return 0
+
+    print("usage: nexus platforms status|connect|flow")
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -871,6 +929,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "mcp",
         "do",
         "github",
+        "platforms",
         "procure",
         "arxiv",
         "research",
@@ -1305,6 +1364,44 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     # bare `nexus github` → help-ish via cmd_github
     gh.set_defaults(func=cmd_github, github_cmd=None)
+
+    # --- multi-platform mesh (Grok CLI, Cursor, local LLM tools) ---
+    pl = sub.add_parser(
+        "platforms",
+        help="detect/connect Grok CLI, Cursor, Claude; local LLM gets full tools",
+    )
+    pl_sub = pl.add_subparsers(dest="platforms_cmd")
+    pl_st = pl_sub.add_parser("status", help="show installed platforms + agent ids")
+    pl_st.add_argument("--path", default=".", help="project root")
+    pl_st.set_defaults(func=cmd_platforms)
+    pl_co = pl_sub.add_parser(
+        "connect",
+        help="auto-wire MCP + local model so all agents share NEXUS tools",
+    )
+    pl_co.add_argument("--path", default=".", help="project root")
+    pl_co.add_argument("--force", action="store_true", help="overwrite existing MCP entries")
+    pl_co.add_argument("--no-grok", action="store_true")
+    pl_co.add_argument("--no-cursor", action="store_true")
+    pl_co.add_argument("--no-claude", action="store_true")
+    pl_co.add_argument(
+        "--no-local-model",
+        action="store_true",
+        help="do not register Ollama endpoint in Grok config",
+    )
+    pl_co.add_argument(
+        "--model",
+        default=None,
+        help="Ollama model name for Grok [model.nexus-local]",
+    )
+    pl_co.add_argument(
+        "--start",
+        action="store_true",
+        help="also nexus start -y so local agent is on the bus",
+    )
+    pl_co.set_defaults(func=cmd_platforms)
+    pl_flow = pl_sub.add_parser("flow", help="print agent ingress/handoff map as JSON")
+    pl_flow.set_defaults(func=cmd_platforms)
+    pl.set_defaults(func=cmd_platforms, platforms_cmd="status")
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")

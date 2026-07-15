@@ -69,6 +69,7 @@ nav:
   - Connect:
       - Connectors & MCP: CONNECTORS.md
       - MCP setup: MCP_SETUP.md
+      - Platforms + local LLM: PLATFORMS.md
       - Bridges: BRIDGES_AND_BUS.md
       - GLM-5.2: GLM52.md
   - Launch:

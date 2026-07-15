@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 
 SERVER_NAME = "nexus-workspace"
-SERVER_VERSION = "0.6.0"
+SERVER_VERSION = "0.7.4"
 PROTOCOL_VERSION = "2024-11-05"
 
 
@@ -112,6 +112,46 @@ TOOLS = [
         "description": "Report NEXUS project root and basic runtime status if available.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "run_project_checks",
+        "description": (
+            "Run allowlisted project checks (install + pytest + smoke when present). "
+            "Same evidence loop the community bot uses. Local and cloud agents share this tool."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "timeout_each": {
+                    "type": "number",
+                    "default": 180,
+                    "description": "Seconds per check command",
+                }
+            },
+        },
+    },
+    {
+        "name": "bus_status",
+        "description": "If the NEXUS event bus is up, return agent online/busy status (local LLM + CLIs).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "github_community_status",
+        "description": "Show GitHub community one-stop status (gh auth + target repo) for this machine.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "owner/repo override (optional)",
+                }
+            },
+        },
+    },
+    {
+        "name": "list_platforms",
+        "description": "List detected agent platforms (Grok CLI, Cursor, Claude, Ollama, …) and connect hints.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 
@@ -198,6 +238,71 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             return _tool_result(
                 f"project_root={root}\nserver={SERVER_NAME} {SERVER_VERSION}" + extra
             )
+
+        if name == "run_project_checks":
+            from .github_community import format_loop_report, git_head_sha, run_project_checks
+            from .github_community import LoopReport
+
+            timeout = float(args.get("timeout_each") or 180)
+            root = _root()
+            checks = run_project_checks(root, timeout_each=timeout)
+            report = LoopReport(
+                sha=git_head_sha(root),
+                workdir=str(root),
+                checks=checks,
+                triggered_by="mcp",
+                kind="local",
+                number=0,
+            )
+            # compact JSON for tool result
+            summary = {
+                "ok": report.ok,
+                "sha": report.sha,
+                "checks": [
+                    {
+                        "name": c.name,
+                        "ok": c.ok,
+                        "returncode": c.returncode,
+                        "duration_s": round(c.duration_s, 2),
+                    }
+                    for c in checks
+                ],
+            }
+            return _tool_result(json.dumps(summary, indent=2))
+
+        if name == "bus_status":
+            import urllib.error
+            import urllib.request
+
+            port = os.environ.get("NEXUS_BUS_PORT") or "3099"
+            url = f"http://127.0.0.1:{port}/api/status"
+            try:
+                with urllib.request.urlopen(url, timeout=3) as r:
+                    body = r.read().decode()[:8000]
+                return _tool_result(body)
+            except Exception as e:
+                return _tool_result(
+                    f"bus unreachable at {url}: {e}\n"
+                    "Start with: nexus start -y",
+                    is_error=True,
+                )
+
+        if name == "github_community_status":
+            from . import github_community as gc
+
+            repo = args.get("repo")
+            try:
+                r = gc.resolve_repo(repo)
+                gh = "yes" if gc.gh_available() else "no"
+                return _tool_result(f"gh={gh}\nrepo={r}\nproject_root={_root()}")
+            except Exception as e:
+                return _tool_result(str(e), is_error=True)
+
+        if name == "list_platforms":
+            from .platforms import detect_platforms, format_status_table
+
+            plats = detect_platforms(project_root=_root())
+            return _tool_result(format_status_table(plats))
 
         return _tool_result(f"unknown tool: {name}", is_error=True)
     except Exception as e:

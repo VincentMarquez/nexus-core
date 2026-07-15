@@ -284,6 +284,42 @@ you / contributor replies on issue or PR
 - Optional: `--llm` on drafts uses the NEXUS bus when the stack is up.  
 - Full setup: **[docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md)** · cookbook **[09](cookbook/09_github_community.md)** · figure `docs/assets/arch-github-community.svg`
 
+### Multi-platform agents + local LLM tools
+
+**Any local LLM** (Ollama / OpenAI-compatible) and **cloud agents** should share the same tools and hand off through NEXUS. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
+
+```text
+  Grok CLI ──┐   (cloud Grok *or* /model nexus-local)
+  Cursor   ──┼──►  Workspace MCP (nexus mcp)  ──►  project tools
+  Claude   ──┤         + event bus                 (files, tests, github,
+  Codex    ──┤         + durable engine             scout, workspace chat)
+  Gemini   ──┤
+  Ollama   ──┘──►  bus agent `local` (ollama-http bridge)
+```
+
+| Command | What it does |
+|---------|----------------|
+| `nexus platforms status` | Detect Grok CLI, Cursor, Claude, Codex, Gemini, Ollama |
+| `nexus platforms connect` | Auto-register MCP on Grok + Cursor + Claude; optional local model in Grok |
+| `nexus platforms connect --start` | Connect **and** `nexus start` so local LLM is on the bus |
+| `nexus platforms flow` | JSON map of ingress / agent ids / shared tools |
+
+```bash
+# One-time on this machine (project root = your repo)
+nexus platforms connect --path . --start
+
+# Grok CLI: tools from MCP work for *whatever model* you pick (including local)
+grok                          # enable MCP server nexus-workspace if prompted
+# /model nexus-local          # Ollama via OpenAI-compatible endpoint (if registered)
+
+# Cursor: Settings → MCP → nexus-workspace (written to .cursor/mcp.json)
+# Claude Desktop: merge connectors/examples/claude-desktop.nexus.json
+```
+
+**Rule:** the local LLM does not get a second-class API — when it runs **inside Grok CLI** (or any MCP host) with `nexus-workspace` enabled, it can call the **same tools** as cloud agents (`read/write` project files, workspace handoff, `run_project_checks`, bus status, platforms list, …). Agents flow in with distinct ids (`grok_cli`, `cursor`, `claude`, `local`, …) via `send_to_workspace` / `read_workspace_chat`.
+
+Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md)
+
 ### Research (arXiv)
 
 ```bash
@@ -367,6 +403,7 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `./run https://github.com/…` | Start **and** GitHub job |
 | `nexus do owner/repo` | Clone → install → check → fix |
 | `nexus github inbox` / `loop` / `watch` / `init` / `improve` | Community loop on any personal repo + arXiv improve |
+| `nexus platforms status` / `connect` | Grok CLI · Cursor · Claude · local LLM — one tool mesh |
 | `nexus research "…"` | arXiv job → brief + report |
 | `nexus arxiv search` / `get` | arXiv API helpers |
 | `nexus procure demo` | Procurement engine + experts |
@@ -463,6 +500,7 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
 | GitHub community bot + personal-repo loop + arXiv improve | ✅ |
+| Multi-platform mesh (Grok CLI / Cursor / local LLM tools) | ✅ |
 | arXiv search / research jobs | ✅ |
 | Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |

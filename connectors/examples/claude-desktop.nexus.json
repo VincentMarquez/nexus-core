@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "nexus-workspace": {
+      "command": "/usr/bin/python3",
+      "args": [
+        "-m",
+        "nexus.mcp_server"
+      ],
+      "env": {
+        "NEXUS_PROJECT_ROOT": "/path/to/nexus-core",
+        "PYTHONPATH": "/path/to/nexus-core/src"
+      }
+    }
+  }
+}
