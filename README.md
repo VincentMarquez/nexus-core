@@ -21,6 +21,7 @@
 <p align="center">
   <a href="https://vincentmarquez.github.io/nexus-core/"><b>Docs</b></a> ·
   <a href="#llms-that-reason-together"><b>Multi-LLM panel</b></a> ·
+  <a href="#production-like-durability--operator-audit"><b>Production durability</b></a> ·
   <a href="#alive--self-improve-under-your-goals--token-budget"><b>Self-improve</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/getting-started/"><b>Get started</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/COMPARE/"><b>vs other tools</b></a> ·
@@ -107,7 +108,7 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **Multi-LLM panel** | Heterogeneous models on one bus, role-mapped | Hard problems get debate, not monologue |
 | **Meta-review** | Multiple agents vote / cross-check | Catches single-model overconfidence |
 | **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review | Pushback *before* shipping |
-| **Durable execution** | Checkpoints after each step; resume after `kill -9` | Long multi-agent runs survive crashes |
+| **Production-like durability** | Atomic checkpoints, event journal, handoffs, replay/explain | Runs behave like Temporal-style workflows, not chat sessions |
 | **Rubric judge** | Scores **your** criteria + artifacts | “Model said OK” is not success |
 | **Hybrid / LLM-optional** | Heuristic-only **or** any mix of CLIs/local | Cost control; degrades gracefully |
 | **GitHub / arXiv / procurement** | Real job entrypoints | Panel applied to concrete work |
@@ -116,6 +117,58 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **arXiv ledger** | `docs/ARXIV_LEDGER.csv` (Excel-friendly) | Don’t reprocess the same paper twice |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
 | **Workspace MCP** | Jail for desktop/phone AI clients | External models join the same workspace |
+
+---
+
+## Production-like durability & operator audit
+
+Chat agents die with the process. **NEXUS treats multi-agent work like production orchestration**: durable state, audit trails, and operator tools — patterns ported from the best open-source multi-agent systems (and arXiv ideas) via the self-improve loop.
+
+```text
+  step N ──► atomic checkpoint ──► append event journal
+      │              │                      │
+      │              ▼                      ▼
+      │         resume after crash     handoff / veto / why
+      │              │                      │
+      └──────────────┴──► nexus task replay / explain ──► operator
+```
+
+| Production idea | In NEXUS | Inspired by (ideas, not vendored code) |
+|-----------------|----------|----------------------------------------|
+| **Crash-safe state** | Atomic write-then-rename checkpoints (`persist.atomic_write_json`) | Temporal / Azure Durable Functions / Rojak |
+| **Replayable history** | Append-only `tasks/<id>.events.jsonl` (step_start, complete, fail, resume) | edict audit trails, MisterSmith operator surfaces |
+| **Agent handoffs** | Journal `handoff` when control moves A → B | OpenAI Swarm handoff style |
+| **Context on resume** | Last-N journal lines injected into agent prompts | Context engineering (multi-file agents) |
+| **Fail-closed review** | Review `reject` / `veto` / `fail` stops the pipeline | Governance / audit pipelines |
+| **Causal “why”** | Judge rationale stored on `step_complete` | CEMA-style sequential explanations |
+| **Decay-aware memory** | Optional SQLite memory half-life | openclaw-hawkins–style recency |
+| **Operator board** | CLI list / show / events / **replay** / **explain** | mission-control inspect / plan-replay |
+
+### Operator CLI
+
+```bash
+# After any durable run (demo, nexus do, engine job):
+nexus task list                         # tasks + status + event counts
+nexus task show  <task_id>              # full checkpoint JSON
+nexus task events <task_id>             # pretty journal (or --json)
+nexus task replay <task_id>             # normalized timeline (no re-run)
+nexus task explain <task_id>            # causal chain: handoffs, vetoes, why
+```
+
+State lives under `.nexus_state/tasks/` (JSON checkpoints + `*.events.jsonl`). Safe to inspect; not secrets.
+
+### Prove it locally
+
+```bash
+make demo                # crash → resume
+make demo-judge          # rubric vs “looks good”
+nexus task list
+# pick an id from the list:
+nexus task replay  <id>
+nexus task explain <id>
+```
+
+Cookbook: **[01 crash → resume](cookbook/01_crash_resume.md)** · engine notes in `docs/SELF_IMPROVE_CYCLE.md` (latest self-improve plan).
 
 ---
 
