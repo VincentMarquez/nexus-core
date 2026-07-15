@@ -157,6 +157,35 @@ def _run_checks(workdir: Path) -> dict[str, Any]:
     }
 
 
+def _self_approve_apply_landed(report: dict[str, Any]) -> bool:
+    """True when this cycle's self_approve_apply step reported ok."""
+    for s in report.get("steps") or []:
+        if isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok"):
+            return True
+    return False
+
+
+def _should_promote_on_done(
+    cfg: AliveConfig,
+    *,
+    checks: dict[str, Any],
+    report: dict[str, Any],
+) -> bool:
+    """P3.3: promote after green cycle when configured or self_approve applied.
+
+    - Explicit ``cfg.promote_on_done`` always runs the gate.
+    - Auto-wire: when ``self_approve`` + ``apply`` landed a real apply this
+      cycle (tests green path), run promote even if the knob is still false.
+      This closes the "full-cycle demo" gap without forcing promote on dry
+      planning cycles.
+    """
+    if cfg.promote_on_done:
+        return True
+    if cfg.self_approve and cfg.apply and checks.get("ok"):
+        return _self_approve_apply_landed(report)
+    return False
+
+
 def _run_promote_on_done(
     workdir: Path,
     cfg: AliveConfig,
@@ -398,8 +427,9 @@ def cycle_once(
             "skipped": "tests not green — refusing self-approve",
         })
 
-    # 4a) optional promote gate after green checks (P3.2 — wire promote_on_done)
-    if cfg.promote_on_done:
+    # 4a) optional promote gate after green checks (P3.2 / P3.3)
+    # Explicit promote_on_done, or auto when self_approve landed a real apply.
+    if _should_promote_on_done(cfg, checks=checks, report=report):
         try:
             promote_step = _run_promote_on_done(
                 root,
@@ -407,6 +437,12 @@ def cycle_once(
                 checks=checks,
                 applied=applied,
             )
+            if not cfg.promote_on_done:
+                promote_step = {
+                    **promote_step,
+                    "auto": True,
+                    "auto_reason": "self_approve_apply",
+                }
             report["steps"].append(promote_step)
             if promote_step.get("blocked"):
                 report["blocked"] = promote_step.get("blocked")

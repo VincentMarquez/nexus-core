@@ -1,34 +1,36 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-15 · hard-apply session_
+_Generated 2026-07-15 · hard-apply worker_
 
-Model: `grok-4.5` · repos≥10 (IMPROVE_OURS top) · arXiv≥10 (`rx-3c113dc2aa` + priors)
+Model: `grok-4.5` · repos≈20 · arXiv≈20
 
-## Reasoning plan (executed)
+---
 
-1. Read `docs/SELF_IMPROVE_CYCLE.md`, `docs/LATEST_IMPROVE_PLAN.md`, `.nexus_state/repo_mine/IMPROVE_OURS.md`, `docs/ALIVE_IMPROVEMENTS.md`.
-2. Identify **next open** from prior hard-apply: sample MCP eval packs · wire `promote_on_done` from alive · optional LLM judge.
-3. Port **patterns only** from AssetOpsBench (scenario packs), zenith/cycgraph (verify-before-promote), mission-control (CLI/MCP parity).
-4. Land small modules + tests; keep `pytest` green.
-5. Update `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`.
+## Reasoning plan (this cycle)
 
-## First apply slice (this session)
+1. **Read evidence** — `IMPROVE_OURS.md` top clones + latest arXiv notes (`rx-ae18c1bce0` and priors).
+2. **Inventory landed work** — P0 durability through P3 promote gates, sample packs, Ollama judge.
+3. **Pick First apply slice** — close open items only; small, tested, no tree vendoring.
+4. **Apply** — Grok judge adapter + self_approve→promote auto-wire + CI sample smoke.
+5. **Prove** — `pytest` green; offline sample pack run; docs updated.
 
-See `docs/LATEST_IMPROVE_PLAN.md` — **P2.6 sample packs + P2.5 Ollama judge + P3.2 alive promote_on_done**.
+## First apply slice
 
-## Sources (high signal)
+See `docs/LATEST_IMPROVE_PLAN.md` § First apply slice (P2.7 + P3.3 + CI).
 
-| Source | Pattern used |
+## Sources (patterns only)
+
+| Source | Pattern ported |
 |--------|----------------|
-| IBM/AssetOpsBench | JSON scenario packs + judge scorer shape |
-| Intelligent-Internet/zenith | independent verify / no premature complete |
-| builderz-labs/mission-control | CLI install/list + ops status |
-| ahmedEid1/lumen | improve_apply phase + decision audit |
-| arXiv 2401.07324 / 2508.08322 / 2606.20023 | multi-LLM tools, context, least privilege |
+| IBM/AssetOpsBench | scenario packs + judge scorer shape |
+| builderz-labs/mission-control | CLI/MCP/CI parity |
+| Intelligent-Internet/zenith | independent verify before promote |
+| wmcmahan/cycgraph (prior) | promote gate discipline |
+| arXiv 2401.07324 | multi-LLM tool agents (Grok + Ollama judges) |
+| arXiv 2511.15755 | deterministic multi-agent tool audit |
+| arXiv 2508.08322 | bounded context (already landed) |
 
-## Proof
+## Non-goals
 
-```bash
-PYTHONPATH=src python3 -m pytest -q
-nexus eval packs --install-samples
-```
+- Do not force-push; do not commit secrets; do not vendor whole upstream trees.
+- Prefer offline-safe defaults (heuristic fallback for LLM judges).

@@ -1,4 +1,4 @@
-.PHONY: all install test smoke demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
+.PHONY: all install test smoke eval-samples demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
 
 # Default: zero-config bootstrap + automatic start with agents
 all: run
@@ -15,6 +15,11 @@ test:
 
 smoke:
 	. .venv/bin/activate && python evals/smoke.py
+
+# Offline sample MCP scenario packs (fixtures/ → .nexus_state/; CI-safe)
+eval-samples:
+	. .venv/bin/activate && PYTHONPATH=src python -m nexus.cli eval smoke \
+		--install-samples --tag sample --no-builtin --no-export
 
 # Classic: crash → resume only
 demo:

@@ -108,6 +108,34 @@ def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
     assert loaded.seed_gaps is False
 
 
+def test_should_promote_on_done_auto_self_approve():
+    """P3.3: self_approve apply landing auto-wires promote even if knob off."""
+    cfg_off = al.AliveConfig(promote_on_done=False, self_approve=True, apply=True)
+    assert al._should_promote_on_done(
+        cfg_off,
+        checks={"ok": True},
+        report={"steps": [{"step": "self_approve_apply", "ok": True}]},
+    )
+    # no apply landed → do not auto-promote
+    assert not al._should_promote_on_done(
+        cfg_off,
+        checks={"ok": True},
+        report={"steps": [{"step": "self_approve_apply", "skipped": "x"}]},
+    )
+    # explicit knob always wins
+    cfg_on = al.AliveConfig(promote_on_done=True, self_approve=False, apply=False)
+    assert al._should_promote_on_done(
+        cfg_on, checks={"ok": False}, report={"steps": []}
+    )
+    # self_approve without apply flag → no auto
+    cfg_plan = al.AliveConfig(promote_on_done=False, self_approve=True, apply=False)
+    assert not al._should_promote_on_done(
+        cfg_plan,
+        checks={"ok": True},
+        report={"steps": [{"step": "self_approve_apply", "ok": True}]},
+    )
+
+
 def test_alive_promote_on_done_knobs_roundtrip(tmp_path, monkeypatch):
     """P3.2 promote_on_done / promote_require survive alive.json round-trip."""
     monkeypatch.chdir(tmp_path)

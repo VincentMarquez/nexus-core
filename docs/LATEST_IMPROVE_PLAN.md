@@ -2,7 +2,7 @@
 
 _Generated 2026-07-15 · Grok 4.5 hard-apply · 10+ repos + 20 arXiv_
 
-Model: `grok-4.5` · sources: `.nexus_state/repo_mine/IMPROVE_OURS.md` + arXiv `rx-3c113dc2aa` / prior notes
+Model: `grok-4.5` · sources: `.nexus_state/repo_mine/IMPROVE_OURS.md` + arXiv `rx-ae18c1bce0` / prior notes
 
 ---
 
@@ -12,81 +12,79 @@ Self-improve nexus-core from mined multi-agent repos + arXiv, with **small, test
 
 ## Evidence already landed (prior cycles)
 
-P0 durability (atomic persist, budgets, taint, state slice, eval memory, principled stop, independent verify) · P1 ops plane / DAG / consensus / context pack / vault+gaps · P2 skillpacks / tool catalog / MCP eval · P3 review→promote + improve_apply promote gate.
+P0 durability (atomic persist, budgets, taint, state slice, eval memory, principled stop, independent verify) · P1 ops plane / DAG / consensus / context pack / vault+gaps · P2 skillpacks / tool catalog / MCP eval packs · P3 review→promote + improve_apply / alive promote gate · sample fixtures + Ollama judge.
 
-## First apply slice (this session) — P2.6 + P2.5 + P3.2
+## First apply slice (this session) — P2.7 + P3.3 + CI
 
 Close the open items from the previous hard-apply cycle:
 
-1. **Sample scenario pack fixtures** (in-repo, AssetOpsBench shape)
-2. **Wire `promote_on_done` from alive cycle**
-3. **Optional real LLM judge adapter** (Ollama, offline fallback)
+1. **Grok LLM-as-judge adapter** (same `set_llm_judge` hook as Ollama)
+2. **Auto-wire `promote_on_done` when self_approve lands real apply**
+3. **CI sample-pack smoke** (`--install-samples --tag sample --no-builtin`)
 
-### P2.6 — sample packs under `fixtures/mcp_eval/packs/`
-
-`.nexus_state/` is gitignored, so samples **ship** under committed fixtures and install on demand:
-
-| Path | Role |
-|------|------|
-| `fixtures/mcp_eval/packs/operator_smoke.json` | read-only operator surface |
-| `fixtures/mcp_eval/packs/privilege_safety.json` | path jail + vault no-leak + catalog validate |
-| `src/nexus/mcp_eval.py` | `bundled_packs_dir`, `list_bundled_packs`, `ensure_sample_packs` |
-| CLI | `nexus eval packs --install-samples` · `nexus eval smoke --install-samples` |
-
-Patterns: IBM/AssetOpsBench `scenarios/*.json`; mission-control CLI/export parity.
-
-### P2.5 — Ollama LLM-as-judge adapter
+### P2.7 — Grok judge adapter
 
 | API | Behavior |
 |-----|----------|
-| `make_ollama_judge(host=, model=)` | HTTP `/api/generate` JSON ok/score/reason |
+| `make_grok_judge(model=, timeout=)` | Grok CLI, tools off, JSON schema ok/score/reason |
 | Offline | heuristic keyword fallback (CI-safe) |
-| Env | `NEXUS_MCP_EVAL_LLM_JUDGE=1` + optional `NEXUS_OLLAMA_*` |
+| Env | `NEXUS_MCP_EVAL_LLM_JUDGE=grok\|auto\|ollama\|1` |
+| `auto` | prefer Grok if CLI on PATH, else Ollama |
 | CLI | `nexus eval smoke --llm-judge` |
 
-Patterns: AssetOpsBench judge scorer; small multi-LLM tool agents (arXiv 2401.07324).
+Patterns: multi-LLM tool agents (arXiv **2401.07324**); AssetOpsBench judge scorer; wshobson/mission-control adapter surface.
 
-### P3.2 — alive `promote_on_done`
+### P3.3 — alive promote when self_approve applies
 
-| Knob | Default | Effect |
-|------|---------|--------|
-| `AliveConfig.promote_on_done` | `false` | After self_check, run dry `ImproveApplyRun` with IndependentVerify |
-| `AliveConfig.promote_require` | `false` | Fail-closed (block cycle) when verify denies |
+| Rule | Effect |
+|------|--------|
+| `cfg.promote_on_done` | always run IndependentVerify gate (existing) |
+| auto | if `self_approve` + `apply` + tests green **and** `self_approve_apply` step ok → run promote even when knob is false |
+| report | auto steps tagged `auto=true`, `auto_reason=self_approve_apply` |
 
-Patterns: zenith independent validation; cycgraph promote gate; lumen decision audit path.
+Patterns: zenith independent validation; cycgraph promote; lumen decision audit.
+
+### CI — sample pack smoke
+
+| Surface | Command |
+|---------|---------|
+| `.github/workflows/ci.yml` | `nexus eval smoke --install-samples --tag sample --no-builtin --no-export` |
+| `make eval-samples` | same offline path locally |
 
 ## Success criteria
 
-- [x] Sample packs load as `nexus.scenario_pack/v1` and install into `.nexus_state/mcp_eval/packs/`
-- [x] `nexus eval packs --install-samples` reports installed/skipped
-- [x] Ollama judge adapter falls back offline without network
-- [x] Alive config round-trips promote knobs; green checks → promote ok
+- [x] `make_grok_judge` falls back offline without network / without CLI
+- [x] `NEXUS_MCP_EVAL_LLM_JUDGE=grok|auto|ollama` selects the right adapter
+- [x] self_approve apply landing auto-triggers promote gate
+- [x] CI runs sample pack smoke offline
 - [x] `pytest` green
 
 ## Non-goals
 
 - No vendored AssetOpsBench industrial IoT trees
 - No force-push / secrets in packs or reports
-- No full multi-grader panel (consensus already exists)
+- No always-on promote for planning-only cycles
 
 ## Next open
 
-- Wire `promote_on_done=true` in full-cycle alive demos when self_approve lands real apply
-- Optional Grok (not only Ollama) judge adapter behind same `set_llm_judge` hook
-- Scenario pack CI job: `eval smoke --install-samples --tag sample --no-builtin`
+- Optional live Grok judge integration test (gated, not default CI)
+- Wire full-cycle demo script flag for `--llm-judge auto`
+- Expand sample packs with a consensus/context scenario
 
 ## Commands
 
 ```bash
-# install samples + discover
-nexus eval packs --install-samples
+# sample packs offline (CI)
+make eval-samples
+# or:
 nexus eval smoke --install-samples --tag sample --no-builtin --no-export
 
-# optional LLM judge (Ollama; falls back offline)
-NEXUS_MCP_EVAL_LLM_JUDGE=1 nexus eval smoke --llm-judge --no-export
+# optional LLM judge (Grok preferred under auto; falls back offline)
+NEXUS_MCP_EVAL_LLM_JUDGE=auto nexus eval smoke --llm-judge --no-export
+NEXUS_MCP_EVAL_LLM_JUDGE=grok nexus eval smoke --llm-judge --no-export
 
-# alive promote wire (opt-in)
-# set promote_on_done / promote_require in .nexus_state/alive.json
+# alive: self_approve apply auto-runs promote; or set promote_on_done true
+# .nexus_state/alive.json → self_approve/apply/promote_on_done
 
 PYTHONPATH=src python3 -m pytest -q
 ```

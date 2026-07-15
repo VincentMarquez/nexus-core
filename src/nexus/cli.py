@@ -3825,7 +3825,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         p.add_argument(
             "--llm-judge",
             action="store_true",
-            help="register Ollama LLM-as-judge (falls back to heuristic offline)",
+            help=(
+                "register LLM-as-judge via NEXUS_MCP_EVAL_LLM_JUDGE "
+                "(ollama|grok|auto; falls back to heuristic offline)"
+            ),
         )
         p.add_argument("--json", action="store_true")
 

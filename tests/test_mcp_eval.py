@@ -608,6 +608,91 @@ def test_configure_llm_judge_from_env(monkeypatch):
         me.set_llm_judge(None)
 
 
+def test_make_grok_judge_falls_back_offline(monkeypatch):
+    """Grok adapter falls back to heuristic when CLI missing / call fails."""
+    # Force "not available" path without needing the real CLI
+    monkeypatch.setattr(
+        "nexus.grok_worker.grok_available", lambda: False, raising=False
+    )
+    # Import path used inside make_grok_judge
+    import nexus.grok_worker as gw
+
+    monkeypatch.setattr(gw, "grok_available", lambda: False)
+
+    judge = me.make_grok_judge(fallback_heuristic=True, timeout=0.1)
+    sc = me.Scenario(
+        id="gj",
+        domain="x",
+        text="t",
+        tool="t",
+        scoring_method="llm_judge",
+        expected="project_root server nexus",
+    )
+    r = judge(sc, _traj("project_root=/tmp server=nexus-workspace ok"))
+    assert r.method == "llm_judge"
+    assert "fallback" in r.reason or r.ok
+    assert r.ok
+
+    judge_strict = me.make_grok_judge(fallback_heuristic=False, timeout=0.1)
+    r2 = judge_strict(sc, _traj("project_root=/tmp"))
+    assert not r2.ok
+    assert "grok_unavailable" in r2.reason
+
+
+def test_make_grok_judge_parses_json_response(monkeypatch):
+    """Grok adapter maps structured ok/score/reason into ScorerResult."""
+    import nexus.grok_worker as gw
+
+    monkeypatch.setattr(gw, "grok_available", lambda: True)
+
+    def _fake_prompt(prompt, **kwargs):
+        return {
+            "ok": True,
+            "text": '{"ok": true, "score": 0.87, "reason": "criteria covered"}',
+        }
+
+    monkeypatch.setattr(gw, "grok_prompt", _fake_prompt)
+    judge = me.make_grok_judge(fallback_heuristic=False)
+    sc = me.Scenario(
+        id="gj2",
+        domain="x",
+        text="t",
+        tool="t",
+        scoring_method="llm_judge",
+        expected="ok",
+    )
+    r = judge(sc, _traj("all good"))
+    assert r.ok is True
+    assert r.score == 0.87
+    assert "criteria" in r.reason
+
+
+def test_configure_llm_judge_grok_and_auto(monkeypatch):
+    me.set_llm_judge(None)
+    import nexus.grok_worker as gw
+
+    monkeypatch.setattr(gw, "grok_available", lambda: False)
+    monkeypatch.setenv("NEXUS_MCP_EVAL_LLM_JUDGE", "grok")
+    monkeypatch.setenv("NEXUS_GROK_MODEL", "grok-test")
+    label = me.configure_llm_judge_from_env()
+    assert label == "grok:grok-test"
+    me.set_llm_judge(None)
+
+    # auto with no grok → ollama
+    monkeypatch.setenv("NEXUS_MCP_EVAL_LLM_JUDGE", "auto")
+    monkeypatch.setenv("NEXUS_OLLAMA_MODEL", "auto-model")
+    label2 = me.configure_llm_judge_from_env()
+    assert label2 == "ollama:auto-model"
+    me.set_llm_judge(None)
+
+    # auto with grok available → grok
+    monkeypatch.setattr(gw, "grok_available", lambda: True)
+    monkeypatch.setattr(gw, "default_model", lambda: "grok-4.5")
+    label3 = me.configure_llm_judge_from_env()
+    assert label3.startswith("grok:")
+    me.set_llm_judge(None)
+
+
 def test_cli_install_samples(tmp_path: Path, monkeypatch, capsys):
     # local fixtures under tmp project
     src = tmp_path / "fixtures" / "mcp_eval" / "packs"

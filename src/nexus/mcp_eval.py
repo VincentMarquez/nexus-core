@@ -859,6 +859,111 @@ def set_llm_judge(
     _LLM_JUDGE_FN = fn
 
 
+def _criteria_text(scenario: Scenario) -> str:
+    """Flatten scenario.expected into judge prompt criteria text."""
+    criteria = scenario.expected
+    if isinstance(criteria, dict):
+        return str(
+            criteria.get("criteria")
+            or criteria.get("characteristic_form")
+            or criteria.get("text")
+            or criteria
+        )
+    return str(criteria or "")
+
+
+def _judge_prompt(scenario: Scenario, traj: Trajectory) -> str:
+    """Shared strict-judge prompt for Ollama / Grok adapters."""
+    answer_preview = (traj.answer or "")[:2000]
+    return (
+        "You are a strict offline eval judge for an MCP tool smoke test.\n"
+        "Reply with ONLY JSON: "
+        '{"ok": <bool>, "score": <0.0-1.0>, "reason": "<short>"}\n'
+        f"Scenario: {scenario.id} tool={scenario.tool}\n"
+        f"Question: {scenario.text}\n"
+        f"Criteria: {_criteria_text(scenario)[:1500]}\n"
+        f"Tool answer (truncated):\n{answer_preview}\n"
+    )
+
+
+def _parse_judge_obj(text: str) -> Optional[dict[str, Any]]:
+    """Parse ok/score/reason JSON from model text or Grok envelope."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    obj: Any = None
+    if text.startswith("{"):
+        try:
+            obj = json.loads(text)
+        except json.JSONDecodeError:
+            obj = None
+    if obj is None:
+        m = re.search(r"\{.*\}", text, re.S)
+        if m:
+            try:
+                obj = json.loads(m.group(0))
+            except json.JSONDecodeError:
+                return None
+    if not isinstance(obj, dict):
+        return None
+    # Grok --json-schema may wrap structuredOutput
+    for key in ("structuredOutput", "structured_output", "result", "output", "data", "json"):
+        inner = obj.get(key)
+        if isinstance(inner, dict) and ("ok" in inner or "score" in inner):
+            return inner
+        if isinstance(inner, str):
+            nested = _parse_judge_obj(inner)
+            if nested:
+                return nested
+    if "ok" in obj or "score" in obj or "reason" in obj:
+        return obj
+    if isinstance(obj.get("text"), str):
+        return _parse_judge_obj(obj["text"])
+    return None
+
+
+def _scorer_from_judge_obj(
+    obj: dict[str, Any], *, default_reason: str = "llm_judge"
+) -> ScorerResult:
+    ok = bool(obj.get("ok"))
+    try:
+        score = float(obj.get("score"))
+    except (TypeError, ValueError):
+        score = 1.0 if ok else 0.0
+    score = max(0.0, min(1.0, score))
+    reason = str(obj.get("reason") or default_reason)[:200]
+    return ScorerResult(
+        ok=ok,
+        score=round(score, 4),
+        reason=reason,
+        method="llm_judge",
+    )
+
+
+def _judge_fallback(
+    scenario: Scenario,
+    traj: Trajectory,
+    *,
+    err: BaseException,
+    prefix: str,
+    fallback_heuristic: bool,
+) -> ScorerResult:
+    if fallback_heuristic:
+        base = score_heuristic_judge(scenario, traj)
+        return ScorerResult(
+            ok=base.ok,
+            score=base.score,
+            reason=f"{prefix}_fallback:{type(err).__name__}:{base.reason}",
+            method="llm_judge",
+        )
+    return ScorerResult(
+        ok=False,
+        score=0.0,
+        reason=f"{prefix}_unavailable:{type(err).__name__}",
+        method="llm_judge",
+    )
+
+
 def make_ollama_judge(
     *,
     host: str = "http://127.0.0.1:11434",
@@ -872,7 +977,6 @@ def make_ollama_judge(
     uses :func:`score_heuristic_judge`. When False, returns fail-closed
     ``ollama_unavailable``. Never logs secrets from the trajectory.
     """
-    import urllib.error
     import urllib.request
 
     def _judge(scenario: Scenario, traj: Trajectory) -> ScorerResult:
@@ -880,26 +984,7 @@ def make_ollama_judge(
             return ScorerResult(
                 ok=False, score=0.0, reason="tool_error", method="llm_judge"
             )
-        criteria = scenario.expected
-        if isinstance(criteria, dict):
-            criteria_text = str(
-                criteria.get("criteria")
-                or criteria.get("characteristic_form")
-                or criteria.get("text")
-                or criteria
-            )
-        else:
-            criteria_text = str(criteria or "")
-        answer_preview = (traj.answer or "")[:2000]
-        prompt = (
-            "You are a strict offline eval judge for an MCP tool smoke test.\n"
-            "Reply with ONLY JSON: "
-            '{"ok": <bool>, "score": <0.0-1.0>, "reason": "<short>"}\n'
-            f"Scenario: {scenario.id} tool={scenario.tool}\n"
-            f"Question: {scenario.text}\n"
-            f"Criteria: {criteria_text[:1500]}\n"
-            f"Tool answer (truncated):\n{answer_preview}\n"
-        )
+        prompt = _judge_prompt(scenario, traj)
         payload = {
             "model": model,
             "prompt": prompt,
@@ -918,74 +1003,168 @@ def make_ollama_judge(
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 body = json.loads(r.read().decode())
             text = (body.get("response") or "").strip()
-            obj: Any = None
-            if text.startswith("{"):
-                obj = json.loads(text)
-            else:
-                m = re.search(r"\{.*\}", text, re.S)
-                if m:
-                    obj = json.loads(m.group(0))
+            obj = _parse_judge_obj(text)
             if not isinstance(obj, dict):
                 raise ValueError("non_json_response")
-            ok = bool(obj.get("ok"))
-            try:
-                score = float(obj.get("score"))
-            except (TypeError, ValueError):
-                score = 1.0 if ok else 0.0
-            score = max(0.0, min(1.0, score))
-            reason = str(obj.get("reason") or "ollama_judge")[:200]
-            return ScorerResult(
-                ok=ok,
-                score=round(score, 4),
-                reason=reason,
-                method="llm_judge",
-            )
+            return _scorer_from_judge_obj(obj, default_reason="ollama_judge")
         except Exception as e:
-            if fallback_heuristic:
-                base = score_heuristic_judge(scenario, traj)
-                return ScorerResult(
-                    ok=base.ok,
-                    score=base.score,
-                    reason=f"ollama_fallback:{type(e).__name__}:{base.reason}",
-                    method="llm_judge",
-                )
+            return _judge_fallback(
+                scenario,
+                traj,
+                err=e,
+                prefix="ollama",
+                fallback_heuristic=fallback_heuristic,
+            )
+
+    return _judge
+
+
+_GROK_JUDGE_SCHEMA = (
+    '{"type":"object","properties":{'
+    '"ok":{"type":"boolean"},'
+    '"score":{"type":"number","description":"0.0-1.0"},'
+    '"reason":{"type":"string","description":"short justification"}'
+    '},"required":["ok","score","reason"]}'
+)
+
+
+def make_grok_judge(
+    *,
+    model: Optional[str] = None,
+    timeout: float = 120.0,
+    max_turns: int = 1,
+    fallback_heuristic: bool = True,
+    cwd: Optional[Path] = None,
+) -> Callable[[Scenario, Trajectory], ScorerResult]:
+    """Build an opt-in Grok CLI LLM-as-judge (same hook as Ollama).
+
+    Offline-safe: when ``grok`` is missing or the call fails and
+    *fallback_heuristic* is True, uses :func:`score_heuristic_judge`.
+    Tools are disabled (pure JSON grading). Pattern: multi-LLM tool agents
+    (arXiv 2401.07324) + AssetOpsBench judge scorer shape.
+    """
+
+    def _judge(scenario: Scenario, traj: Trajectory) -> ScorerResult:
+        if traj.is_error:
             return ScorerResult(
-                ok=False,
-                score=0.0,
-                reason=f"ollama_unavailable:{type(e).__name__}",
-                method="llm_judge",
+                ok=False, score=0.0, reason="tool_error", method="llm_judge"
+            )
+        try:
+            from . import grok_worker as gw
+        except Exception as e:
+            return _judge_fallback(
+                scenario,
+                traj,
+                err=e,
+                prefix="grok",
+                fallback_heuristic=fallback_heuristic,
+            )
+        if not gw.grok_available():
+            return _judge_fallback(
+                scenario,
+                traj,
+                err=RuntimeError("grok_cli_missing"),
+                prefix="grok",
+                fallback_heuristic=fallback_heuristic,
+            )
+        prompt = (
+            "You have NO tools. Score the MCP tool answer against criteria.\n"
+            + _judge_prompt(scenario, traj)
+        )
+        try:
+            res = gw.grok_prompt(
+                prompt,
+                model=model,
+                cwd=cwd,
+                max_turns=max_turns,
+                tools=False,
+                timeout_s=timeout,
+                label="mcp_eval_judge",
+                enforce_budget=False,
+                json_schema=_GROK_JUDGE_SCHEMA,
+                soft_ok=True,
+            )
+            if not res.get("ok") and not res.get("text"):
+                raise RuntimeError(str(res.get("error") or "grok_empty"))
+            obj = _parse_judge_obj(str(res.get("text") or ""))
+            if not isinstance(obj, dict):
+                raise ValueError("non_json_response")
+            return _scorer_from_judge_obj(obj, default_reason="grok_judge")
+        except Exception as e:
+            return _judge_fallback(
+                scenario,
+                traj,
+                err=e,
+                prefix="grok",
+                fallback_heuristic=fallback_heuristic,
             )
 
     return _judge
 
 
 def configure_llm_judge_from_env() -> Optional[str]:
-    """Register Ollama judge when ``NEXUS_MCP_EVAL_LLM_JUDGE`` is truthy.
+    """Register Ollama or Grok judge when ``NEXUS_MCP_EVAL_LLM_JUDGE`` is set.
 
     Env:
-    - ``NEXUS_MCP_EVAL_LLM_JUDGE`` — 1/true/on enables adapter
+    - ``NEXUS_MCP_EVAL_LLM_JUDGE`` —
+        ``1`` / ``true`` / ``on`` / ``ollama`` → Ollama adapter
+        ``grok`` → Grok CLI adapter
+        ``auto`` → Grok if CLI on PATH, else Ollama
     - ``NEXUS_OLLAMA_HOST`` / ``OLLAMA_HOST`` — default 127.0.0.1:11434
     - ``NEXUS_OLLAMA_MODEL`` / ``OLLAMA_MODEL`` — default gemma2
+    - ``NEXUS_GROK_MODEL`` — optional Grok model pin
 
     Returns method label when configured, else None.
     """
     import os
 
     flag = (os.environ.get("NEXUS_MCP_EVAL_LLM_JUDGE") or "").strip().lower()
-    if flag not in {"1", "true", "yes", "on", "ollama"}:
+    if not flag or flag in {"0", "false", "no", "off"}:
         return None
+
     host = (
         os.environ.get("NEXUS_OLLAMA_HOST")
         or os.environ.get("OLLAMA_HOST")
         or "http://127.0.0.1:11434"
     )
-    model = (
+    ollama_model = (
         os.environ.get("NEXUS_OLLAMA_MODEL")
         or os.environ.get("OLLAMA_MODEL")
         or "gemma2"
     )
-    set_llm_judge(make_ollama_judge(host=host, model=model))
-    return f"ollama:{model}"
+    grok_model = (os.environ.get("NEXUS_GROK_MODEL") or "").strip() or None
+
+    def _register_grok() -> str:
+        set_llm_judge(make_grok_judge(model=grok_model))
+        try:
+            from . import grok_worker as gw
+
+            label_model = grok_model or gw.default_model()
+        except Exception:
+            label_model = grok_model or "grok-4.5"
+        return f"grok:{label_model}"
+
+    def _register_ollama() -> str:
+        set_llm_judge(make_ollama_judge(host=host, model=ollama_model))
+        return f"ollama:{ollama_model}"
+
+    if flag == "grok":
+        return _register_grok()
+
+    if flag == "auto":
+        try:
+            from . import grok_worker as gw
+
+            if gw.grok_available():
+                return _register_grok()
+        except Exception:
+            pass
+        return _register_ollama()
+
+    # 1 / true / on / ollama / unknown → Ollama (backward compatible)
+    if flag in {"1", "true", "yes", "on", "ollama"} or flag:
+        return _register_ollama()
+    return None
 
 
 def score_llm_judge(scenario: Scenario, traj: Trajectory) -> ScorerResult:

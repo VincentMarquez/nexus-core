@@ -488,3 +488,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-3c113dc2aa.md`
+
+## Cycle 2026-07-15 hard-apply P2.7 + P3.3 + CI (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (AssetOpsBench / mission-control / zenith / wshobson / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: multi-LLM tool agents **2401.07324**, deterministic audit **2511.15755**, communication **2203.08975**, context **2508.08322** (notes `improve-rx-ae18c1bce0` + priors)
+- apply slice (**First apply slice** — close prior open items):
+  - `src/nexus/mcp_eval.py` — `make_grok_judge` + shared judge prompt/parse; `configure_llm_judge_from_env` supports `grok|auto|ollama|1`
+  - `src/nexus/alive.py` — `_should_promote_on_done` auto-wires promote when `self_approve` apply lands
+  - `src/nexus/cli.py` — `--llm-judge` help covers grok/auto/ollama
+  - `.github/workflows/ci.yml` + `Makefile` (`eval-samples`) — offline sample pack smoke
+  - tests: `tests/test_mcp_eval.py` (grok fallback/parse/env), `tests/test_usage_alive.py` (auto promote)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: AssetOpsBench judge; multi-LLM (2401.07324); zenith/cycgraph promote; mission-control CI parity (pattern only, no tree vendor)
+- next open: live Grok judge gated integration test · demo `--llm-judge auto` · more sample pack scenarios
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 335 passed; sample packs 7/7 PASS
+
+## Cycle 2026-07-15 21:51:00Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ae18c1bce0.md`
