@@ -24,6 +24,22 @@ def test_pattern_catalog_has_wshobson_sot():
     assert "skillpacks/markdown-sot-demo/SKILL.md" in p["files"]
 
 
+def test_pattern_catalog_has_cas_evidence_board(tmp_path: Path):
+    """Second catalog entry: cas/mission-control evidence board skill."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "cas-evidence-board-ops" for r in rows)
+    p = wta.get_pattern("cas-evidence-board-ops")
+    assert p["repo"] == "codingagentsystem/cas"
+    assert p["pack_id"] == "evidence-board-ops"
+    meta = wta.create_worktree(tmp_path, job_id="ev-board-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "cas-evidence-board-ops", job_id="ev-board-1")
+    assert any("evidence-board-ops" in f for f in applied["files_written"])
+    assert (wt / "skillpacks" / "evidence-board-ops" / "APPLY_META.json").is_file()
+    ver = wta.verify_in_worktree(wt, "cas-evidence-board-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")

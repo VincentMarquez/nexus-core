@@ -660,3 +660,25 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-27056d5405.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — board→gaps + preferences (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (wshobson 16 / cas / mission-control / zenith / routa / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: preference IRL **2602.04518**, decision package **2511.15755**, anti-collusion **2601.00360**, MAEBE **2506.03053**, Thucy **2512.03278** (notes `improve-rx-a7bfdd595a` + priors)
+- apply slice (**First apply slice** — close prior open: board signal→PrincipledStop · preference pairs · pattern catalog):
+  - `src/nexus/apply_select.py` — `sync_signal_to_stop` (replan/stop→gaps, hard stop abort, continue closes)
+  - `src/nexus/alive.py` — knobs `sync_board_gaps` / `abort_on_board_stop` / `record_preferences`; gate + principled stop wire
+  - `src/nexus/preference_pairs.py` — offline better>worse JSONL + boost/brief (**2602.04518**)
+  - `src/nexus/worktree_apply.py` — pattern `cas-evidence-board-ops`; APPLY_META by pack_id
+  - `src/nexus/cli.py` — `improve board --sync-gaps|--record-pref`; `improve prefer list|record`
+  - tests: `tests/test_apply_select.py`, `test_preference_pairs.py`, `test_usage_alive.py`, `test_worktree_apply.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: zenith stop/replan/gap; cas FTS board skill; mission-control/routa board; preference IRL offline pairs (pattern only, no tree vendor)
+- non-goals kept: no live IRL trainer; no vendored trees; no auto-promote without flags
+- next open: preference_boost in select rank · CI board --sync-gaps smoke · more pattern catalog
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 440 passed
+
+## Cycle 2026-07-15 23:21:25Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a7bfdd595a.md`

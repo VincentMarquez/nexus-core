@@ -83,6 +83,12 @@ class AliveConfig:
     # implementer/verifier role ids for anti-collusion (grader uses cfg.grader label)
     implementer: str = "worker:apply"
     verifier: str = "judge:verify"
+    # wire board signal → PrincipledStop gap board (replan/stop → gaps; continue closes)
+    sync_board_gaps: bool = True
+    # hard board stop (collusion/budget) aborts stop board so watch() exits
+    abort_on_board_stop: bool = True
+    # offline preference pairs from ranked candidates (arXiv 2602.04518)
+    record_preferences: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -120,6 +126,9 @@ class AliveConfig:
             require_decision=bool(d.get("require_decision", True)),
             implementer=str(d.get("implementer") or "worker:apply"),
             verifier=str(d.get("verifier") or "judge:verify"),
+            sync_board_gaps=bool(d.get("sync_board_gaps", True)),
+            abort_on_board_stop=bool(d.get("abort_on_board_stop", True)),
+            record_preferences=bool(d.get("record_preferences", True)),
         )
 
 
@@ -257,17 +266,80 @@ def _self_approve_decision_gate(
     if signal == asel.SIGNAL_STOP:
         out["allow"] = False
         out["skip_reason"] = f"board_stop:{board.get('signal_reason')}"
-        return out
-    if signal == asel.SIGNAL_REPLAN:
+    elif signal == asel.SIGNAL_REPLAN:
         out["allow"] = False
         out["skip_reason"] = f"board_replan:{board.get('signal_reason')}"
-        return out
-    if not decision or not decision.get("ok"):
+    elif not decision or not decision.get("ok"):
         out["allow"] = False
         out["skip_reason"] = f"decision_denied:{(decision or {}).get('reason') or 'no_decision'}"
-        return out
-    out["allow"] = True
+    else:
+        out["allow"] = True
+
+    # Prefer offline pairs from ranked candidates (2602.04518) — fail-open
+    if bool(getattr(cfg, "record_preferences", True)):
+        try:
+            from . import preference_pairs as pp
+
+            pref = pp.record_from_ranked(
+                board.get("candidates") or [],
+                root,
+                source="alive_self_approve_gate",
+            )
+            if pref:
+                out["preference_pair"] = {
+                    "id": pref.get("id"),
+                    "better": pref.get("better"),
+                    "worse": pref.get("worse"),
+                }
+        except Exception as e:
+            out["preference_error"] = str(e)
+
+    # Wire board signal → PrincipledStop gap board (zenith replan/stop)
+    if bool(getattr(cfg, "sync_board_gaps", True)) and signal:
+        try:
+            out["gap_sync"] = _sync_board_signal_gaps(
+                root,
+                cfg,
+                signal=signal,
+                signal_reason=str(board.get("signal_reason") or ""),
+                signal_detail=str(board.get("signal_detail") or ""),
+                hints=list(board.get("replan_hints") or []),
+            )
+        except Exception as e:
+            out["gap_sync_error"] = str(e)
+
     return out
+
+
+def _sync_board_signal_gaps(
+    root: Path,
+    cfg: "AliveConfig",
+    *,
+    signal: str,
+    signal_reason: str = "",
+    signal_detail: str = "",
+    hints: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """Persist board signal onto the alive PrincipledStop gap board."""
+    from . import apply_select as asel
+    from .durability.stop import PrincipledStop, default_stop_path
+
+    path = default_stop_path(root)
+    stopper = PrincipledStop.load(path)
+    sync = asel.sync_signal_to_stop(
+        stopper,
+        {
+            "signal": signal,
+            "reason": signal_reason,
+            "detail": signal_detail,
+            "hints": list(hints or []),
+        },
+        abort_on_hard_stop=bool(getattr(cfg, "abort_on_board_stop", True)),
+        close_on_continue=True,
+    )
+    stopper.save(path)
+    sync["path"] = str(path)
+    return sync
 
 
 def _should_promote_on_done(
@@ -751,6 +823,65 @@ def _record_principled_stop(
             }
         except Exception as e:
             report.setdefault("steps", []).append({"step": "gap_seed", "error": str(e)})
+
+    # Board signal → gap board (if decision gate already ran this cycle, reuse it;
+    # otherwise compute a lightweight board signal so thrash still registers).
+    board_sync: Optional[dict[str, Any]] = None
+    if bool(getattr(cfg, "sync_board_gaps", True)):
+        try:
+            from . import apply_select as asel
+
+            sig_name = ""
+            sig_reason = ""
+            sig_detail = ""
+            hints: list[str] = []
+            for s in report.get("steps") or []:
+                if isinstance(s, dict) and s.get("step") == "self_approve_decision":
+                    sig_name = str(s.get("signal") or "")
+                    sig_reason = str(s.get("signal_reason") or s.get("skip_reason") or "")
+                    gap_sync = s.get("gap_sync")
+                    if isinstance(gap_sync, dict):
+                        board_sync = gap_sync  # already persisted mid-cycle
+                    break
+            if not board_sync:
+                if not sig_name:
+                    # Lightweight board peek (no auto_index to stay cheap)
+                    board = asel.improve_board(
+                        root,
+                        min_score=float(cfg.min_score),
+                        limit=max(3, int(cfg.use_limit or 3)),
+                        grader=_grader_role(cfg),
+                        implementer=str(cfg.implementer or asel.DEFAULT_ROLES["implementer"]),
+                        verifier=str(cfg.verifier or asel.DEFAULT_ROLES["verifier"]),
+                        goal=str(cfg.goal or "self-improve"),
+                        auto_index=False,
+                    )
+                    sig_name = str(board.get("signal") or "")
+                    sig_reason = str(board.get("signal_reason") or "")
+                    sig_detail = str(board.get("signal_detail") or "")
+                    hints = list(board.get("replan_hints") or [])
+                if sig_name:
+                    board_sync = asel.sync_signal_to_stop(
+                        stopper,
+                        {
+                            "signal": sig_name,
+                            "reason": sig_reason,
+                            "detail": sig_detail,
+                            "hints": hints,
+                        },
+                        abort_on_hard_stop=bool(
+                            getattr(cfg, "abort_on_board_stop", True)
+                        ),
+                        close_on_continue=True,
+                    )
+                    report.setdefault("steps", []).append(
+                        {"step": "board_gap_sync", **board_sync}
+                    )
+        except Exception as e:
+            report.setdefault("steps", []).append(
+                {"step": "board_gap_sync", "error": str(e)}
+            )
+
     # if apply path ran, stash for progress heuristic
     if any(
         isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok")
@@ -775,6 +906,8 @@ def _record_principled_stop(
             "closed": seed_info.get("closed"),
             "board": seed_info.get("board"),
         }
+    if board_sync is not None:
+        out["board_gap_sync"] = board_sync
     return out
 
 

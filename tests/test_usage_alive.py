@@ -136,11 +136,35 @@ def test_self_approve_decision_gate_replan_without_candidates(tmp_path, monkeypa
         require_decision=True,
         min_score=10.0,
         grader="grok",
+        sync_board_gaps=True,
+        record_preferences=True,
     )
     gate = al._self_approve_decision_gate(tmp_path, cfg, report={"steps": []})
     assert gate["allow"] is False
     assert gate["signal"] in ("replan", "stop")
     assert gate["skip_reason"]
+    # board replan/stop must register a gap on the PrincipledStop board
+    assert gate.get("gap_sync", {}).get("ok") is True
+    from nexus.durability.stop import PrincipledStop, default_stop_path
+
+    stop = PrincipledStop.load(default_stop_path(tmp_path))
+    open_ids = {g.id for g in stop.open_gaps()}
+    assert any(i.startswith("board-") for i in open_ids)
+
+
+def test_alive_sync_board_gaps_knobs_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="gap-wire",
+        sync_board_gaps=False,
+        abort_on_board_stop=False,
+        record_preferences=False,
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.sync_board_gaps is False
+    assert loaded.abort_on_board_stop is False
+    assert loaded.record_preferences is False
 
 
 def test_self_approve_decision_gate_allows_with_fixture(tmp_path, monkeypatch):

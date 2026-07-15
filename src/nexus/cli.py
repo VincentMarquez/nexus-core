@@ -2721,11 +2721,95 @@ def cmd_improve(args: argparse.Namespace) -> int:
             ),
             auto_index=not bool(getattr(args, "no_index", False)),
         )
+        # Optional: wire signal onto PrincipledStop gap board
+        if bool(getattr(args, "sync_gaps", False)):
+            from .durability.stop import PrincipledStop, default_stop_path
+
+            path = default_stop_path(root)
+            stopper = PrincipledStop.load(path)
+            sync = asel.sync_signal_to_stop(
+                stopper,
+                {
+                    "signal": report.get("signal"),
+                    "reason": report.get("signal_reason"),
+                    "detail": report.get("signal_detail"),
+                    "hints": report.get("replan_hints") or [],
+                },
+                abort_on_hard_stop=bool(getattr(args, "abort_on_stop", False)),
+            )
+            stopper.save(path)
+            report["gap_sync"] = {**sync, "path": str(path)}
+        if bool(getattr(args, "record_pref", False)):
+            try:
+                from . import preference_pairs as pp
+
+                pref = pp.record_from_ranked(
+                    report.get("candidates") or [],
+                    root,
+                    source="cli_board",
+                )
+                if pref:
+                    report["preference_pair"] = pref
+            except Exception as e:
+                report["preference_error"] = str(e)
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
         else:
             print(asel.format_board(report))
+            if report.get("gap_sync"):
+                gs = report["gap_sync"]
+                print(
+                    f"gap_sync: signal={gs.get('signal')} actions={len(gs.get('actions') or [])} "
+                    f"gaps={gs.get('gaps')}"
+                )
+            if report.get("preference_pair"):
+                p = report["preference_pair"]
+                print(f"preference: {p.get('better')} > {p.get('worse')}")
         return 0 if report.get("ok") else 1
+
+    if sub in ("prefer", "prefs", "preferences"):
+        from . import preference_pairs as pp
+
+        action = getattr(args, "prefer_action", None) or "list"
+        if action in ("list", "brief", "status"):
+            brief = pp.preference_brief(
+                root, limit=int(getattr(args, "limit", None) or 8)
+            )
+            if getattr(args, "json", False):
+                print(json.dumps(brief, indent=2, default=str))
+            else:
+                print(pp.format_brief(brief))
+            return 0
+        if action in ("record", "add"):
+            better = getattr(args, "better", None)
+            worse = getattr(args, "worse", None)
+            if not better or not worse:
+                print(
+                    "error: prefer record requires --better and --worse",
+                    file=sys.stderr,
+                )
+                return 2
+            try:
+                row = pp.record_pair(
+                    root,
+                    better=str(better),
+                    worse=str(worse),
+                    criterion=str(getattr(args, "criterion", None) or "score"),
+                    better_score=getattr(args, "better_score", None),
+                    worse_score=getattr(args, "worse_score", None),
+                    source=str(getattr(args, "source", None) or "cli"),
+                    note=str(getattr(args, "note", None) or ""),
+                )
+            except pp.PreferenceError as e:
+                print(f"error: {e}", file=sys.stderr)
+                return 2
+            if getattr(args, "json", False):
+                print(json.dumps(row, indent=2, default=str))
+            else:
+                print(f"recorded: {row.get('better')} > {row.get('worse')} id={row.get('id')}")
+            return 0
+        print("usage: nexus improve prefer list|record", file=sys.stderr)
+        return 2
 
     if sub in ("decide", "decision", "package"):
         from . import apply_select as asel
@@ -2781,7 +2865,8 @@ def cmd_improve(args: argparse.Namespace) -> int:
         return 0 if report.get("ok") else 1
 
     print(
-        "usage: nexus improve smoke|apply|promote|ledger|demo-loop|select|board|decide",
+        "usage: nexus improve smoke|apply|promote|ledger|demo-loop|"
+        "select|board|decide|prefer",
         file=sys.stderr,
     )
     return 2
@@ -4333,8 +4418,49 @@ def main(argv: Optional[list[str]] = None) -> int:
     imp_bd.add_argument("--implementer", default=None, help="implementer role id")
     imp_bd.add_argument("--verifier", default=None, help="verifier role id")
     imp_bd.add_argument("--no-index", action="store_true", dest="no_index")
+    imp_bd.add_argument(
+        "--sync-gaps",
+        action="store_true",
+        dest="sync_gaps",
+        help="wire board signal onto PrincipledStop gap board (replan/stop→gaps)",
+    )
+    imp_bd.add_argument(
+        "--abort-on-stop",
+        action="store_true",
+        dest="abort_on_stop",
+        help="with --sync-gaps, hard stop signals abort the stop board",
+    )
+    imp_bd.add_argument(
+        "--record-pref",
+        action="store_true",
+        dest="record_pref",
+        help="record top>second preference pair from ranked candidates",
+    )
     imp_bd.add_argument("--json", action="store_true")
     imp_bd.set_defaults(func=cmd_improve, improve_cmd="board")
+
+    imp_pref = imp_sub.add_parser(
+        "prefer",
+        help="offline preference pairs (arXiv 2602.04518 value systems)",
+    )
+    imp_pref.add_argument("--path", default=".", help="project workdir")
+    imp_pref.add_argument(
+        "prefer_action",
+        nargs="?",
+        default="list",
+        choices=["list", "brief", "status", "record", "add"],
+        help="list|record (default list)",
+    )
+    imp_pref.add_argument("--better", default=None, help="preferred repo id")
+    imp_pref.add_argument("--worse", default=None, help="less-preferred repo id")
+    imp_pref.add_argument("--criterion", default="score")
+    imp_pref.add_argument("--better-score", type=float, default=None, dest="better_score")
+    imp_pref.add_argument("--worse-score", type=float, default=None, dest="worse_score")
+    imp_pref.add_argument("--source", default="cli")
+    imp_pref.add_argument("--note", default="")
+    imp_pref.add_argument("--limit", type=int, default=8)
+    imp_pref.add_argument("--json", action="store_true")
+    imp_pref.set_defaults(func=cmd_improve, improve_cmd="prefer")
 
     imp_dec = imp_sub.add_parser(
         "decide",

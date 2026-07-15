@@ -316,6 +316,56 @@ def test_board_signal_replan_low_confidence():
     assert "low_confidence" in sig["reason"]
 
 
+def test_sync_signal_to_stop_replan_registers_gap():
+    from nexus.durability.stop import PrincipledStop
+
+    stop = PrincipledStop()
+    out = asel.sync_signal_to_stop(
+        stop,
+        {
+            "signal": asel.SIGNAL_REPLAN,
+            "reason": "no_candidates",
+            "detail": "empty board",
+            "hints": ["lower min-score"],
+        },
+    )
+    assert out["ok"] is True
+    assert asel.BOARD_GAP_REPLAN in stop.gaps
+    assert stop.gaps[asel.BOARD_GAP_REPLAN].open is True
+    assert any(a["action"] == "register" for a in out["actions"])
+
+
+def test_sync_signal_to_stop_hard_stop_aborts():
+    from nexus.durability.stop import PrincipledStop
+
+    stop = PrincipledStop()
+    out = asel.sync_signal_to_stop(
+        stop,
+        {"signal": asel.SIGNAL_STOP, "reason": "role_collusion", "detail": "x"},
+        abort_on_hard_stop=True,
+    )
+    assert out["ok"] is True
+    assert asel.BOARD_GAP_STOP in stop.gaps
+    assert stop.aborted is True
+    assert any(a.get("action") == "abort" for a in out["actions"])
+
+
+def test_sync_signal_to_stop_continue_closes_board_gaps():
+    from nexus.durability.stop import PrincipledStop
+
+    stop = PrincipledStop()
+    stop.register_gap(asel.BOARD_GAP_REPLAN, "stale replan")
+    stop.register_gap(asel.BOARD_GAP_STOP, "stale stop")
+    out = asel.sync_signal_to_stop(
+        stop,
+        {"signal": asel.SIGNAL_CONTINUE, "reason": "apply_allowed"},
+        close_on_continue=True,
+    )
+    assert out["ok"] is True
+    assert stop.gaps[asel.BOARD_GAP_REPLAN].open is False
+    assert stop.gaps[asel.BOARD_GAP_STOP].open is False
+
+
 def test_decision_for_grade_from_claims_fixture():
     grade = {
         "repo": "wshobson/agents",

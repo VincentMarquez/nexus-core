@@ -721,6 +721,181 @@ def decision_for_grade(
     return gate
 
 
+# Gap ids written onto PrincipledStop when board signals replan/stop
+BOARD_GAP_REPLAN = "board-replan"
+BOARD_GAP_STOP = "board-stop"
+BOARD_SIGNAL_GAPS = frozenset({BOARD_GAP_REPLAN, BOARD_GAP_STOP})
+
+
+def _slug_gap_suffix(reason: str, *, max_len: int = 40) -> str:
+    """Stable short id fragment from a signal reason (path-safe)."""
+    import re
+
+    s = re.sub(r"[^A-Za-z0-9._+-]+", "-", str(reason or "").strip().lower())
+    s = s.strip("-")[:max_len].strip("-")
+    return s or "unknown"
+
+
+def sync_signal_to_stop(
+    stopper: Any,
+    signal: Optional[dict[str, Any] | str] = None,
+    *,
+    reason: str = "",
+    detail: str = "",
+    hints: Optional[Sequence[str]] = None,
+    abort_on_hard_stop: bool = True,
+    close_on_continue: bool = True,
+) -> dict[str, Any]:
+    """Wire improve board signal into a PrincipledStop gap board.
+
+    zenith / MAEBE pattern:
+      - ``replan`` → register ``board-replan`` (+ optional reason-specific id)
+      - ``stop`` → register ``board-stop``; hard stops may ``abort()`` so watch exits
+      - ``continue`` → close board signal gaps (progress cleared the thrash)
+
+    Does not mutate stop when *signal* is empty/unknown. Returns a small audit
+    dict suitable for alive report steps.
+    """
+    if signal is None:
+        return {"ok": False, "skipped": "no_signal", "actions": []}
+
+    if isinstance(signal, str):
+        sig_name = signal.strip().lower()
+        sig_reason = reason or sig_name
+        sig_detail = detail
+        sig_hints = list(hints or [])
+        # reconstruct minimal blob for hard-stop heuristics
+        signal = {
+            "signal": sig_name,
+            "reason": sig_reason,
+            "detail": sig_detail,
+            "hints": sig_hints,
+        }
+    else:
+        sig_name = str(signal.get("signal") or "").strip().lower()
+        sig_reason = str(reason or signal.get("reason") or sig_name)
+        sig_detail = str(detail or signal.get("detail") or "")
+        sig_hints = list(hints if hints is not None else (signal.get("hints") or []))
+
+    if sig_name not in BOARD_SIGNALS:
+        return {
+            "ok": False,
+            "skipped": f"unknown_signal:{sig_name or 'empty'}",
+            "actions": [],
+        }
+
+    if stopper is None or not hasattr(stopper, "register_gap"):
+        return {"ok": False, "skipped": "no_stopper", "actions": []}
+
+    actions: list[dict[str, Any]] = []
+    evidence = sig_detail or sig_reason
+    if sig_hints:
+        evidence = (evidence + " | hints: " + "; ".join(str(h) for h in sig_hints[:4])).strip(
+            " |"
+        )
+
+    if sig_name == SIGNAL_REPLAN:
+        g = stopper.register_gap(
+            BOARD_GAP_REPLAN,
+            f"board replan: {sig_reason}",
+            evidence=evidence or f"signal=replan reason={sig_reason}",
+        )
+        actions.append({"action": "register", "gap_id": g.id, "signal": SIGNAL_REPLAN})
+        # Secondary reason-scoped gap so operators can close specific thrash causes
+        suffix = _slug_gap_suffix(sig_reason)
+        if suffix and suffix not in {"replan", "board-replan", BOARD_GAP_REPLAN}:
+            rid = f"{BOARD_GAP_REPLAN}:{suffix}"
+            g2 = stopper.register_gap(
+                rid,
+                f"board replan detail: {sig_reason}",
+                evidence=evidence,
+            )
+            actions.append({"action": "register", "gap_id": g2.id, "signal": SIGNAL_REPLAN})
+        # Clear stop gap if we only need replan (not a hard stop)
+        if close_on_continue and BOARD_GAP_STOP in getattr(stopper, "gaps", {}):
+            try:
+                stopper.close_gap(BOARD_GAP_STOP, evidence="signal=replan (not stop)")
+                actions.append({"action": "close", "gap_id": BOARD_GAP_STOP})
+            except KeyError:
+                pass
+
+    elif sig_name == SIGNAL_STOP:
+        g = stopper.register_gap(
+            BOARD_GAP_STOP,
+            f"board stop: {sig_reason}",
+            evidence=evidence or f"signal=stop reason={sig_reason}",
+        )
+        actions.append({"action": "register", "gap_id": g.id, "signal": SIGNAL_STOP})
+        suffix = _slug_gap_suffix(sig_reason)
+        if suffix and suffix not in {"stop", "board-stop", BOARD_GAP_STOP}:
+            rid = f"{BOARD_GAP_STOP}:{suffix}"
+            g2 = stopper.register_gap(
+                rid,
+                f"board stop detail: {sig_reason}",
+                evidence=evidence,
+            )
+            actions.append({"action": "register", "gap_id": g2.id, "signal": SIGNAL_STOP})
+
+        # Hard stops (collusion / budget / principled) abort so watch() exits
+        hard = any(
+            k in sig_reason.lower()
+            for k in (
+                "collusion",
+                "budget",
+                "principled_stop",
+                "role_collusion",
+                "abort",
+            )
+        )
+        if abort_on_hard_stop and hard and hasattr(stopper, "abort"):
+            # only abort once
+            if not bool(getattr(stopper, "aborted", False)):
+                stopper.abort(f"board_signal:{sig_reason}")
+                actions.append(
+                    {
+                        "action": "abort",
+                        "reason": f"board_signal:{sig_reason}",
+                        "signal": SIGNAL_STOP,
+                    }
+                )
+
+    elif sig_name == SIGNAL_CONTINUE:
+        if close_on_continue:
+            for gid in list(BOARD_SIGNAL_GAPS):
+                gaps = getattr(stopper, "gaps", {}) or {}
+                item = gaps.get(gid)
+                if item is not None and getattr(item, "open", False):
+                    stopper.close_gap(
+                        gid,
+                        evidence=evidence or f"signal=continue reason={sig_reason}",
+                    )
+                    actions.append({"action": "close", "gap_id": gid, "signal": SIGNAL_CONTINUE})
+            # close reason-scoped board-* children that are still open
+            for gid, item in list((getattr(stopper, "gaps", {}) or {}).items()):
+                if not getattr(item, "open", False):
+                    continue
+                if gid.startswith(BOARD_GAP_REPLAN + ":") or gid.startswith(
+                    BOARD_GAP_STOP + ":"
+                ):
+                    stopper.close_gap(
+                        gid,
+                        evidence=evidence or "signal=continue",
+                    )
+                    actions.append(
+                        {"action": "close", "gap_id": gid, "signal": SIGNAL_CONTINUE}
+                    )
+
+    counts = stopper.gap_counts() if hasattr(stopper, "gap_counts") else {}
+    return {
+        "ok": True,
+        "signal": sig_name,
+        "reason": sig_reason,
+        "actions": actions,
+        "gaps": counts,
+        "aborted": bool(getattr(stopper, "aborted", False)),
+    }
+
+
 def board_signal(
     *,
     decision: Optional[dict[str, Any]] = None,
@@ -1176,6 +1351,9 @@ __all__ = [
     "SIGNAL_REPLAN",
     "SIGNAL_STOP",
     "BOARD_SIGNALS",
+    "BOARD_GAP_REPLAN",
+    "BOARD_GAP_STOP",
+    "BOARD_SIGNAL_GAPS",
     "LOW_CONFIDENCE",
     "RoleCollusionError",
     "ApplySelectError",
@@ -1187,6 +1365,7 @@ __all__ = [
     "decision_for_grade",
     "decision_package",
     "board_signal",
+    "sync_signal_to_stop",
     "improve_board",
     "format_board",
     "format_selection",

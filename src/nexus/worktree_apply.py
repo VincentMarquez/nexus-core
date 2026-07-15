@@ -106,6 +106,51 @@ nexus improve apply --pattern markdown-skill-sot-validator
 """
 
 
+# cas / mission-control shaped evidence + board operator skill (pattern only)
+_EVIDENCE_BOARD_MANIFEST = {
+    "id": "evidence-board-ops",
+    "version": "0.1.0",
+    "name": "Evidence Board Ops",
+    "description": (
+        "Operator skill for FTS evidence search + improve board signals "
+        "(continue|replan|stop) before hard apply"
+    ),
+    "privilege": "ops",
+    "tags": ["evidence", "board", "fts", "decision"],
+}
+
+_EVIDENCE_BOARD_SKILL_MD = """# Evidence Board Ops
+
+## When to use
+
+- Rank mined repos with FTS evidence before apply
+- Emit a terminal decision package with role separation
+- Sync board signals onto the principled-stop gap board
+
+## Commands
+
+```bash
+nexus improve select --query "durable multi-agent"
+nexus improve board --sync-gaps
+nexus improve decide --repo wshobson/agents
+nexus improve prefer list
+```
+
+## Rules
+
+- Grader ≠ implementer ≠ verifier (anti-collusion)
+- Prefer path-anchored claims over free-text grades
+- `replan` registers gaps; hard `stop` may abort the watch loop
+- No vendored upstream trees — patterns only
+
+## Success
+
+- Board signal is one of continue|replan|stop
+- Decision package schema `nexus.decision_package/v1`
+- Gap board reflects signal after `--sync-gaps`
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -124,6 +169,24 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "markdown-sot-demo",
+    },
+    "cas-evidence-board-ops": {
+        "id": "cas-evidence-board-ops",
+        "repo": "codingagentsystem/cas",
+        "description": (
+            "FTS evidence + improve board operator skill "
+            "(cas/mission-control/routa shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/evidence-board-ops/manifest.json": json.dumps(
+                _EVIDENCE_BOARD_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/evidence-board-ops/SKILL.md": _EVIDENCE_BOARD_SKILL_MD,
+            "skillpacks/evidence-board-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "evidence-board-ops",
     },
 }
 
@@ -374,12 +437,14 @@ def apply_pattern_files(
     written: list[str] = []
     files = dict(pattern.get("files") or {})
 
-    # Fill APPLY_META dynamically
+    # Fill APPLY_META dynamically under the pattern's pack path
+    pack_id = str(pattern.get("pack_id") or "pack")
     apply_meta = {
         "schema": SCHEMA,
         "pattern": pattern_id,
         "repo": pattern.get("repo"),
         "job_id": job_id,
+        "pack_id": pack_id,
         "applied_at": time.time(),
         "grade": {
             "repo": (grade or {}).get("repo"),
@@ -390,9 +455,14 @@ def apply_pattern_files(
             "method": (grade or {}).get("method"),
         },
     }
-    files["skillpacks/markdown-sot-demo/APPLY_META.json"] = (
-        json.dumps(apply_meta, indent=2, default=str) + "\n"
-    )
+    meta_rel = f"skillpacks/{pack_id}/APPLY_META.json"
+    # Prefer catalog key if present (None placeholder); else inject by pack_id
+    meta_keys = [k for k, v in files.items() if k.endswith("APPLY_META.json")]
+    if meta_keys:
+        for k in meta_keys:
+            files[k] = json.dumps(apply_meta, indent=2, default=str) + "\n"
+    else:
+        files[meta_rel] = json.dumps(apply_meta, indent=2, default=str) + "\n"
 
     for rel, content in files.items():
         if content is None:
