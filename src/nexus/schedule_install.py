@@ -23,6 +23,7 @@ def install_bundle(
     mine_query: str = "multi agent durable",
     heartbeat: bool = True,
     mine: bool = True,
+    alive: bool = True,
     mcp_http: bool = False,
 ) -> str:
     root = Path(root or os.getcwd()).resolve()
@@ -30,7 +31,8 @@ def install_bundle(
     env = f"cd {root} && NEXUS_PROJECT_ROOT={root}"
     lines = [
         "# NEXUS scheduled jobs — paste into: crontab -e",
-        "# ChatGPT / Claude use the same machine via MCP (see docs/SCHEDULE_AGENTS.md)",
+        "# Self-improvement under budget: docs/ALIVE.md",
+        "# ChatGPT / Claude MCP: docs/SCHEDULE_AGENTS.md",
         "",
     ]
     if heartbeat:
@@ -38,8 +40,12 @@ def install_bundle(
             f"*/5 * * * * {env} {py} -m nexus.cli heartbeat once "
             f">>{root}/.nexus_state/heartbeat.log 2>&1"
         )
+    if alive:
+        lines.append(
+            f"0 */6 * * * {env} {py} -m nexus.cli alive once "
+            f">>{root}/.nexus_state/alive.log 2>&1"
+        )
     if mine:
-        # twice a day: discover/grade/use; improve plan without --apply by default
         lines.append(
             f"0 9,21 * * * {env} {py} -m nexus.cli github mine run "
             f"-q '{mine_query}' -n 6 --heuristic-only --min-score 12 "
@@ -62,11 +68,14 @@ def install_bundle(
         )
     lines += [
         "",
-        "# Optional always-on community + mine watch (foreground service / tmux):",
-        f"# {env} {py} -m nexus.cli github watch --autonomous --workdir {root} \\",
-        f"#   --scout '{mine_query}' --scout-every 43200",
+        "# Throttle tokens anytime:",
+        f"# {env} {py} -m nexus.cli usage set --daily 200000 --monthly 3000000",
+        f"# {env} {py} -m nexus.cli usage status",
         "",
-        "# Apply improvements only when you mean it (not on cron by default):",
+        "# Self-approve apply (dangerous — only if you set alive.json):",
+        f"# {env} {py} -m nexus.cli alive init --goal '…' --apply --self-approve --repo YOU/REPO",
+        "",
+        "# Apply improvements only when you mean it:",
         f"# {env} {py} -m nexus.cli github mine improve-ours --apply --repo YOU/REPO",
         "",
     ]

@@ -1145,6 +1145,101 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_usage(args: argparse.Namespace) -> int:
+    """Token budget / throttle controls."""
+    from . import usage as um
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "usage_cmd", None) or "status"
+    if sub == "status":
+        print(json.dumps(um.status(root), indent=2))
+        return 0
+    if sub == "set":
+        b = um.load_budget(root)
+        if getattr(args, "off", False):
+            b.enabled = False
+        if getattr(args, "on", False):
+            b.enabled = True
+        if getattr(args, "daily", None) is not None:
+            b.daily_tokens = int(args.daily)
+        if getattr(args, "monthly", None) is not None:
+            b.monthly_tokens = int(args.monthly)
+        if getattr(args, "per_call", None) is not None:
+            b.per_call_max = int(args.per_call)
+        if getattr(args, "soft", False):
+            b.hard_limit = False
+        if getattr(args, "hard", False):
+            b.hard_limit = True
+        p = um.save_budget(b, root)
+        print(json.dumps({"saved": str(p), "budget": b.to_dict()}, indent=2))
+        return 0
+    if sub == "record":
+        r = um.record(
+            int(getattr(args, "tokens", 0) or 0),
+            source=getattr(args, "source", None) or "manual",
+            label=getattr(args, "label", None) or "",
+            workdir=root,
+            enforce=not bool(getattr(args, "force", False)),
+        )
+        print(json.dumps(r, indent=2))
+        return 0
+    if sub == "reset-day":
+        print(json.dumps(um.reset_day(root), indent=2))
+        return 0
+    print("usage: nexus usage status|set|record|reset-day")
+    return 2
+
+
+def cmd_alive(args: argparse.Namespace) -> int:
+    """Self-improvement under user goals + token budget."""
+    from . import alive as al
+    from . import usage as um
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "alive_cmd", None) or "status"
+    if sub == "init":
+        cfg = al.load_config(root)
+        if getattr(args, "goal", None):
+            cfg.goal = args.goal
+        if getattr(args, "query", None):
+            cfg.queries = [args.query]
+        if getattr(args, "apply", False):
+            cfg.apply = True
+        if getattr(args, "self_approve", False):
+            cfg.self_approve = True
+        if getattr(args, "repo", None):
+            cfg.our_repo = args.repo
+        if getattr(args, "interval", None):
+            cfg.interval_s = int(args.interval)
+        p = al.save_config(cfg, root)
+        print(json.dumps({"saved": str(p), "config": cfg.to_dict()}, indent=2))
+        print("Run: nexus alive once | nexus alive watch")
+        return 0
+    if sub == "status":
+        cfg = al.load_config(root)
+        st = {}
+        sp = al.state_path(root)
+        if sp.is_file():
+            try:
+                st = json.loads(sp.read_text(encoding="utf-8"))
+            except Exception:
+                st = {}
+        print(json.dumps({"config": cfg.to_dict(), "last": st, "usage": um.status(root)}, indent=2, default=str))
+        return 0
+    if sub == "once":
+        rep = al.cycle_once(root, dry_run=bool(getattr(args, "dry_run", False)))
+        print(json.dumps(rep, indent=2, default=str))
+        return 0 if not rep.get("blocked") else 1
+    if sub == "watch":
+        return al.watch(
+            root,
+            interval_s=float(getattr(args, "interval", 0) or 0) or None,
+            max_cycles=int(getattr(args, "max_cycles", 0) or 0),
+        )
+    print("usage: nexus alive init|status|once|watch")
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -1161,6 +1256,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "heartbeat",
         "recovery",
         "schedule",
+        "usage",
+        "alive",
         "procure",
         "arxiv",
         "research",
@@ -1797,6 +1894,61 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="include @reboot nexus mcp --http (tunnel for ChatGPT connectors)",
     )
     sch.set_defaults(func=cmd_schedule)
+
+    us = sub.add_parser("usage", help="token budget / throttle (daily/monthly caps)")
+    us_sub = us.add_subparsers(dest="usage_cmd")
+    us_st = us_sub.add_parser("status", help="show budget + counters")
+    us_st.add_argument("--path", default=".")
+    us_st.set_defaults(func=cmd_usage)
+    us_set = us_sub.add_parser("set", help="configure budget")
+    us_set.add_argument("--path", default=".")
+    us_set.add_argument("--daily", type=int, default=None)
+    us_set.add_argument("--monthly", type=int, default=None)
+    us_set.add_argument("--per-call", type=int, default=None)
+    us_set.add_argument("--off", action="store_true")
+    us_set.add_argument("--on", action="store_true")
+    us_set.add_argument("--soft", action="store_true", help="warn only, do not block")
+    us_set.add_argument("--hard", action="store_true", help="block when over budget")
+    us_set.set_defaults(func=cmd_usage)
+    us_rec = us_sub.add_parser("record", help="manually record tokens")
+    us_rec.add_argument("--tokens", type=int, required=True)
+    us_rec.add_argument("--source", default="manual")
+    us_rec.add_argument("--label", default="")
+    us_rec.add_argument("--path", default=".")
+    us_rec.add_argument("--force", action="store_true")
+    us_rec.set_defaults(func=cmd_usage)
+    us_rs = us_sub.add_parser("reset-day", help="archive ledger and start fresh")
+    us_rs.add_argument("--path", default=".")
+    us_rs.set_defaults(func=cmd_usage)
+    us.set_defaults(func=cmd_usage, usage_cmd="status")
+
+    alv = sub.add_parser(
+        "alive",
+        help="self-improvement loop under user goals + token budget",
+    )
+    al_sub = alv.add_subparsers(dest="alive_cmd")
+    al_i = al_sub.add_parser("init", help="set goal / self-approve / apply policy")
+    al_i.add_argument("--path", default=".")
+    al_i.add_argument("--goal", default=None)
+    al_i.add_argument("--query", "-q", default=None)
+    al_i.add_argument("--repo", default=None)
+    al_i.add_argument("--apply", action="store_true")
+    al_i.add_argument("--self-approve", action="store_true")
+    al_i.add_argument("--interval", type=int, default=None)
+    al_i.set_defaults(func=cmd_alive)
+    al_s = al_sub.add_parser("status")
+    al_s.add_argument("--path", default=".")
+    al_s.set_defaults(func=cmd_alive)
+    al_o = al_sub.add_parser("once", help="one self-improve cycle")
+    al_o.add_argument("--path", default=".")
+    al_o.add_argument("--dry-run", action="store_true")
+    al_o.set_defaults(func=cmd_alive)
+    al_w = al_sub.add_parser("watch", help="loop cycles until Ctrl-C")
+    al_w.add_argument("--path", default=".")
+    al_w.add_argument("--interval", type=float, default=0)
+    al_w.add_argument("--max-cycles", type=int, default=0)
+    al_w.set_defaults(func=cmd_alive)
+    alv.set_defaults(func=cmd_alive, alive_cmd="status")
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")

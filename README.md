@@ -350,6 +350,22 @@ nexus start -y                 # bus local agent + tools
 Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md)
 
 
+### Alive — self-improve under your goals + token budget
+
+NEXUS can stay **alive**: search/research the ecosystem, **score repos**, plan improvements to **your** code, and optionally self-approve when tests pass — while you **throttle tokens**.
+
+```bash
+nexus usage set --daily 200000 --monthly 3000000   # throttle
+nexus alive init --goal "improve multi-agent durability" -q "multi agent durable"
+nexus alive once                                   # mine → plan (budget-aware)
+nexus alive watch --interval 3600                  # keep going
+# auto-apply only if you opt in:
+# nexus alive init --apply --self-approve --repo YOU/REPO
+nexus usage status
+```
+
+Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)**
+
 ### Resilience (power / WiFi / cloud poke)
 
 If the **machine loses power or WiFi**, local NEXUS cannot phone home. A **cloud dead-man** can still poke you:

@@ -74,6 +74,15 @@ class BusClient:
         """POST /api/message → response text (circuit-aware)."""
         if not self.circuits.can_execute(agent):
             raise RuntimeError(f"circuit OPEN for agent {agent}")
+        try:
+            from . import usage as usage_mod
+            usage_mod.check_budget(
+                usage_mod.estimate_tokens(prompt) + 512, raise_on_exceed=True
+            )
+        except Exception as _budget_err:
+            if _budget_err.__class__.__name__ == "BudgetExceeded":
+                raise
+            pass
         body: dict[str, Any] = {"agent": agent, "prompt": prompt}
         if timeout_ms is not None:
             body["timeout_ms"] = timeout_ms

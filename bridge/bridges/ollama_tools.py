@@ -127,6 +127,14 @@ def handle_turn(
     last_text = ""
     for rnd in range(max_rounds):
         last_text = _ollama_generate(host, model, history, num_predict=768)
+        try:
+            from nexus import usage as usage_mod
+            usage_mod.record_text(
+                history[-4000:], last_text, source=f"ollama:{agent}", label="tool_turn", enforce=True
+            )
+        except Exception as _ue:
+            if _ue.__class__.__name__ == "BudgetExceeded":
+                return f"[ollama:{agent}] budget exceeded: {_ue}"
         if not last_text:
             return f"[ollama:{agent}] empty response"
         m = TOOL_CALL_RE.search(last_text)

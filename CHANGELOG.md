@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 — 2026-07-15
+
+### Added
+- **Alive loop**: `nexus alive init|once|watch` — self-improve under user goals
+- **Usage throttle**: `nexus usage status|set|record` — daily/monthly/per-call token caps
+- Budget enforcement on bus messages + Ollama tool turns (estimated tokens)
+- Docs: `docs/ALIVE.md`
+
 ## 0.8.3 — 2026-07-15
 
 ### Added
