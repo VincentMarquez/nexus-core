@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.3 — 2026-07-15
+
+### Added
+- **Repo search / scout**: `nexus github search|scout` finds other public repos for continuous improvement
+- Machine-local notes under `.nexus_state/repo_scout/`; remembers seen repos across watch cycles
+- Watch: `--scout` / `--scout-every` alongside arXiv for always-on outer-world learning
+- Improve: `--with-scout` / `--scout` combines papers + other codebases
+- README + docs: machine-local continuous improve diagram
+
 ## 0.7.2 — 2026-07-15
 
 ### Added

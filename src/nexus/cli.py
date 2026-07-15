@@ -519,7 +519,7 @@ def cmd_github(args: argparse.Namespace) -> int:
         if not getattr(args, "repo", None):
             print(
                 "usage:\n"
-                "  nexus github inbox|reply|draft|auto|loop|watch|init|improve|status\n"
+                "  nexus github inbox|reply|loop|watch|init|search|scout|improve|status\n"
                 "  nexus github do <owner/repo>                 # repair job\n"
                 "  nexus do <owner/repo>                        # same job"
             )
@@ -705,6 +705,8 @@ def cmd_github(args: argparse.Namespace) -> int:
             dry_run=bool(getattr(args, "dry_run", False)),
             arxiv_query=getattr(args, "arxiv", None) or None,
             arxiv_every_s=float(getattr(args, "arxiv_every", 86400) or 86400),
+            scout_query=getattr(args, "scout", None) or None,
+            scout_every_s=float(getattr(args, "scout_every", 43200) or 43200),
             apply_improve=bool(getattr(args, "apply", False)),
         )
         if getattr(args, "once", False):
@@ -722,26 +724,100 @@ def cmd_github(args: argparse.Namespace) -> int:
         from . import github_autonomy as ga
 
         q = getattr(args, "arxiv", None) or getattr(args, "query", None)
-        if not q:
-            print("usage: nexus github improve --arxiv \"topic\" [--repo YOU/REPO] [--apply]")
+        scout_q = getattr(args, "scout", None)
+        if not q and not scout_q:
+            print(
+                "usage: nexus github improve --arxiv \"topic\" [--scout \"topic\"] "
+                "[--repo YOU/REPO] [--apply]"
+            )
             return 2
         workdir = Path(getattr(args, "workdir", None) or Path.cwd())
         try:
-            res = ga.improve_from_arxiv(
+            if q:
+                res = ga.improve_from_arxiv(
+                    q,
+                    repo=repo,
+                    workdir=workdir,
+                    max_results=int(getattr(args, "max", 6) or 6),
+                    apply=bool(getattr(args, "apply", False)),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    download_pdf=bool(getattr(args, "pdf", False)),
+                    post_issue=not bool(getattr(args, "no_issue", False)),
+                    also_scout=bool(scout_q) or bool(getattr(args, "with_scout", False)),
+                    scout_query=scout_q,
+                )
+            else:
+                res = ga.scout_other_repos(
+                    scout_q,
+                    repo=repo,
+                    workdir=workdir,
+                    limit=int(getattr(args, "max", 8) or 8),
+                    deep=not bool(getattr(args, "shallow", False)),
+                    post_issue=not bool(getattr(args, "no_issue", False)),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    apply=bool(getattr(args, "apply", False)),
+                )
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2))
+        if "research_status" in res:
+            return 0 if res.get("research_status") != "failed" else 1
+        return 0
+
+    if sub == "search":
+        from . import github_autonomy as ga
+
+        q = getattr(args, "query", None) or getattr(args, "q", None)
+        if not q:
+            print('usage: nexus github search "multi agent durable" [--limit 10]')
+            return 2
+        try:
+            hits = ga.search_github_repos(
+                q,
+                limit=int(getattr(args, "limit", 10) or 10),
+                language=getattr(args, "language", None) or None,
+            )
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        if not hits:
+            print("(no repos found)")
+            return 0
+        print(f"{'STARS':>6}  {'LANG':<10}  REPO")
+        print("-" * 72)
+        for h in hits:
+            print(f"{h.stars:>6}  {(h.language or '-')[:10]:<10}  {h.full_name}")
+            if h.description:
+                print(f"        {h.description[:90]}")
+            print(f"        {h.url}")
+        return 0
+
+    if sub == "scout":
+        from . import github_autonomy as ga
+
+        q = getattr(args, "query", None)
+        if not q:
+            print('usage: nexus github scout "topic" [--repo YOU/REPO] [--apply]')
+            return 2
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        try:
+            res = ga.scout_other_repos(
                 q,
                 repo=repo,
                 workdir=workdir,
-                max_results=int(getattr(args, "max", 6) or 6),
-                apply=bool(getattr(args, "apply", False)),
+                limit=int(getattr(args, "limit", 8) or 8),
+                language=getattr(args, "language", None) or None,
+                deep=not bool(getattr(args, "shallow", False)),
+                post_issue=bool(getattr(args, "issue", False)),
                 dry_run=bool(getattr(args, "dry_run", False)),
-                download_pdf=bool(getattr(args, "pdf", False)),
-                post_issue=not bool(getattr(args, "no_issue", False)),
+                apply=bool(getattr(args, "apply", False)),
             )
         except Exception as e:
             print(f"error: {e}")
             return 1
         print(json.dumps(res, indent=2))
-        return 0 if res.get("research_status") != "failed" else 1
+        return 0
 
     print(f"unknown github subcommand: {sub}")
     return 2
@@ -783,6 +859,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             "loop",
             "watch",
             "init",
+            "search",
+            "scout",
             "improve",
             "status",
             "do",
@@ -1035,16 +1113,63 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="seconds between arXiv improve runs (default 1 day)",
     )
     gh_watch.add_argument(
+        "--scout",
+        default=None,
+        help="search other GitHub repos on this topic for continuous improvement",
+    )
+    gh_watch.add_argument(
+        "--scout-every",
+        type=float,
+        default=43200,
+        help="seconds between repo scout runs (default 12h)",
+    )
+    gh_watch.add_argument(
         "--apply",
         action="store_true",
-        help="with --arxiv, also run nexus do repair after research (powerful)",
+        help="with --arxiv/--scout, also run nexus do repair (powerful)",
     )
     gh_watch.add_argument("--dry-run", action="store_true")
     gh_watch.set_defaults(func=cmd_github)
 
+    gh_search = gh_sub.add_parser(
+        "search",
+        help="search other public repos (ideas for continuous improvement)",
+    )
+    gh_search.add_argument("query", help='e.g. "multi agent orchestration durable"')
+    gh_search.add_argument("--limit", type=int, default=10)
+    gh_search.add_argument("--language", default=None, help="e.g. Python")
+    gh_search.set_defaults(func=cmd_github)
+
+    gh_scout = gh_sub.add_parser(
+        "scout",
+        help="search related repos → write machine-local improvement notes",
+    )
+    gh_scout.add_argument("query", help="topic / keywords to find other repos")
+    gh_scout.add_argument("--repo", dest="repo_flag", default=None)
+    gh_scout.add_argument("--workdir", default=None)
+    gh_scout.add_argument("--limit", type=int, default=8)
+    gh_scout.add_argument("--language", default=None)
+    gh_scout.add_argument(
+        "--shallow",
+        action="store_true",
+        help="skip README deep fetch",
+    )
+    gh_scout.add_argument(
+        "--issue",
+        action="store_true",
+        help="open a tracking issue on your repo",
+    )
+    gh_scout.add_argument(
+        "--apply",
+        action="store_true",
+        help="run nexus do informed by scouted repos (opt-in)",
+    )
+    gh_scout.add_argument("--dry-run", action="store_true")
+    gh_scout.set_defaults(func=cmd_github)
+
     gh_imp = gh_sub.add_parser(
         "improve",
-        help="arXiv papers → improvement notes (+ optional fix job)",
+        help="arXiv + optional repo scout → notes (+ optional fix job)",
     )
     gh_imp.add_argument(
         "--arxiv",
@@ -1053,6 +1178,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=None,
         help='topic / arXiv query, e.g. "durable multi-agent systems"',
     )
+    gh_imp.add_argument(
+        "--scout",
+        default=None,
+        help="also search related GitHub repos (or use alone without --arxiv)",
+    )
+    gh_imp.add_argument(
+        "--with-scout",
+        action="store_true",
+        help="when using --arxiv, also scout GitHub with the same query",
+    )
     gh_imp.add_argument("--repo", dest="repo_flag", default=None)
     gh_imp.add_argument("--workdir", default=None)
     gh_imp.add_argument("--max", type=int, default=6)
@@ -1060,13 +1195,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     gh_imp.add_argument(
         "--apply",
         action="store_true",
-        help="after research, run nexus do to try applying insights (opt-in)",
+        help="after research/scout, run nexus do to try applying insights (opt-in)",
     )
     gh_imp.add_argument(
         "--no-issue",
         action="store_true",
         help="do not open a tracking GitHub issue",
     )
+    gh_imp.add_argument("--shallow", action="store_true")
     gh_imp.add_argument("--dry-run", action="store_true")
     gh_imp.set_defaults(func=cmd_github)
 

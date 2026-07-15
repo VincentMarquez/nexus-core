@@ -4,31 +4,34 @@ Reply to **issues**, **pull requests**, and comments from one place — automati
 
 **You can use this on your own personal repos when you create them.** The loop is the same: respond → test → share → repeat. Turn on **fully autonomous** if you want it to keep running, and feed **new arXiv papers** into the improve path so research keeps pushing the code.
 
-## Personal repos + full autonomy + arXiv
+## Personal repos + full autonomy + other-repo scout + arXiv
 
 | Goal | Command |
 |------|---------|
 | Enable loop on a **new/existing personal project** | `nexus github init --path ~/code/my-app` |
-| Always-on laptop loop | `nexus github watch --repo YOU/my-app --autonomous --interval 120` |
+| Always-on **machine-local** loop | `nexus github watch --repo YOU/my-app --autonomous --interval 120` |
 | One poll cycle (debug) | `nexus github watch --once --autonomous` |
+| **Search other repos** | `nexus github search "topic" --limit 10` |
+| Scout repos → local notes | `nexus github scout "topic" --workdir .` |
 | Pull papers → notes (+ issue) | `nexus github improve --arxiv "topic" --repo YOU/my-app` |
-| Papers → notes → **try to apply** via `nexus do` | `nexus github improve --arxiv "topic" --apply` |
-| Watch + daily arXiv | `nexus github watch --autonomous --arxiv "topic" --arxiv-every 86400` |
+| Papers **+** other repos | `nexus github improve --arxiv "topic" --with-scout` |
+| Scout / papers → **try apply** via `nexus do` | `… --apply` |
+| Continuous: comments + arXiv + scout | `watch --autonomous --arxiv "…" --scout "…" --scout-every 43200` |
 
 ```text
 create personal repo
       → nexus github init
       → push community-bot.yml
       → Actions: cloud loop on every comment/PR
-      → optional: watch --autonomous on your machine
-      → optional: improve --arxiv "…" to inject research
-      → optional: --apply to run repair jobs from papers
+      → on your machine: watch --autonomous
+      → search/scout other GitHub repos for ideas
+      → improve --arxiv + --scout for research fuel
+      → optional: --apply to run repair jobs
 ```
 
-Portable workflow template (for copy/paste):  
-`connectors/examples/community-bot.workflow.yml`
+Portable workflow template: `connectors/examples/community-bot.workflow.yml`
 
-**Safety:** autonomy is **opt-in**. Without `--autonomous`, `watch` only observes. Without `--apply`, arXiv improve only writes notes (and can open a tracking issue). Nothing auto-merges.
+**Safety:** autonomy is **opt-in**. Without `--autonomous`, `watch` only observes. Without `--apply`, improve/scout only write notes (and can open a tracking issue). Nothing auto-merges. Scout does not clone arbitrary code into your tree unless you pass `--apply` (which runs the jailed `nexus do` job).
 
 ## ML architecture
 

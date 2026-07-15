@@ -192,9 +192,11 @@ Design bet: **tests are the reward signal**, not “the model said OK.” Drafts
 |------|----------------|--------------|
 | **Automatic** | `.github/workflows/community-bot.yml` | First reply on issue/PR open; also on `@nexus` / `/triage` |
 | **Loop** | same workflow + `nexus github loop 12` | On every human response / PR `synchronize`: install → pytest → smoke → **share results** on the thread |
-| **Watch (always-on)** | `nexus github watch --autonomous` | Laptop daemon: keep polling your repo forever → reply → test → post → again |
+| **Watch (always-on)** | `nexus github watch --autonomous` | **On your machine:** keep polling forever → reply → test → post → scout → again |
 | **Init (personal repos)** | `nexus github init --path ~/my-repo` | Drop the same workflow into **any** personal repo when you create it |
-| **Improve (arXiv)** | `nexus github improve --arxiv "topic"` | Pull new papers → notes (+ optional issue) → optional `--apply` fix job |
+| **Search other repos** | `nexus github search "topic"` | Find public repos to learn from (continuous improvement fuel) |
+| **Scout** | `nexus github scout "topic"` | Search repos → README digests → machine-local notes under `.nexus_state/` |
+| **Improve (arXiv + scout)** | `nexus github improve --arxiv "…" --scout "…"` | Papers **and** other repos → notes → optional `--apply` fix job |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
 | **Reply** | `nexus github reply 12` | Post auto-draft (or `--body "…"`) |
@@ -212,31 +214,39 @@ nexus github auto --dry-run   # safe preview before bulk first-replies
 nexus github init --path ~/code/my-new-app
 cd ~/code/my-new-app && git add .github && git commit -m "chore: NEXUS community loop" && git push
 
-# Fully autonomous (opt-in) — keeps running until Ctrl-C
+# Fully autonomous on YOUR MACHINE (opt-in) — keeps running until Ctrl-C
 nexus github watch --repo YOU/my-new-app --workdir . --autonomous --interval 120
 
-# Research loop: new arXiv papers → improve this codebase
-nexus github improve --repo YOU/my-new-app --arxiv "multi agent orchestration" --max 6
-nexus github improve --arxiv "your topic" --apply   # also runs nexus do (powerful)
-# Or while watching:
-nexus github watch --autonomous --arxiv "your topic" --arxiv-every 86400
+# Search the rest of GitHub for continuous improvement ideas
+nexus github search "multi agent durable resume" --limit 10
+nexus github scout "multi agent durable" --workdir .     # notes in .nexus_state/repo_scout/
+
+# Research loop: arXiv papers + other repos → improve this codebase
+nexus github improve --arxiv "multi agent orchestration" --with-scout --max 6
+nexus github improve --scout "your topic" --apply        # scout-only + nexus do
+# Continuous on your machine: comments + daily papers + twice-daily repo scout
+nexus github watch --autonomous --workdir . \
+  --arxiv "your topic" --arxiv-every 86400 \
+  --scout "your topic" --scout-every 43200
 ```
 
 ```text
-        ┌─────────────────────────────────────────────────────────┐
-        │  YOUR personal repo (any)  ·  or  ·  nexus-core itself  │
-        └───────────────────────────┬─────────────────────────────┘
-                                    │
-     create repo ──► nexus github init ──► community-bot.yml on GitHub
-                                    │
-         human / CI events          │         optional research
-                │                   │                │
-                ▼                   ▼                ▼
-         pick up thread      evidence tests    arXiv papers
-                │                   │                │
-                └────────► post results / notes ◄────┘
-                                    │
-                    ◄── next reply or next day ──►  (watch --autonomous)
+        ┌──────────────────────────────────────────────────────────────┐
+        │  YOUR machine (laptop/server)  ·  personal repo  ·  nexus-core │
+        └───────────────────────────────┬────────────────────────────────┘
+                                        │
+     create repo ──► nexus github init ──► community-bot.yml (cloud Actions too)
+                                        │
+              ┌─────────────────────────┼─────────────────────────┐
+              ▼                         ▼                         ▼
+       human comments            evidence tests            outer world
+       / PR pushes               (pytest+smoke)            ────────────
+              │                         │                  arXiv papers
+              │                         │                  other GitHub
+              │                         │                  repos (scout)
+              └────────────► notes + PASS/FAIL ◄───────────┘
+                                        │
+              ◄── watch --autonomous on your machine (continuous) ──►
 ```
 
 ```text
@@ -256,8 +266,10 @@ you / contributor replies on issue or PR
 ```
 
 - **Works on personal repos** — not locked to nexus-core: `init` + `--repo YOU/name`.  
-- **Fully autonomous is opt-in** — Actions on push events, or `watch --autonomous` on a machine you control. Without `--autonomous`, watch only observes.  
-- **`--apply` / arXiv improve** can open issues and run `nexus do` repair; leave it off for notes-only.  
+- **Runs on your machine** — `watch` / `scout` / `improve` write under `.nexus_state/` locally; Actions is the cloud twin.  
+- **Searches other repos** — `search` + `scout` mine public GitHub for ideas; continuous mode remembers repos already seen.  
+- **Fully autonomous is opt-in** — Actions on events, or `watch --autonomous` on a machine you control. Without `--autonomous`, watch only observes.  
+- **`--apply`** can run `nexus do` after arXiv/scout; leave it off for notes-only.  
 - **No extra secrets** for default replies and the test loop (`GITHUB_TOKEN` only).  
 - Markers: `<!-- nexus-community-bot -->` (greetings) and `<!-- nexus-community-loop sha=… -->` (results; deduped per commit).  
 - Opt out of one loop run: comment `/skip-loop` or `/noloop`.  

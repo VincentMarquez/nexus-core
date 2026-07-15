@@ -25,27 +25,30 @@ gh repo create my-app --private --source=. --push
 # Actions now run the loop on this personal repo
 ```
 
-## Fully autonomous (opt-in)
+## Fully autonomous on your machine (opt-in)
 
 ```bash
 # Cloud: already on when workflow is pushed
-# Laptop daemon — posts loop results when people talk:
+# Laptop/server daemon — posts loop results when people talk:
 nexus github watch --repo YOU/my-app --workdir . --autonomous --interval 120
 ```
 
 Without `--autonomous`, watch only logs activity.
 
-## arXiv → improve code
+## Search other repos → continuous improvement
 
 ```bash
-nexus github improve --arxiv "durable multi-agent systems" --max 6
-# opens notes under .nexus_state/arxiv_improve/ and a tracking issue
+nexus github search "multi agent durable resume" --limit 10
+nexus github scout "multi agent durable" --workdir .
+# → .nexus_state/repo_scout/scout-*.md + latest.json
 
-nexus github improve --arxiv "your topic" --apply
-# also runs nexus do with a goal derived from the papers
+nexus github improve --arxiv "durable multi-agent systems" --with-scout --max 6
+nexus github improve --scout "your topic" --apply
 
-# daily research while watching
-nexus github watch --autonomous --arxiv "your topic" --arxiv-every 86400
+# Continuous on your machine: community loop + arXiv + other-repo scout
+nexus github watch --autonomous --workdir . \
+  --arxiv "your topic" --arxiv-every 86400 \
+  --scout "your topic" --scout-every 43200
 ```
 
 ## Local one-stop shop
