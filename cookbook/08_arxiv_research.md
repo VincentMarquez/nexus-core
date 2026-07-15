@@ -25,7 +25,7 @@ Under `.nexus_workspaces/research/<job-id>/`:
 
 ## Agent persona
 
-See [docs/agents/RESEARCH_ARXIV.md](../docs/agents/RESEARCH_ARXIV.md).
+See [docs/agents/RESEARCH_ARXIV.md](https://github.com/VincentMarquez/nexus-core/blob/main/docs/agents/RESEARCH_ARXIV.md).
 
 ## Combine with GitHub jobs
 
