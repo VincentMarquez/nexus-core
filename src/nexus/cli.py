@@ -896,11 +896,15 @@ def cmd_github(args: argparse.Namespace) -> int:
                     max_stars=getattr(args, "max_stars", 500),
                 )
             elif msub == "evaluate":
+                grader = getattr(args, "grader", None) or "auto"
+                if getattr(args, "heuristic_only", False):
+                    grader = "heuristic"
                 res = rm.step_evaluate(
                     workdir,
                     limit=getattr(args, "limit", 10),
                     use_ollama=not bool(getattr(args, "heuristic_only", False)),
                     ollama_model=getattr(args, "model", None),
+                    grader=grader,
                 )
             elif msub == "use":
                 res = rm.step_use(
@@ -928,8 +932,12 @@ def cmd_github(args: argparse.Namespace) -> int:
                     apply=bool(getattr(args, "apply", False)),
                     our_repo=getattr(args, "repo_flag", None) or getattr(args, "repo", None),
                     dry_run=bool(getattr(args, "dry_run", False)),
+                    worker=getattr(args, "worker", None) or "auto",
                 )
             elif msub == "run":
+                grader = getattr(args, "grader", None) or "auto"
+                if getattr(args, "heuristic_only", False):
+                    grader = "heuristic"
                 res = rm.run_pipeline(
                     workdir,
                     query=getattr(args, "query", None) or "multi agent durable",
@@ -941,6 +949,11 @@ def cmd_github(args: argparse.Namespace) -> int:
                     use_limit=int(getattr(args, "use_limit", 4) or 4),
                     use_ollama=not bool(getattr(args, "heuristic_only", False)),
                     prove=not bool(getattr(args, "no_prove", False)),
+                    improve=bool(getattr(args, "improve", False)),
+                    apply_improve=bool(getattr(args, "apply", False)),
+                    our_repo=getattr(args, "repo_flag", None),
+                    grader=grader,
+                    worker=getattr(args, "worker", None) or "auto",
                 )
             else:
                 print("usage: nexus github mine fetch|evaluate|use|list|run|improve-ours")
@@ -1215,10 +1228,15 @@ def cmd_alive(args: argparse.Namespace) -> int:
             cfg.our_repo = args.repo
         if getattr(args, "interval", None):
             cfg.interval_s = int(args.interval)
+        if getattr(args, "grader", None):
+            cfg.grader = str(args.grader)
+        if getattr(args, "worker", None):
+            cfg.worker = str(args.worker)
         p = al.save_config(cfg, root)
         print(json.dumps({"saved": str(p), "config": cfg.to_dict()}, indent=2))
         print("Run: nexus alive once | nexus alive watch")
         print("Full loop to GitHub: --apply --self-approve --push-github")
+        print("Hard grade/work: Grok (grader/worker=auto|grok); light: local Ollama")
         return 0
     if sub == "status":
         cfg = al.load_config(root)
@@ -1707,11 +1725,20 @@ def main(argv: Optional[list[str]] = None) -> int:
     mf.add_argument("--max-stars", type=int, default=500)
     mf.add_argument("--workdir", default=None)
     mf.set_defaults(func=cmd_github)
-    me = gh_mine_sub.add_parser("evaluate", help="clone + grade (Ollama or heuristic)")
+    me = gh_mine_sub.add_parser(
+        "evaluate",
+        help="clone + grade (Grok hard → local Ollama light → heuristic)",
+    )
     me.add_argument("--limit", "-l", type=int, default=10)
     me.add_argument("--workdir", default=None)
     me.add_argument("--heuristic-only", action="store_true")
-    me.add_argument("--model", default=None, help="Ollama model")
+    me.add_argument(
+        "--grader",
+        choices=["auto", "grok", "ollama", "heuristic"],
+        default="auto",
+        help="auto=Grok then Ollama then heuristic (default)",
+    )
+    me.add_argument("--model", default=None, help="Ollama model (light fallback)")
     me.set_defaults(func=cmd_github)
     mu = gh_mine_sub.add_parser("use", help="keep high scores: connect+prove+notes for YOUR code")
     mu.add_argument("--min-score", type=float, default=12.0)
@@ -1734,7 +1761,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     mi.add_argument("--limit", type=int, default=3)
     mi.add_argument("--workdir", default=None)
     mi.add_argument("--repo", dest="repo_flag", default=None, help="owner/name for --apply job")
-    mi.add_argument("--apply", action="store_true", help="run nexus do to port patterns (opt-in)")
+    mi.add_argument("--apply", action="store_true", help="hard apply (Grok by default; opt-in)")
+    mi.add_argument(
+        "--worker",
+        choices=["auto", "grok", "bus"],
+        default="auto",
+        help="auto/grok=Grok hard work; bus=local panel job",
+    )
     mi.add_argument("--dry-run", action="store_true")
     mi.set_defaults(func=cmd_github)
     mr = gh_mine_sub.add_parser("run", help="fetch → evaluate → use (full pipeline)")
@@ -1747,9 +1780,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     mr.add_argument("--max-stars", type=int, default=500)
     mr.add_argument("--workdir", default=None)
     mr.add_argument("--heuristic-only", action="store_true")
+    mr.add_argument(
+        "--grader",
+        choices=["auto", "grok", "ollama", "heuristic"],
+        default="auto",
+        help="auto=Grok grades hard, local LLM light fallback",
+    )
+    mr.add_argument(
+        "--worker",
+        choices=["auto", "grok", "bus"],
+        default="auto",
+        help="hard improve worker when --apply",
+    )
     mr.add_argument("--no-prove", action="store_true")
     mr.add_argument("--improve", action="store_true", help="also write IMPROVE_OURS.md")
-    mr.add_argument("--apply", action="store_true", help="with --improve, run fix job")
+    mr.add_argument("--apply", action="store_true", help="with --improve, run hard apply")
     mr.add_argument("--repo", dest="repo_flag", default=None)
     mr.set_defaults(func=cmd_github)
     gh_mine.set_defaults(func=cmd_github, mine_cmd="run")
@@ -1950,6 +1995,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     al_i.add_argument("--no-push-github", action="store_true")
     al_i.add_argument("--interval", type=int, default=None)
+    al_i.add_argument(
+        "--grader",
+        choices=["auto", "grok", "ollama", "heuristic"],
+        default=None,
+        help="hard grading: auto/grok preferred; ollama=local light only",
+    )
+    al_i.add_argument(
+        "--worker",
+        choices=["auto", "grok", "bus"],
+        default=None,
+        help="hard improve worker (default auto→Grok)",
+    )
     al_i.set_defaults(func=cmd_alive)
     al_s = al_sub.add_parser("status")
     al_s.add_argument("--path", default=".")

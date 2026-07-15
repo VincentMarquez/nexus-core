@@ -67,12 +67,21 @@ Agent ids (use consistently):
 
 ## Grok CLI + local LLM
 
+**Split of labor (recommended):**
+
+| | Grok (cloud) | Local Ollama / `nexus-local` |
+|--|---------------|------------------------------|
+| Role | **Hard work + grading** | **Light work** |
+| Used by | `mine evaluate`, `improve-ours --apply`, alive cycles | bus agent `local`, drafts, cheap turns |
+| Config | `NEXUS_GROK_MODEL=grok-4.5` (optional) | `OLLAMA_MODEL` / platforms connect |
+
 ```bash
 nexus platforms connect --model gemma2   # or your ollama tag
 ollama serve                             # if not already
 nexus start -y
+# headless hard grade/work is automatic when mine/alive run with grader/worker=auto
 grok
-# in TUI: /model nexus-local
+# in TUI: /model nexus-local   # light interactive
 # MCP tools appear for that model the same as for grok-build
 ```
 

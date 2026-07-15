@@ -54,7 +54,11 @@ class AliveConfig:
     commit_prefix: str = "chore(alive):"
     git_remote: str = "origin"
     git_branch: str = ""  # empty = current branch
-    use_ollama: bool = True
+    use_ollama: bool = True  # local LLM for light fallback / bus
+    # grader: auto|grok|ollama|heuristic — hard scoring defaults to Grok
+    grader: str = "auto"
+    # worker: auto|grok|bus — hard improve defaults to Grok, bus/local for light
+    worker: str = "auto"
     prove: bool = True
     our_repo: str = ""
     interval_s: int = 3600
@@ -78,6 +82,8 @@ class AliveConfig:
             git_remote=str(d.get("git_remote") or "origin"),
             git_branch=str(d.get("git_branch") or ""),
             use_ollama=bool(d.get("use_ollama", True)),
+            grader=str(d.get("grader") or "auto"),
+            worker=str(d.get("worker") or "auto"),
             prove=bool(d.get("prove", True)),
             our_repo=str(d.get("our_repo") or ""),
             interval_s=int(d.get("interval_s") or 3600),
@@ -180,6 +186,8 @@ def cycle_once(
             improve=True,
             apply_improve=False,
             our_repo=cfg.our_repo or None,
+            grader=cfg.grader or "auto",
+            worker=cfg.worker or "auto",
         )
         report["steps"].append({
             "step": "mine",
@@ -249,6 +257,7 @@ def cycle_once(
                 limit=3,
                 apply=True,
                 our_repo=cfg.our_repo or None,
+                worker=cfg.worker or "auto",
             )
             report["steps"].append({
                 "step": "self_approve_apply",

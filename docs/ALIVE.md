@@ -21,7 +21,7 @@ user goal (alive.json)
   usage budget check ── over? ──► stop (throttle)
         │
         ▼
-  mine: fetch → grade → use clones
+  mine: fetch → **Grok grade** (local LLM light fallback) → use clones
         │
         ▼
   improve-ours plan (IMPROVE_OURS.md)
@@ -30,10 +30,26 @@ user goal (alive.json)
         └─ self_approve=true + apply=true + tests green
                     │
                     ▼
-              port patterns into our repo
+              **Grok hard improve** (or bus worker) → port patterns
                     │
                     ▼
               heartbeat + workspace log + token ledger
+```
+
+### Grok vs local LLM
+
+| Work | Default | Config |
+|------|---------|--------|
+| Hard grading (idea/skill) | **Grok** | `grader: auto\|grok\|ollama\|heuristic` |
+| Hard improve / apply | **Grok** | `worker: auto\|grok\|bus` |
+| Light bus turns, digests | **Local Ollama** | `use_ollama: true`, `nexus start` |
+
+```bash
+nexus alive init \
+  --goal "improve durability" \
+  --grader auto \
+  --worker grok \
+  --query "multi agent durable"
 ```
 
 ## Commands

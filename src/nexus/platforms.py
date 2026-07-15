@@ -1,6 +1,8 @@
 """Multi-platform agent mesh: Grok CLI, Cursor, Claude, local LLMs — one tool surface.
 
-Local models (Ollama / OpenAI-compatible) and cloud agents (Grok CLI today; Cursor,
+Split of labor: **Grok** does hard grading + hard improve; **local Ollama**
+handles light bus turns. Local models (Ollama / OpenAI-compatible) and cloud
+agents (Grok CLI today; Cursor,
 Claude Desktop, Codex, Gemini next) all attach to the **same** NEXUS Workspace MCP
 + event bus. Agents hand off via workspace chat; tools are project-jailed.
 

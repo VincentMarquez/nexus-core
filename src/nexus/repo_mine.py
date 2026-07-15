@@ -175,7 +175,7 @@ def list_entries(
     return out
 
 
-# --- evaluate: heuristic + optional Ollama ------------------------------------
+# --- evaluate: Grok (hard grade) → Ollama (light) → heuristic -----------------
 
 
 def _digest_repo(path: Path, *, max_files: int = 16, max_chars: int = 12000) -> str:
@@ -367,6 +367,45 @@ def step_fetch(
     }
 
 
+def grade_repo(
+    digest: str,
+    full_name: str,
+    *,
+    hit_desc: str = "",
+    stars: int = 0,
+    language: str = "",
+    grader: str = "auto",
+    use_ollama: bool = True,
+    ollama_host: str = "http://127.0.0.1:11434",
+    ollama_model: Optional[str] = None,
+) -> dict[str, Any]:
+    """Grade one repo. Default: **Grok hard grade** → Ollama light → heuristic.
+
+    ``grader``: auto | grok | ollama | heuristic
+    """
+    g = (grader or "auto").strip().lower()
+    model = ollama_model or os.environ.get("OLLAMA_MODEL") or "gemma2"
+    host = os.environ.get("OLLAMA_HOST") or ollama_host
+    grade: Optional[dict[str, Any]] = None
+
+    # Hard work: Grok scores for reuse quality
+    if g in ("auto", "grok"):
+        try:
+            from . import grok_worker as gw
+
+            grade = gw.grok_grade(digest, full_name)
+        except Exception:
+            grade = None
+
+    # Light work: local LLM (Ollama) fallback or when grader=ollama
+    if not grade and use_ollama and g in ("auto", "ollama", "grok"):
+        grade = ollama_grade(digest, full_name, host=host, model=model)
+
+    if not grade:
+        grade = heuristic_grade(hit_desc, digest, stars, language)
+    return grade
+
+
 def step_evaluate(
     workdir: Path,
     *,
@@ -375,14 +414,20 @@ def step_evaluate(
     ollama_host: str = "http://127.0.0.1:11434",
     ollama_model: Optional[str] = None,
     keep_clone: bool = True,
+    grader: str = "auto",
 ) -> dict[str, Any]:
-    """Clone each unevaluated repo, grade, store scores. Prefer Ollama, else heuristic."""
+    """Clone each unevaluated repo, grade, store scores.
+
+    Default cascade (``grader=auto``): **Grok** grades → local Ollama light → heuristic.
+    """
     conn = connect(workdir)
     pending = unevaluated(conn, limit=limit)
-    model = ollama_model or os.environ.get("OLLAMA_MODEL") or "gemma2"
-    host = os.environ.get("OLLAMA_HOST") or ollama_host
     results: list[dict[str, Any]] = []
     clone_root = Path(workdir).resolve() / ".nexus_workspaces" / "mine_eval"
+    g = (grader or "auto").strip().lower()
+    if g in ("heuristic", "none"):
+        g = "heuristic"
+        use_ollama = False
 
     for row in pending:
         repo = row["repo"]
@@ -396,22 +441,22 @@ def step_evaluate(
                 continue
             path = Path(conn_res["path"])
             digest = _digest_repo(path)
-            grade = None
-            if use_ollama:
-                grade = ollama_grade(digest, repo, host=host, model=model)
-            if not grade:
-                grade = heuristic_grade(
-                    row["description"] or "",
-                    digest,
-                    int(row["stars"] or 0),
-                    row["language"] or "",
-                )
+            grade = grade_repo(
+                digest,
+                repo,
+                hit_desc=row["description"] or "",
+                stars=int(row["stars"] or 0),
+                language=row["language"] or "",
+                grader=g,
+                use_ollama=use_ollama,
+                ollama_host=ollama_host,
+                ollama_model=ollama_model,
+            )
             save_eval(conn, repo, grade["idea"], grade["skill"], grade["description"])
             entry.update(grade)
             entry["score"] = round(grade["idea"] + grade["skill"], 2)
             entry["path"] = str(path)
             if not keep_clone:
-                # leave evaluation clones; use step will re-connect to scout_repos
                 pass
             results.append(entry)
             print(
@@ -424,6 +469,7 @@ def step_evaluate(
     conn.close()
     return {
         "step": "evaluate",
+        "grader": g,
         "evaluated": len([r for r in results if "idea" in r]),
         "results": results,
         "db": str(_db_path(workdir)),
@@ -551,10 +597,15 @@ def step_improve_ours(
     apply: bool = False,
     our_repo: Optional[str] = None,
     dry_run: bool = False,
+    worker: str = "auto",
 ) -> dict[str, Any]:
-    """Turn scored/used external repos into a plan (and optional fix job) for *this* project.
+    """Turn scored/used external repos into a plan (and optional hard apply) for *this* project.
 
     This is the chase: discover → score → use clones → **improve our code**.
+
+    ``worker``: auto | grok | bus
+      - **grok** (default under auto when CLI present): hard agentic improve
+      - **bus**: durable GithubJobRunner + local panel (light agents on bus)
     """
     workdir = Path(workdir).resolve()
     conn = connect(workdir)
@@ -618,8 +669,8 @@ def step_improve_ours(
         "```bash",
         "# plan only (this file)",
         "nexus github mine improve-ours --min-score " + str(min_score),
-        "# apply via durable job (opt-in)",
-        "nexus github mine improve-ours --apply",
+        "# hard apply with Grok (default worker=auto)",
+        "nexus github mine improve-ours --apply --worker grok",
         "make demo-all-quick",
         "```",
         "",
@@ -632,44 +683,85 @@ def step_improve_ours(
         plan_path.write_text("\n".join(lines), encoding="utf-8")
 
     apply_result = None
+    w = (worker or "auto").strip().lower()
     if apply and not dry_run:
-        from .github_job import GithubJobRunner, ensure_panel_for_job
+        use_grok = w in ("auto", "grok")
+        if use_grok:
+            try:
+                from . import grok_worker as gw
 
-        target = our_repo or os.environ.get("NEXUS_GITHUB_REPO") or ""
-        if not target:
-            # try git remote
-            try:
-                raw = gc._run_gh(
-                    ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-                    timeout=20,
-                )
-                target = raw.strip()
-            except Exception:
-                target = ""
-        if not target:
-            apply_result = {
-                "error": "set --repo owner/name or NEXUS_GITHUB_REPO for --apply",
-            }
-        else:
-            panel = None
-            try:
-                panel = ensure_panel_for_job()
-            except Exception:
-                panel = None
-            try:
-                jr = GithubJobRunner(panel=panel)
-                job = jr.run(target, goal=goal, max_fix_rounds=2)
-                apply_result = {
-                    "status": getattr(job, "status", None),
-                    "job_id": getattr(job, "job_id", None),
-                    "repo": target,
-                }
+                if gw.grok_available():
+                    print(f"  hard improve via Grok (worker={w})…")
+                    gr = gw.grok_hard_improve(workdir, goal, max_turns=12)
+                    apply_result = {
+                        "via": "grok",
+                        "ok": bool(gr.get("ok")),
+                        "model": gr.get("model"),
+                        "returncode": gr.get("returncode"),
+                        "summary": (gr.get("text") or "")[:1500],
+                        "error": gr.get("error"),
+                    }
+                    if gr.get("ok"):
+                        # still write plan path into result
+                        apply_result["plan"] = str(plan_path)
             except Exception as e:
-                apply_result = {"error": str(e), "repo": target}
+                apply_result = {"via": "grok", "ok": False, "error": str(e)}
+
+        # Bus / durable job if Grok skipped, failed, or worker=bus
+        need_bus = w == "bus" or (
+            w == "auto" and (not apply_result or not apply_result.get("ok"))
+        )
+        if need_bus and w != "grok":
+            from .github_job import GithubJobRunner, ensure_panel_for_job
+
+            target = our_repo or os.environ.get("NEXUS_GITHUB_REPO") or ""
+            if not target:
+                try:
+                    raw = gc._run_gh(
+                        ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                        timeout=20,
+                    )
+                    target = raw.strip()
+                except Exception:
+                    target = ""
+            if not target:
+                apply_result = apply_result or {
+                    "error": "set --repo owner/name or NEXUS_GITHUB_REPO for --apply",
+                }
+            else:
+                panel = None
+                try:
+                    panel = ensure_panel_for_job()
+                except Exception:
+                    panel = None
+                try:
+                    print(f"  hard improve via bus job (repo={target})…")
+                    jr = GithubJobRunner(panel=panel)
+                    job = jr.run(target, goal=goal, max_fix_rounds=2)
+                    bus_res = {
+                        "via": "bus",
+                        "status": getattr(job, "status", None),
+                        "job_id": getattr(job, "job_id", None),
+                        "repo": target,
+                    }
+                    if apply_result and not apply_result.get("ok"):
+                        apply_result = {"grok_attempt": apply_result, **bus_res}
+                    else:
+                        apply_result = bus_res
+                except Exception as e:
+                    apply_result = {
+                        "via": "bus",
+                        "error": str(e),
+                        "repo": target,
+                        "grok_attempt": apply_result,
+                    }
+        elif w == "grok" and not apply_result:
+            apply_result = {"via": "grok", "ok": False, "error": "grok CLI not available"}
 
     return {
         "step": "improve_ours",
         "ok": True,
+        "worker": w,
         "sources": [
             {
                 "repo": r.get("repo"),
@@ -700,10 +792,15 @@ def run_pipeline(
     improve: bool = False,
     apply_improve: bool = False,
     our_repo: Optional[str] = None,
+    grader: str = "auto",
+    worker: str = "auto",
 ) -> dict[str, Any]:
-    """fetch → evaluate → use → optional improve-ours (mine for code, never follow/star)."""
+    """fetch → evaluate → use → optional improve-ours (mine for code, never follow/star).
+
+    Grading hard work defaults to **Grok**; local Ollama is light fallback.
+    """
     print(f"=== NEXUS repo mine (use, don't follow) ===")
-    print(f"  query: {query!r}")
+    print(f"  query: {query!r}  grader={grader}  worker={worker}")
     f = step_fetch(
         workdir,
         query=query,
@@ -716,8 +813,9 @@ def run_pipeline(
         workdir,
         limit=eval_limit,
         use_ollama=use_ollama,
+        grader=grader,
     )
-    print(f"  evaluate: {e['evaluated']} graded")
+    print(f"  evaluate: {e['evaluated']} graded (grader={e.get('grader')})")
     u = step_use(
         workdir,
         min_score=min_score,
@@ -735,6 +833,7 @@ def run_pipeline(
             limit=min(use_limit, 3),
             apply=apply_improve,
             our_repo=our_repo,
+            worker=worker,
         )
         print(f"  improve_ours: plan={imp.get('plan')} apply={imp.get('apply')}")
     return {"fetch": f, "evaluate": e, "use": u, "improve_ours": imp}

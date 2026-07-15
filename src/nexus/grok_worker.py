@@ -1,0 +1,268 @@
+"""Grok CLI headless worker — hard grading + hard improve work.
+
+Local LLM (Ollama) stays for light bus turns; **Grok** does scoring and
+agentic hard work when ``grader=grok`` / ``worker=grok`` (defaults under auto).
+
+  grok -p "…" -m grok-4.5 --max-turns N --json-schema '…'
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any, Optional
+
+from . import usage as usage_mod
+
+# Tools to strip for pure text/JSON grading (no agentic exploration).
+_GRADE_DISALLOWED = (
+    "run_terminal_command,run_terminal_cmd,bash,web_search,web_fetch,"
+    "search_replace,write,read_file,list_dir,grep,image_gen,image_edit,"
+    "Agent,spawn_subagent"
+)
+
+_GRADE_SCHEMA = (
+    '{"type":"object","properties":{'
+    '"idea":{"type":"number","description":"novelty/usefulness 1-10"},'
+    '"skill":{"type":"number","description":"engineering quality 1-10"},'
+    '"description":{"type":"string","description":"one English sentence"}'
+    '},"required":["idea","skill","description"]}'
+)
+
+
+def grok_available() -> bool:
+    return bool(shutil.which("grok"))
+
+
+def default_model() -> str:
+    """Prefer NEXUS_GROK_MODEL; ignore broken XAI_MODEL pins (e.g. unknown ids)."""
+    explicit = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
+    if explicit:
+        return explicit
+    # Config default is grok-4.5; do not inherit invalid XAI_MODEL env pins.
+    return "grok-4.5"
+
+
+def _child_env() -> dict[str, str]:
+    env = os.environ.copy()
+    # Avoid child inheriting a broken model pin when we pass -m ourselves.
+    bad = env.get("XAI_MODEL") or ""
+    if bad and bad not in ("grok-4.5", "grok-composer-2.5-fast") and not os.environ.get(
+        "NEXUS_GROK_MODEL"
+    ):
+        env.pop("XAI_MODEL", None)
+    return env
+
+
+def _parse_json_obj(text: str) -> Optional[dict[str, Any]]:
+    text = (text or "").strip()
+    if not text:
+        return None
+    # strip markdown fences
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"\{[^{}]*\}", text, re.S)
+    if m:
+        try:
+            obj = json.loads(m.group(0))
+            return obj if isinstance(obj, dict) else None
+        except json.JSONDecodeError:
+            return None
+    # nested braces
+    m = re.search(r"\{.*\}", text, re.S)
+    if m:
+        try:
+            obj = json.loads(m.group(0))
+            return obj if isinstance(obj, dict) else None
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def grok_prompt(
+    prompt: str,
+    *,
+    model: Optional[str] = None,
+    cwd: Optional[Path] = None,
+    max_turns: int = 2,
+    tools: bool = False,
+    timeout_s: float = 300,
+    label: str = "grok",
+    enforce_budget: bool = True,
+    json_schema: Optional[str] = None,
+) -> dict[str, Any]:
+    """Run headless Grok. tools=False disables shell/edit for pure JSON grading."""
+    if not grok_available():
+        return {"ok": False, "error": "grok CLI not on PATH", "text": ""}
+
+    model = model or default_model()
+    est = usage_mod.estimate_tokens(prompt) + 1024
+    try:
+        usage_mod.check_budget(est, raise_on_exceed=enforce_budget)
+    except usage_mod.BudgetExceeded as e:
+        return {"ok": False, "error": f"budget: {e}", "text": ""}
+
+    cmd = [
+        "grok",
+        "-p",
+        prompt,
+        "-m",
+        model,
+        "--max-turns",
+        str(max_turns),
+        "--no-subagents",
+        "--no-plan",
+        "--disable-web-search",
+    ]
+    if json_schema:
+        cmd += ["--json-schema", json_schema]
+    else:
+        cmd += ["--output-format", "plain"]
+    if not tools:
+        cmd += ["--disallowed-tools", _GRADE_DISALLOWED]
+    else:
+        # hard work: allow tools; always-approve for unattended apply
+        cmd += ["--always-approve"]
+
+    try:
+        p = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            env=_child_env(),
+        )
+        text = (p.stdout or "").strip()
+        if not text and p.stderr:
+            text = (p.stderr or "").strip()[-4000:]
+        usage_mod.record_text(
+            prompt,
+            text,
+            source=f"grok:{model}",
+            label=label,
+            enforce=False,  # already pre-checked
+        )
+        parsed_ok = bool(_parse_json_obj(text)) if json_schema else False
+        ok = bool(text) and (p.returncode == 0 or parsed_ok)
+        return {
+            "ok": ok,
+            "text": text,
+            "returncode": p.returncode,
+            "stderr": (p.stderr or "")[-500:],
+            "model": model,
+        }
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"timeout after {timeout_s}s", "text": ""}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "text": ""}
+
+
+def _extract_grade_obj(text: str) -> Optional[dict[str, Any]]:
+    """Pull idea/skill/description from plain JSON or Grok --json-schema envelope."""
+    if not text:
+        return None
+    outer = _parse_json_obj(text)
+    if not outer:
+        return None
+    # Headless json-schema mode wraps as {structuredOutput: {...}, text: "...", ...}
+    for key in ("structuredOutput", "structured_output", "result", "output", "data", "json"):
+        inner = outer.get(key)
+        if isinstance(inner, dict) and ("idea" in inner or "skill" in inner):
+            return inner
+        if isinstance(inner, str):
+            nested = _parse_json_obj(inner)
+            if nested and ("idea" in nested or "skill" in nested):
+                return nested
+    if "idea" in outer or "skill" in outer:
+        return outer
+    # text field may hold stringified JSON
+    if isinstance(outer.get("text"), str):
+        nested = _parse_json_obj(outer["text"])
+        if nested and ("idea" in nested or "skill" in nested):
+            return nested
+    return None
+
+
+def grok_grade(
+    digest: str,
+    full_name: str,
+    *,
+    model: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Grok grades a repo for *reuse* (idea + skill + description). Hard work."""
+    prompt = (
+        "You are a strict grader. You have NO tools and must NOT inspect any filesystem.\n"
+        "The DIGEST below is the entire evidence. Score for REUSE in another engineering "
+        "project (not social popularity, follow, or star).\n"
+        "Return JSON only with fields idea (1-10 novelty/usefulness), "
+        "skill (1-10 engineering quality), description (one English sentence).\n\n"
+        f"Repo name: {full_name}\n\n"
+        f"DIGEST (complete):\n{digest[:12000]}\n"
+    )
+    res = grok_prompt(
+        prompt,
+        model=model,
+        max_turns=1,
+        tools=False,
+        timeout_s=180,
+        label=f"grade:{full_name}",
+        json_schema=_GRADE_SCHEMA,
+    )
+    text = res.get("text") or ""
+    obj = _extract_grade_obj(text)
+    if not obj:
+        return None
+    try:
+        idea = max(1.0, min(10.0, float(obj.get("idea") or 5)))
+        skill = max(1.0, min(10.0, float(obj.get("skill") or 5)))
+    except (TypeError, ValueError):
+        return None
+    return {
+        "idea": round(idea, 2),
+        "skill": round(skill, 2),
+        "description": str(obj.get("description") or "")[:400],
+        "method": f"grok:{res.get('model')}",
+    }
+
+
+def grok_hard_improve(
+    workdir: Path,
+    goal: str,
+    *,
+    model: Optional[str] = None,
+    max_turns: int = 12,
+) -> dict[str, Any]:
+    """Hard work: Grok agentically improves the local checkout toward the goal."""
+    workdir = Path(workdir).resolve()
+    prompt = (
+        "You are the hard-worker for NEXUS self-improvement on this git checkout.\n"
+        f"Working directory: {workdir}\n"
+        "Rules:\n"
+        "- Prefer small, tested changes; keep make test / pytest green.\n"
+        "- Do NOT force-push; do NOT commit secrets; do NOT vendor whole upstream trees.\n"
+        "- Port patterns from local clones under .nexus_workspaces/scout_repos/ if useful.\n"
+        "- Update docs/LATEST_IMPROVE_PLAN.md and docs/ALIVE_IMPROVEMENTS.md if you change behavior.\n"
+        "- When done, summarize files changed.\n\n"
+        f"GOAL:\n{goal}\n"
+    )
+    res = grok_prompt(
+        prompt,
+        model=model,
+        cwd=workdir,
+        max_turns=max_turns,
+        tools=True,
+        timeout_s=900,
+        label="hard_improve",
+    )
+    return res
