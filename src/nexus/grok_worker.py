@@ -100,8 +100,15 @@ def grok_prompt(
     label: str = "grok",
     enforce_budget: bool = True,
     json_schema: Optional[str] = None,
+    allow_subagents: bool = False,
+    allow_plan: bool = False,
+    soft_ok: bool = False,
 ) -> dict[str, Any]:
-    """Run headless Grok. tools=False disables shell/edit for pure JSON grading."""
+    """Run headless Grok. tools=False disables shell/edit for pure JSON grading.
+
+    ``soft_ok``: treat non-zero exit as ok when there is substantial text (agentic
+    runs often exit 1 after max-turns while still landing useful work).
+    """
     if not grok_available():
         return {"ok": False, "error": "grok CLI not on PATH", "text": ""}
 
@@ -120,10 +127,12 @@ def grok_prompt(
         model,
         "--max-turns",
         str(max_turns),
-        "--no-subagents",
-        "--no-plan",
         "--disable-web-search",
     ]
+    if not allow_subagents:
+        cmd.append("--no-subagents")
+    if not allow_plan:
+        cmd.append("--no-plan")
     if json_schema:
         cmd += ["--json-schema", json_schema]
     else:
@@ -154,13 +163,21 @@ def grok_prompt(
             enforce=False,  # already pre-checked
         )
         parsed_ok = bool(_parse_json_obj(text)) if json_schema else False
-        ok = bool(text) and (p.returncode == 0 or parsed_ok)
+        # Envelope from json-schema mode: structuredOutput or long plain text
+        substantial = len(text) >= 200
+        ok = bool(text) and (
+            p.returncode == 0
+            or parsed_ok
+            or (soft_ok and substantial)
+        )
         return {
             "ok": ok,
             "text": text,
             "returncode": p.returncode,
             "stderr": (p.stderr or "")[-500:],
             "model": model,
+            "max_turns": max_turns,
+            "timeout_s": timeout_s,
         }
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"timeout after {timeout_s}s", "text": ""}
@@ -213,11 +230,12 @@ def grok_grade(
     res = grok_prompt(
         prompt,
         model=model,
-        max_turns=1,
+        max_turns=2,
         tools=False,
-        timeout_s=180,
+        timeout_s=300,
         label=f"grade:{full_name}",
         json_schema=_GRADE_SCHEMA,
+        soft_ok=True,
     )
     text = res.get("text") or ""
     obj = _extract_grade_obj(text)
@@ -262,11 +280,12 @@ def grok_reason(
     return grok_prompt(
         prompt,
         model=model,
-        max_turns=1,
+        max_turns=4,
         tools=False,
-        timeout_s=300,
+        timeout_s=600,
         label=label,
         enforce_budget=True,
+        soft_ok=True,
     )
 
 
@@ -275,14 +294,31 @@ def grok_hard_improve(
     goal: str,
     *,
     model: Optional[str] = None,
-    max_turns: int = 16,
+    max_turns: int = 64,
+    timeout_s: float = 3600,
 ) -> dict[str, Any]:
-    """Hard work: Grok agentically improves the local checkout toward the goal."""
+    """Hard work: Grok agentically improves the local checkout toward the goal.
+
+    Defaults are intentionally high (maxed agentic budget) for unattended cycles.
+    Override with ``NEXUS_GROK_MAX_TURNS`` / ``NEXUS_GROK_TIMEOUT_S`` if needed.
+    """
     workdir = Path(workdir).resolve()
+    try:
+        max_turns = int(os.environ.get("NEXUS_GROK_MAX_TURNS") or max_turns)
+    except ValueError:
+        pass
+    try:
+        timeout_s = float(os.environ.get("NEXUS_GROK_TIMEOUT_S") or timeout_s)
+    except ValueError:
+        pass
+    # hard caps so we don't hang forever
+    max_turns = max(8, min(max_turns, 128))
+    timeout_s = max(300.0, min(timeout_s, 7200.0))
+
     prompt = (
         "You are the hard-worker for NEXUS self-improvement on this git checkout.\n"
         f"Working directory: {workdir}\n"
-        "Model: Grok 4.5 CLI. You MAY use tools to read/edit/test.\n"
+        "Model: Grok 4.5 CLI. You MAY use tools to read/edit/test. Subagents allowed.\n"
         "Rules:\n"
         "- Prefer small, tested changes; keep make test / pytest green.\n"
         "- Do NOT force-push; do NOT commit secrets; do NOT vendor whole upstream trees.\n"
@@ -291,7 +327,7 @@ def grok_hard_improve(
         "- Update docs/LATEST_IMPROVE_PLAN.md and docs/ALIVE_IMPROVEMENTS.md when you change behavior.\n"
         "- Implement the **First apply slice** from the plan if feasible in this session; "
         "otherwise land 1–3 high-value code or docs improvements with tests.\n"
-        "- When done, summarize files changed and tests run.\n\n"
+        "- Finish cleanly: run pytest, summarize files changed.\n\n"
         f"GOAL:\n{goal}\n"
     )
     res = grok_prompt(
@@ -300,7 +336,10 @@ def grok_hard_improve(
         cwd=workdir,
         max_turns=max_turns,
         tools=True,
-        timeout_s=1200,
+        timeout_s=timeout_s,
         label="hard_improve",
+        allow_subagents=True,
+        allow_plan=True,
+        soft_ok=True,
     )
     return res

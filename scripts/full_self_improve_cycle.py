@@ -37,8 +37,11 @@ from nexus import repo_mine as rm  # noqa: E402
 from nexus import usage as usage_mod  # noqa: E402
 
 
-N_REPOS = 10
-N_PAPERS = 10
+# Maxed-out cycle knobs (override with env if needed)
+N_REPOS = int(os.environ.get("NEXUS_CYCLE_REPOS") or 20)
+N_PAPERS = int(os.environ.get("NEXUS_CYCLE_PAPERS") or 20)
+GROK_MAX_TURNS = int(os.environ.get("NEXUS_GROK_MAX_TURNS") or 64)
+GROK_TIMEOUT_S = float(os.environ.get("NEXUS_GROK_TIMEOUT_S") or 3600)
 QUERY = "multi agent durable orchestration MCP"
 ARXIV_Q = "multi-agent systems durable orchestration LLM"
 STOP_FILE = ROOT / ".nexus_state" / "STOP_FULL_CYCLE"
@@ -94,7 +97,7 @@ def reset_for_grok_regrade(limit: int = N_REPOS) -> int:
 
 
 def step_mine(cfg: al.AliveConfig) -> dict:
-    _log("=== 1/5 MINE: fetch → Grok grade → use (10 repos) ===")
+    _log(f"=== 1/5 MINE: fetch → Grok grade → use ({N_REPOS} repos) ===")
     q = (cfg.queries or [QUERY])[0]
     _log(f"  query: {q!r}")
     # ensure we have enough candidates
@@ -150,7 +153,7 @@ def step_mine(cfg: al.AliveConfig) -> dict:
 
 
 def step_arxiv(cfg: al.AliveConfig) -> dict:
-    _log("=== 2/5 arXiv: 10 papers ===")
+    _log(f"=== 2/5 arXiv: {N_PAPERS} papers ===")
     aq = (cfg.arxiv_queries or [ARXIV_Q])[0]
     _log(f"  arxiv query: {aq!r}")
     ar = ga.improve_from_arxiv(
@@ -255,9 +258,19 @@ def step_apply(cfg: al.AliveConfig, reason: dict) -> dict:
         "Implement the First apply slice and any P0 items that fit safely. "
         "Keep pytest green. Prefer patterns from .nexus_workspaces/scout_repos/."
     )
-    # Prefer full agentic hard improve
-    hard = gw.grok_hard_improve(ROOT, goal, model="grok-4.5", max_turns=18)
-    _log(f"  hard_improve ok={hard.get('ok')} rc={hard.get('returncode')}")
+    # Maxed agentic budget: many turns + long timeout + subagents + soft_ok
+    _log(f"  hard_improve budget: max_turns={GROK_MAX_TURNS} timeout_s={GROK_TIMEOUT_S}")
+    hard = gw.grok_hard_improve(
+        ROOT,
+        goal,
+        model="grok-4.5",
+        max_turns=GROK_MAX_TURNS,
+        timeout_s=GROK_TIMEOUT_S,
+    )
+    _log(
+        f"  hard_improve ok={hard.get('ok')} rc={hard.get('returncode')} "
+        f"turns={hard.get('max_turns')} err={hard.get('error')}"
+    )
     summary = (hard.get("text") or hard.get("error") or "")[:2000]
     if summary:
         _log(f"  summary: {summary[:500]}…")
@@ -276,7 +289,10 @@ def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
         _log(f"  improvements log error: {e}")
     pub_res = None
     if cfg.push_github and checks.get("ok"):
-        msg = f"{cfg.commit_prefix} full cycle: 10 arxiv + 10 repos + Grok 4.5 apply"
+        msg = (
+        f"{cfg.commit_prefix} full cycle: {N_PAPERS} arxiv + {N_REPOS} repos "
+        f"+ Grok 4.5 apply (turns≤{GROK_MAX_TURNS})"
+    )
         pub_res = pub.commit_and_maybe_push(
             ROOT,
             msg,
@@ -293,11 +309,31 @@ def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
     return {"checks": checks, "publish": pub_res}
 
 
+def _max_budget() -> None:
+    """Raise token ceilings so maxed Grok cycles are not throttled mid-run."""
+    b = usage_mod.load_budget(ROOT)
+    b.enabled = True
+    b.daily_tokens = max(int(b.daily_tokens or 0), 5_000_000)
+    b.monthly_tokens = max(int(b.monthly_tokens or 0), 50_000_000)
+    b.per_call_max = max(int(b.per_call_max or 0), 500_000)
+    b.hard_limit = True
+    usage_mod.save_budget(b, ROOT)
+    _log(
+        f"  budget maxed: daily={b.daily_tokens} monthly={b.monthly_tokens} "
+        f"per_call={b.per_call_max}"
+    )
+
+
 def run_once(*, cycle_n: int = 1) -> int:
-    """One full pipe: mine 10 → arxiv 10 → Grok reason → hard improve → push."""
+    """One full pipe: mine N → arxiv N → Grok reason → hard improve → push."""
     _log(f"NEXUS full self-improve cycle #{cycle_n}")
     _log(f"  root={ROOT}")
     _log(f"  grok model={gw.default_model()} available={gw.grok_available()}")
+    _log(
+        f"  maxed: repos={N_REPOS} papers={N_PAPERS} "
+        f"turns={GROK_MAX_TURNS} timeout_s={GROK_TIMEOUT_S}"
+    )
+    _max_budget()
     try:
         usage_mod.check_budget(5_000, ROOT, raise_on_exceed=True)
     except usage_mod.BudgetExceeded as e:
@@ -478,8 +514,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--interval",
         type=float,
-        default=120.0,
-        help="seconds between watch cycles (default 120)",
+        default=60.0,
+        help="seconds between watch cycles (default 60; was 120)",
     )
     ap.add_argument(
         "--once",
