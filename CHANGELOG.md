@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.6 — 2026-07-15
+
+### Added
+- **Bus local LLM tool loop**: `bridge/bridges/ollama_tools.py` — Ollama agent calls same MCP tools via `TOOL_CALL`
+- MCP tools: `github_scout`, `github_loop`, `platforms_connect`
+- `nexus platforms doctor [--fix]` — diagnose/fix Grok MCP python + Cursor config
+- Grok MCP config written with project **venv python** + PYTHONPATH (reliable imports)
+- Cookbook 10: platforms + local LLM; `nexus start` tips mesh health
+
 ## 0.7.5 — 2026-07-15
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "nexus-workspace": {
-      "command": "/usr/bin/python3",
+      "command": "/path/to/nexus-core/.venv/bin/python",
       "args": [
         "-m",
         "nexus.mcp_server"

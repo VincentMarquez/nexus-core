@@ -105,3 +105,22 @@ Same MCP server command:
 - `connect` only writes config when you run it (opt-in)
 - Local model still goes through the host’s permission UI (Grok/Cursor)
 - Bus CLI bridges remain separate from MCP (both can run together)
+
+## Local LLM on the bus (tool loop)
+
+`nexus start` sets `NEXUS_OLLAMA_TOOLS=1`. The Ollama bridge runs
+`bridge/bridges/ollama_tools.py`, which teaches the model:
+
+```text
+TOOL_CALL {"name": "run_project_checks", "arguments": {}}
+```
+
+Tools execute via `nexus.mcp_server.call_tool` — the **same** implementations
+Grok CLI / Cursor use. Set `NEXUS_OLLAMA_TOOLS=0` to disable.
+
+## Doctor
+
+```bash
+nexus platforms doctor
+nexus platforms doctor --fix
+```

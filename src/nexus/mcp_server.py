@@ -152,6 +152,45 @@ TOOLS = [
         "description": "List detected agent platforms (Grok CLI, Cursor, Claude, Ollama, …) and connect hints.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "github_scout",
+        "description": "Search related public GitHub repos, optionally clone/prove them for continuous improvement notes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "default": 5},
+                "connect": {"type": "boolean", "default": True},
+                "prove": {"type": "boolean", "default": True},
+                "structure_only": {"type": "boolean", "default": True}
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "github_loop",
+        "description": "Run community test loop for an issue/PR number and post or dry-run results.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "number": {"type": "integer"},
+                "repo": {"type": "string"},
+                "dry_run": {"type": "boolean", "default": True},
+                "force": {"type": "boolean", "default": False}
+            },
+            "required": ["number"]
+        }
+    },
+    {
+        "name": "platforms_connect",
+        "description": "Auto-wire Grok CLI / Cursor / Claude MCP so local and cloud agents share tools.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "force": {"type": "boolean", "default": False}
+            }
+        }
+    },
 ]
 
 
@@ -304,7 +343,51 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             plats = detect_platforms(project_root=_root())
             return _tool_result(format_status_table(plats))
 
+
+        if name == "github_scout":
+            from . import github_autonomy as ga
+            q = str(args.get("query") or "")
+            if not q:
+                return _tool_result("query required", is_error=True)
+            res = ga.scout_other_repos(
+                q,
+                workdir=_root(),
+                limit=int(args.get("limit") or 5),
+                connect=bool(args.get("connect", True)),
+                prove=bool(args.get("prove", True)),
+                run_checks=not bool(args.get("structure_only", True)),
+                dry_run=False,
+                post_issue=False,
+                apply=False,
+            )
+            # compact
+            slim = {k: res.get(k) for k in (
+                "query","hits","connected","check_steps_green","repos","notes","clone_root"
+            )}
+            return _tool_result(json.dumps(slim, indent=2))
+
+        if name == "github_loop":
+            from . import github_community as gc
+            number = int(args.get("number") or 0)
+            if not number:
+                return _tool_result("number required", is_error=True)
+            res = gc.run_and_post_loop(
+                args.get("repo"),
+                number,
+                workdir=_root(),
+                dry_run=bool(args.get("dry_run", True)),
+                force=bool(args.get("force", False)),
+                triggered_by="mcp",
+            )
+            return _tool_result(json.dumps(res, indent=2, default=str)[:12000])
+
+        if name == "platforms_connect":
+            from . import platforms as plat
+            res = plat.connect_all(_root(), force=bool(args.get("force", False)))
+            return _tool_result(json.dumps({"results": res.get("results"), "next": res.get("next")}, indent=2))
+
         return _tool_result(f"unknown tool: {name}", is_error=True)
+
     except Exception as e:
         return _tool_result(f"{type(e).__name__}: {e}", is_error=True)
 

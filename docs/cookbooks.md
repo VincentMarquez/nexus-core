@@ -13,3 +13,4 @@ Copy-paste recipes (also under `cookbook/` in the repo):
 9. [GitHub community auto-reply](cookbook/09_github_community.md)
 
 Clone the repo to run them locally with `make` / `nexus` commands.
+10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)

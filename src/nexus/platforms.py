@@ -167,13 +167,20 @@ def detect_platforms(*, project_root: Optional[Path] = None) -> list[PlatformInf
     return out
 
 
-def python_for_mcp() -> str:
-    """Prefer active venv / current interpreter for MCP child processes."""
+def python_for_mcp(project_root: Optional[Path] = None) -> str:
+    """Prefer project venv, then active interpreter, for MCP child processes."""
     import sys
 
     if os.environ.get("NEXUS_PYTHON"):
         return os.environ["NEXUS_PYTHON"]
-    # When nexus was started from a venv, sys.executable finds the package
+    if project_root is not None:
+        venv_py = Path(project_root).resolve() / ".venv" / "bin" / "python"
+        if venv_py.is_file():
+            return str(venv_py)
+    # package checkout venv next to src/
+    pkg_venv = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "python"
+    if pkg_venv.is_file():
+        return str(pkg_venv)
     py_exe = Path(sys.executable).resolve()
     if py_exe.is_file() and "python" in py_exe.name:
         return str(py_exe)
@@ -187,10 +194,11 @@ def _src_on_path() -> str:
 
 def mcp_server_command_fixed(project_root: Path) -> dict[str, Any]:
     """Stdio MCP launch spec — same tools for Grok, Cursor, Claude, local models."""
-    py = python_for_mcp()
+    root = Path(project_root).resolve()
+    py = python_for_mcp(root)
     src = _src_on_path()
     env = {
-        "NEXUS_PROJECT_ROOT": str(Path(project_root).resolve()),
+        "NEXUS_PROJECT_ROOT": str(root),
         "PYTHONPATH": src,
     }
     if os.environ.get("PYTHONPATH"):
@@ -244,62 +252,45 @@ def connect_grok(
             "config": str(cfg),
         }
 
-    # Prefer official CLI when present
-    if _which("grok"):
-        spec = mcp_server_command_fixed(project_root)
-        cmd = [
-            "grok",
-            "mcp",
-            "add",
-            name,
-            "-e",
-            f"NEXUS_PROJECT_ROOT={project_root.resolve()}",
-            "-e",
-            f"PYTHONPATH={spec['env']['PYTHONPATH']}",
-            "--",
-            spec["command"],
-            *spec["args"],
-        ]
-        try:
-            p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if p.returncode == 0:
-                return {
-                    "platform": "grok",
-                    "ok": True,
-                    "action": "grok_mcp_add",
-                    "config": str(cfg),
-                    "stdout": (p.stdout or "")[:500],
-                }
-            # fall through to file write
-            cli_err = (p.stderr or p.stdout or "")[:400]
-        except Exception as e:
-            cli_err = str(e)
-    else:
-        cli_err = "grok binary not on PATH"
-
-    # File merge
-    if _grok_has_mcp_server(existing, name) and force:
-        # strip old block roughly
-        existing = re.sub(
-            rf"\n?# --- NEXUS auto-connect.*?\[mcp_servers\.{re.escape(name)}\][^\[]*",
+    spec = mcp_server_command_fixed(project_root)
+    # Always write a correct absolute venv/system python block ourselves.
+    # (grok mcp add often rewrites command to a system python without the package.)
+    text = existing
+    if _grok_has_mcp_server(text, name):
+        text = re.sub(
+            rf"\n?\[mcp_servers\.{re.escape(name)}\][^\[]*",
             "\n",
-            existing,
+            text,
             flags=re.S,
         )
-        existing = re.sub(
-            rf"\[mcp_servers\.{re.escape(name)}\][^\[]*",
-            "",
-            existing,
+        text = re.sub(
+            rf"\n?\[mcp_servers\.{re.escape(name)}\.env\][^\[]*",
+            "\n",
+            text,
             flags=re.S,
         )
     snippet = write_grok_mcp_snippet(project_root, name=name)
-    cfg.write_text(existing.rstrip() + "\n" + snippet, encoding="utf-8")
+    # Prefer explicit env table form for reliability
+    env = spec["env"]
+    args = ",\n    ".join(f'"{a}"' for a in spec["args"])
+    block = (
+        f"\n# --- NEXUS auto-connect (nexus platforms connect) ---\n"
+        f"[mcp_servers.{name}]\n"
+        f'command = "{spec["command"]}"\n'
+        f"args = [\n    {args}\n]\n"
+        f"enabled = true\n"
+        f"startup_timeout_sec = 45\n"
+        f"\n[mcp_servers.{name}.env]\n"
+        f'NEXUS_PROJECT_ROOT = "{env["NEXUS_PROJECT_ROOT"]}"\n'
+        f'PYTHONPATH = "{env["PYTHONPATH"]}"\n'
+    )
+    cfg.write_text(text.rstrip() + "\n" + block, encoding="utf-8")
     return {
         "platform": "grok",
         "ok": True,
         "action": "wrote_config_toml",
         "config": str(cfg),
-        "cli_note": cli_err,
+        "command": spec["command"],
     }
 
 
@@ -540,9 +531,92 @@ def agent_flow_map() -> dict[str, Any]:
             "run_project_checks",
             "bus_status",
             "github_community_status",
+            "list_platforms",
+            "github_scout",
+            "github_loop",
+            "platforms_connect",
         ],
         "handoff": "send_to_workspace / read_workspace_chat with distinct agent ids",
-        "rule": "Local LLM uses the same MCP tools as cloud agents when launched from Grok CLI with nexus-workspace enabled",
+        "rule": (
+            "Local LLM uses the same tools as cloud agents: "
+            "(1) inside Grok CLI via MCP host, and "
+            "(2) on the NEXUS bus via ollama-http tool loop (NEXUS_OLLAMA_TOOLS=1)"
+        ),
+        "bus_local_tools": "bridge/bridges/ollama_tools.py — TOOL_CALL loop calling nexus.mcp_server.call_tool",
+    }
+
+
+def doctor(project_root: Optional[Path] = None, *, fix: bool = False) -> dict[str, Any]:
+    """Diagnose MCP + local LLM wiring; optionally re-run connect --force."""
+    root = Path(project_root or os.getcwd()).resolve()
+    issues: list[str] = []
+    ok_bits: list[str] = []
+    plats = {p.id: p for p in detect_platforms(project_root=root)}
+
+    # Grok MCP block
+    grok_cfg = _home() / ".grok" / "config.toml"
+    if grok_cfg.is_file():
+        text = grok_cfg.read_text(encoding="utf-8")
+        if "[mcp_servers.nexus-workspace]" in text:
+            ok_bits.append("grok: mcp_servers.nexus-workspace present")
+            # check python can import nexus
+            import re as _re
+
+            m = _re.search(
+                r'\[mcp_servers\.nexus-workspace\]\s*command\s*=\s*"([^"]+)"',
+                text,
+            )
+            if m:
+                py = m.group(1)
+                try:
+                    p = subprocess.run(
+                        [py, "-c", "import nexus.mcp_server; print('ok')"],
+                        capture_output=True,
+                        text=True,
+                        timeout=20,
+                        env={
+                            **os.environ,
+                            "PYTHONPATH": str(_src_on_path()),
+                        },
+                    )
+                    if p.returncode == 0 and "ok" in (p.stdout or ""):
+                        ok_bits.append(f"grok: MCP python imports nexus ({py})")
+                    else:
+                        issues.append(
+                            f"grok: MCP python cannot import nexus ({py}): "
+                            f"{(p.stderr or p.stdout or '')[:200]}"
+                        )
+                except Exception as e:
+                    issues.append(f"grok: MCP python check failed: {e}")
+        else:
+            issues.append("grok: nexus-workspace MCP missing — run: nexus platforms connect")
+    else:
+        issues.append("grok: no ~/.grok/config.toml")
+
+    cursor = root / ".cursor" / "mcp.json"
+    if cursor.is_file():
+        ok_bits.append(f"cursor: {cursor}")
+    else:
+        issues.append("cursor: no .cursor/mcp.json — run: nexus platforms connect")
+
+    if plats.get("ollama") and plats["ollama"].installed:
+        ok_bits.append("ollama: installed")
+    else:
+        issues.append("ollama: not installed (local LLM bridge unavailable)")
+
+    fixed = None
+    if fix and issues:
+        fixed = connect_all(root, force=True)
+        # re-doctor lightly
+        return doctor(root, fix=False) | {"fixed": fixed}
+
+    return {
+        "project_root": str(root),
+        "ok": len(issues) == 0,
+        "ok_bits": ok_bits,
+        "issues": issues,
+        "mcp_command": mcp_server_command_fixed(root),
+        "hint": "nexus platforms connect --force --start",
     }
 
 

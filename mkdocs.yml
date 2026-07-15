@@ -53,6 +53,7 @@ nav:
       - Procurement agents: cookbook/07_procurement.md
       - arXiv research: cookbook/08_arxiv_research.md
       - GitHub community auto-reply: cookbook/09_github_community.md
+      - Platforms + local LLM: cookbook/10_platforms_local_llm.md
       - GitHub community (full): GITHUB_COMMUNITY.md
       - PyPI publish: PYPI.md
   - Architecture:

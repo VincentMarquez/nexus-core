@@ -278,9 +278,28 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     # --- Agents (auto) ---
     print("→ wiring agents (real tools when installed, mock otherwise)…")
+    # Local Ollama bridge uses MCP tool loop by default (same tools as Grok CLI)
+    os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
+    os.environ.setdefault("NEXUS_PROJECT_ROOT", str(Path.cwd().resolve()))
     backends = enable_agent_bridges(
         rt, hw, use_cli=use_cli, ollama_ok=ollama_ok, model=model
     )
+
+    # Soft platform mesh tip (non-fatal)
+    if not getattr(args, "no_platforms", False):
+        try:
+            from . import platforms as plat
+
+            d = plat.doctor(Path.cwd())
+            if not d.get("ok"):
+                print("→ platforms: mesh incomplete (Grok/Cursor MCP)")
+                for iss in (d.get("issues") or [])[:4]:
+                    print(f"   · {iss}")
+                print("   fix: nexus platforms connect --force")
+            else:
+                print("→ platforms: Grok/Cursor MCP mesh looks OK")
+        except Exception:
+            pass
 
     # Dashboard
     if not args.no_open:
@@ -913,7 +932,12 @@ def cmd_platforms(args: argparse.Namespace) -> int:
         print(json.dumps(plat.agent_flow_map(), indent=2))
         return 0
 
-    print("usage: nexus platforms status|connect|flow")
+    if sub == "doctor":
+        res = plat.doctor(root, fix=bool(getattr(args, "fix", False)))
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("ok") else 1
+
+    print("usage: nexus platforms status|connect|flow|doctor")
     return 2
 
 
@@ -1011,6 +1035,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="skip first-contact agent smoke message",
     )
     p.add_argument("--no-open", action="store_true", help="do not open browser")
+    p.add_argument(
+        "--no-platforms",
+        action="store_true",
+        help="skip multi-platform mesh doctor tip on start",
+    )
     p.set_defaults(func=cmd_start)
 
     sub.add_parser("stop", help="stop bus and bridges").set_defaults(func=cmd_stop)
@@ -1401,6 +1430,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     pl_co.set_defaults(func=cmd_platforms)
     pl_flow = pl_sub.add_parser("flow", help="print agent ingress/handoff map as JSON")
     pl_flow.set_defaults(func=cmd_platforms)
+    pl_doc = pl_sub.add_parser(
+        "doctor",
+        help="diagnose MCP/local LLM wiring; --fix re-runs connect --force",
+    )
+    pl_doc.add_argument("--path", default=".")
+    pl_doc.add_argument("--fix", action="store_true")
+    pl_doc.set_defaults(func=cmd_platforms)
     pl.set_defaults(func=cmd_platforms, platforms_cmd="status")
 
     # --- procurement domain ---

@@ -485,7 +485,8 @@ Ollama / CLIs   ──event bus──►  nexus start
 6. [GitHub URL → fix](cookbook/06_github_do.md)  
 7. [Procurement agents](cookbook/07_procurement.md)  
 8. [arXiv research](cookbook/08_arxiv_research.md)  
-9. [GitHub community auto-reply](cookbook/09_github_community.md)  
+9. [GitHub community auto-reply](cookbook/09_github_community.md)
+10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)  
 
 Docs: **https://vincentmarquez.github.io/nexus-core/**
 
