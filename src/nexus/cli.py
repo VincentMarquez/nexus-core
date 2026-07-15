@@ -2596,6 +2596,11 @@ def cmd_improve(args: argparse.Namespace) -> int:
             require_path_exists=bool(getattr(args, "require_path_exists", False)),
             promote=bool(getattr(args, "promote", False)),
             promote_force=bool(getattr(args, "promote_force", False)),
+            require_decision=not bool(getattr(args, "no_require_decision", False)),
+            grader=str(getattr(args, "grader", None) or "grok:grade"),
+            implementer=str(getattr(args, "implementer", None) or "worker:apply"),
+            verifier=str(getattr(args, "verifier", None) or "judge:verify"),
+            require_distinct_roles=not bool(getattr(args, "allow_same_role", False)),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
@@ -4189,6 +4194,31 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--require-path-exists",
         action="store_true",
         help="fail if grade.path is not on disk",
+    )
+    imp_ap.add_argument(
+        "--no-require-decision",
+        action="store_true",
+        help="skip decision-package gate before plan_apply (default: require)",
+    )
+    imp_ap.add_argument(
+        "--grader",
+        default="grok:grade",
+        help="grader role id for anti-collusion gate",
+    )
+    imp_ap.add_argument(
+        "--implementer",
+        default="worker:apply",
+        help="implementer role id for anti-collusion gate",
+    )
+    imp_ap.add_argument(
+        "--verifier",
+        default="judge:verify",
+        help="verifier role id for anti-collusion gate",
+    )
+    imp_ap.add_argument(
+        "--allow-same-role",
+        action="store_true",
+        help="allow overlapping grader/implementer/verifier (unsafe)",
     )
     imp_ap.add_argument("--json", action="store_true")
     imp_ap.set_defaults(func=cmd_improve, improve_cmd="apply")

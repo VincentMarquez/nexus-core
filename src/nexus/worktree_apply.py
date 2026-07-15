@@ -730,11 +730,24 @@ def run_apply(
     grade: Optional[dict[str, Any]] = None,
     promote: bool = False,
     promote_force: bool = False,
+    require_decision: bool = True,
+    grader: str = "grok:grade",
+    implementer: str = "worker:apply",
+    verifier: str = "judge:verify",
+    require_distinct_roles: bool = True,
+    max_steps: Optional[int] = None,
+    max_tokens: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Full ordered apply: mine→grade→claim_verify→plan_apply→apply [(→promote)].
+    """Full ordered apply: mine→grade→claim_verify→decision→plan_apply→apply [(→promote)].
 
     When *skip_smoke_prefix* is True and *grade* is provided, starts at
     plan_apply (assumes prior stages already completed externally).
+
+    When *require_decision* is True (default), builds a
+    ``nexus.decision_package/v1`` via :func:`apply_select.decision_for_grade`
+    after claim_verify and fail-closes if the gate denies (role collusion,
+    missing evidence, budget). Soft board signal ``replan`` also blocks apply
+    when require_decision is set.
 
     When *promote* is True, after worktree verify the allowlisted pack is
     copied onto main and re-verified (PROMOTE_STAGES). Isolation still holds
@@ -779,9 +792,12 @@ def run_apply(
         "pattern": pid,
         "stages": stages,
         "promote_requested": do_promote,
+        "require_decision": bool(require_decision),
         "completed": [],
         "grade": None,
         "claim": None,
+        "decision": None,
+        "signal": None,
         "worktree": None,
         "apply": None,
         "verify": None,
@@ -888,6 +904,71 @@ def run_apply(
             runner.mark_complete("claim_verify")
             _log("claim_verify", "ok")
             report["claim"] = claim
+
+        # --- decision package (2511.15755) before plan_apply ---
+        from . import apply_select as asel
+
+        decision = asel.decision_for_grade(
+            g,
+            grader=grader,
+            implementer=implementer,
+            verifier=verifier,
+            require_distinct_roles=require_distinct_roles,
+            max_steps=max_steps,
+            max_tokens=max_tokens,
+        )
+        sig = asel.board_signal(
+            decision=decision,
+            roles_ok=bool(
+                asel.check_roles(
+                    grader=grader,
+                    implementer=implementer,
+                    verifier=verifier,
+                    require_distinct=require_distinct_roles,
+                ).get("ok")
+            ),
+            candidates=[asel.candidate_from_grade(g)],
+        )
+        decision = {**decision, "signal": sig}
+        report["decision"] = decision
+        report["signal"] = sig.get("signal")
+        store.append(
+            run_id=rid,
+            agent="decide",
+            claim=(
+                f"decision ok={decision.get('ok')} reason={decision.get('reason')} "
+                f"signal={sig.get('signal')} conf={decision.get('confidence')}"
+            ),
+            evidence_refs=list(decision.get("evidence_refs") or [])[
+                :8
+            ]
+            + [str(g.get("path") or "")],
+            grade={
+                "repo": g.get("repo"),
+                "score": g.get("score"),
+                "path": g.get("path"),
+                "pattern": pid,
+            },
+            action="decision_package",
+        )
+        _log(
+            "decision",
+            f"ok={decision.get('ok')} signal={sig.get('signal')} "
+            f"reason={decision.get('reason')}",
+        )
+        if require_decision:
+            if not decision.get("ok"):
+                raise WorktreeApplyError(
+                    f"decision denied: {decision.get('reason')}"
+                )
+            if sig.get("signal") == asel.SIGNAL_STOP:
+                raise WorktreeApplyError(
+                    f"board signal stop: {sig.get('reason')}"
+                )
+            if sig.get("signal") == asel.SIGNAL_REPLAN:
+                raise WorktreeApplyError(
+                    f"board signal replan: {sig.get('reason')}"
+                )
 
         # Snapshot main before apply (isolation invariant)
         main_before = snapshot_main_fingerprint(workdir, watch_paths)
@@ -1056,6 +1137,7 @@ def format_report(report: dict[str, Any]) -> str:
     """Human-readable apply board."""
     g = report.get("grade") or {}
     wt = report.get("worktree") or {}
+    dec = report.get("decision") or {}
     lines = [
         "=== NEXUS improve apply (worktree-isolated) ===",
         f"run_id:    {report.get('run_id')}",
@@ -1065,6 +1147,8 @@ def format_report(report: dict[str, Any]) -> str:
         f"pattern:   {report.get('pattern')}",
         f"repo:      {g.get('repo')}  score={g.get('score')} "
         f"(idea={g.get('idea')} skill={g.get('skill')})",
+        f"decision:  ok={dec.get('ok')} reason={dec.get('reason')} "
+        f"signal={report.get('signal') or (dec.get('signal') or {}).get('signal')}",
         f"worktree:  mode={wt.get('mode')} path={wt.get('path')}",
     ]
     app = report.get("apply") or {}

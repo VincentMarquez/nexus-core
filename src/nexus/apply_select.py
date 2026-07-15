@@ -53,6 +53,15 @@ DEFAULT_ROLES = {
 EVIDENCE_BOOST = 0.5
 EVIDENCE_HIT_CAP = 5
 
+# Board / supervisor signals (zenith adaptive stop + MAEBE thrash telemetry)
+SIGNAL_CONTINUE = "continue"
+SIGNAL_REPLAN = "replan"
+SIGNAL_STOP = "stop"
+BOARD_SIGNALS = frozenset({SIGNAL_CONTINUE, SIGNAL_REPLAN, SIGNAL_STOP})
+
+# Below this confidence, prefer replan over hard apply (0–1 scale)
+LOW_CONFIDENCE = 0.35
+
 
 class RoleCollusionError(PermissionError):
     """Raised when grader / implementer / verifier roles are not independent."""
@@ -597,6 +606,260 @@ def gate_apply(
     }
 
 
+def candidate_from_grade(grade: dict[str, Any]) -> dict[str, Any]:
+    """Build a gate_apply candidate row from a raw grade artifact.
+
+    Used by worktree_apply / alive self_approve when a grade is already loaded
+    (skips FTS select but still produces Thucy claim evidence refs).
+    """
+    if not isinstance(grade, dict):
+        raise ApplySelectError("grade must be a dict")
+    repo = str(grade.get("repo") or "").strip()
+    if not repo:
+        raise ApplySelectError("grade.repo required")
+    try:
+        score = float(grade.get("score") or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    evidence: list[dict[str, Any]] = []
+    claims = grade.get("claims") or []
+    if isinstance(claims, list):
+        for i, c in enumerate(claims):
+            if not isinstance(c, dict):
+                continue
+            path = str(c.get("path") or grade.get("path") or "").strip()
+            statement = str(c.get("statement") or "").strip()
+            if not path and not statement:
+                continue
+            evidence.append(
+                {
+                    "id": f"claim:{repo}:{i}",
+                    "kind": "claim",
+                    "repo": repo,
+                    "path": path or str(grade.get("path") or ""),
+                    "statement": statement,
+                    "source": "grade.claims",
+                }
+            )
+    if not evidence and grade.get("path"):
+        evidence.append(
+            {
+                "id": f"path:{repo}",
+                "kind": "path",
+                "repo": repo,
+                "path": str(grade.get("path")),
+                "statement": str(grade.get("summary") or grade.get("pattern") or "")[
+                    :200
+                ],
+                "source": "grade.path",
+            }
+        )
+    hits = len(evidence)
+    row = {
+        "repo": repo,
+        "score": score,
+        "idea": grade.get("idea"),
+        "skill": grade.get("skill"),
+        "method": grade.get("method"),
+        "path": grade.get("path"),
+        "pattern": grade.get("pattern") or "",
+        "rank": rank_score({"score": score}, evidence),
+        "evidence_hits": hits,
+        "evidence": evidence,
+        "claims": len(claims) if isinstance(claims, list) else 0,
+        "claim_ok": bool(evidence),
+        "source": grade.get("source") or "",
+    }
+    return row
+
+
+def decision_for_grade(
+    grade: dict[str, Any],
+    *,
+    grader: str = DEFAULT_ROLES["grader"],
+    implementer: str = DEFAULT_ROLES["implementer"],
+    verifier: str = DEFAULT_ROLES["verifier"],
+    require_distinct_roles: bool = True,
+    min_verify_score: Optional[float] = None,
+    budget: Optional[RunBudget] = None,
+    max_steps: Optional[int] = None,
+    max_tokens: Optional[int] = None,
+) -> dict[str, Any]:
+    """Terminal decision package from an already-loaded grade (no FTS select).
+
+    Wire point for worktree_apply before plan_apply and alive self_approve.
+    """
+    cand = candidate_from_grade(grade)
+    if budget is None and (max_steps is not None or max_tokens is not None):
+        budget = RunBudget(max_steps=max_steps, max_tokens=max_tokens, hard=True)
+    gate = gate_apply(
+        cand,
+        grader=grader,
+        implementer=implementer,
+        verifier=verifier,
+        require_distinct_roles=require_distinct_roles,
+        min_verify_score=min_verify_score,
+        budget=budget,
+        budget_steps=1,
+    )
+    gate["goal"] = (
+        f"apply pattern from {cand.get('repo')} "
+        f"(score={cand.get('score')}, evidence={cand.get('evidence_hits')})"
+    )
+    gate["action_order"] = [
+        {"agent": grader, "action": "grade"},
+        {"agent": implementer, "action": "apply"},
+        {"agent": verifier, "action": "verify"},
+    ]
+    gate["candidate"] = {
+        **(gate.get("candidate") or {}),
+        "rank": cand.get("rank"),
+        "evidence_hits": cand.get("evidence_hits"),
+        "pattern": cand.get("pattern"),
+        "path": cand.get("path"),
+    }
+    return gate
+
+
+def board_signal(
+    *,
+    decision: Optional[dict[str, Any]] = None,
+    roles_ok: bool = True,
+    candidates: Optional[Sequence[dict[str, Any]]] = None,
+    skipped: Optional[Sequence[dict[str, Any]]] = None,
+    stop_decision: Optional[dict[str, Any]] = None,
+    low_confidence: float = LOW_CONFIDENCE,
+) -> dict[str, Any]:
+    """Derive continue | replan | stop for the improve board / alive loop.
+
+    Priority (fail-closed for safety signals first):
+      1. PrincipledStop hard stop → stop
+      2. Role collusion / budget hard deny → stop
+      3. No candidates / verify soft fail / low confidence → replan
+      4. Decision allow → continue
+
+    Patterns: zenith adaptive stop/replan; MAEBE thrash telemetry;
+    arXiv 2511.15755 decision package before act.
+    """
+    cands = list(candidates or [])
+    skipped_n = len(list(skipped or []))
+    dec = decision or {}
+    hints: list[str] = []
+
+    # 1) Explicit principled stop from alive/zenith board
+    if isinstance(stop_decision, dict) and stop_decision.get("stop"):
+        reason = str(stop_decision.get("reason") or "principled_stop")
+        return {
+            "signal": SIGNAL_STOP,
+            "reason": f"principled_stop:{reason}",
+            "detail": str(stop_decision.get("detail") or ""),
+            "hints": ["close remaining gaps or raise stop_max_cycles"],
+            "decision_ok": bool(dec.get("ok")),
+        }
+
+    # 2) Role collusion / budget — hard stop (do not thrash apply)
+    if not roles_ok:
+        return {
+            "signal": SIGNAL_STOP,
+            "reason": "role_collusion",
+            "detail": "grader/implementer/verifier must be distinct",
+            "hints": [
+                "set distinct --grader / --implementer / --verifier",
+                "anti-collusion arXiv 2601.00360",
+            ],
+            "decision_ok": False,
+        }
+
+    reason = str(dec.get("reason") or "")
+    if dec and not dec.get("ok"):
+        if "collusion" in reason:
+            return {
+                "signal": SIGNAL_STOP,
+                "reason": reason,
+                "detail": "role separation failed",
+                "hints": ["split grader ≠ implementer ≠ verifier"],
+                "decision_ok": False,
+            }
+        if "budget" in reason:
+            return {
+                "signal": SIGNAL_STOP,
+                "reason": reason,
+                "detail": "run budget exhausted or soft-stop",
+                "hints": ["raise max_steps/max_tokens or wait for budget reset"],
+                "decision_ok": False,
+            }
+        # Soft denies → replan
+        if "verify_failed" in reason or "no_candidates" in reason or "repo_not" in reason:
+            hints.append("re-index evidence FTS / lower --min-score / pick another repo")
+            return {
+                "signal": SIGNAL_REPLAN,
+                "reason": reason or "decision_denied",
+                "detail": "decision package denied — replan before apply",
+                "hints": hints,
+                "decision_ok": False,
+            }
+        return {
+            "signal": SIGNAL_REPLAN,
+            "reason": reason or "decision_denied",
+            "detail": "apply not allowed; replan backlog",
+            "hints": ["inspect decision.reason and evidence_refs"],
+            "decision_ok": False,
+        }
+
+    # 3) Empty board → replan (not stop — operator can lower bar)
+    if not cands:
+        return {
+            "signal": SIGNAL_REPLAN,
+            "reason": "no_candidates",
+            "detail": f"no ranked candidates (skipped={skipped_n})",
+            "hints": [
+                "index fixtures (make mcp-smoke)",
+                "lower --min-score",
+                "add claims to grade digests",
+            ],
+            "decision_ok": False,
+        }
+
+    # 4) Low confidence allow → replan rather than hard apply
+    conf = dec.get("confidence")
+    try:
+        conf_f = float(conf) if conf is not None else None
+    except (TypeError, ValueError):
+        conf_f = None
+    if conf_f is not None and conf_f < float(low_confidence):
+        return {
+            "signal": SIGNAL_REPLAN,
+            "reason": f"low_confidence:{conf_f}",
+            "detail": f"confidence {conf_f} < {low_confidence}",
+            "hints": ["gather more evidence hits", "prefer higher-score candidate"],
+            "decision_ok": bool(dec.get("ok")),
+            "confidence": conf_f,
+        }
+
+    # 5) Decision allow → continue
+    if dec.get("ok"):
+        return {
+            "signal": SIGNAL_CONTINUE,
+            "reason": str(dec.get("reason") or "apply_allowed"),
+            "detail": (
+                f"apply { (dec.get('candidate') or {}).get('repo') } "
+                f"confidence={dec.get('confidence')}"
+            ),
+            "hints": [],
+            "decision_ok": True,
+            "confidence": dec.get("confidence"),
+        }
+
+    # No decision yet but candidates exist → continue toward decide
+    return {
+        "signal": SIGNAL_CONTINUE,
+        "reason": "candidates_ready",
+        "detail": f"{len(cands)} candidate(s); run decide before apply",
+        "hints": ["nexus improve decide --repo <top>"],
+        "decision_ok": False,
+    }
+
+
 def decision_package(
     workdir: Optional[Path | str] = None,
     *,
@@ -640,7 +903,7 @@ def decision_package(
                 break
         if chosen is None:
             # try skipped for better error
-            return {
+            pkg = {
                 "schema": DECISION_SCHEMA,
                 "ok": False,
                 "reason": f"repo_not_selected:{repo_s}",
@@ -650,15 +913,29 @@ def decision_package(
                 },
                 "candidates": [c.get("repo") for c in cands],
             }
+            pkg["signal"] = board_signal(
+                decision=pkg,
+                roles_ok=True,
+                candidates=cands,
+                skipped=sel.get("skipped") or [],
+            )
+            return pkg
     elif cands:
         chosen = cands[0]
     else:
-        return {
+        pkg = {
             "schema": DECISION_SCHEMA,
             "ok": False,
             "reason": "no_candidates",
             "selection": sel,
         }
+        pkg["signal"] = board_signal(
+            decision=pkg,
+            roles_ok=True,
+            candidates=[],
+            skipped=sel.get("skipped") or [],
+        )
+        return pkg
 
     budget = None
     if max_steps is not None or max_tokens is not None:
@@ -688,6 +965,22 @@ def decision_package(
         {"agent": implementer, "action": "apply"},
         {"agent": verifier, "action": "verify"},
     ]
+    role_ok = True
+    if require_distinct_roles:
+        role_ok = bool(
+            check_roles(
+                grader=grader,
+                implementer=implementer,
+                verifier=verifier,
+                require_distinct=True,
+            ).get("ok")
+        )
+    gate["signal"] = board_signal(
+        decision=gate,
+        roles_ok=role_ok,
+        candidates=cands,
+        skipped=sel.get("skipped") or [],
+    )
     return gate
 
 
@@ -703,10 +996,12 @@ def improve_board(
     verifier: str = DEFAULT_ROLES["verifier"],
     goal: str = "self-improve nexus-core from mined repos + arXiv",
     auto_index: bool = True,
+    stop_decision: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    """routa-lite board: goal, roles, ranked candidates, evidence, decision.
+    """routa-lite board: goal, roles, ranked candidates, evidence, decision, signal.
 
-    Offline operator surface for the self-improve backlog.
+    Offline operator surface for the self-improve backlog. Includes zenith-style
+    ``signal`` ∈ {continue, replan, stop} for alive / supervisor loops.
     """
     root = _root(workdir)
     sel = select_candidates(
@@ -755,6 +1050,14 @@ def improve_board(
         require_distinct=True,
     )
 
+    signal = board_signal(
+        decision=decision,
+        roles_ok=bool(role_res.get("ok")),
+        candidates=sel.get("candidates") or [],
+        skipped=sel.get("skipped") or [],
+        stop_decision=stop_decision,
+    )
+
     return {
         "schema": BOARD_SCHEMA,
         "ok": True,
@@ -765,6 +1068,11 @@ def improve_board(
         "candidates": sel.get("candidates") or [],
         "skipped": sel.get("skipped") or [],
         "decision": decision,
+        "signal": signal.get("signal"),
+        "signal_reason": signal.get("reason"),
+        "signal_detail": signal.get("detail"),
+        "replan_hints": list(signal.get("hints") or []),
+        "signal_meta": signal,
         "traces": traces,
         "selection": {
             "query": sel.get("query"),
@@ -814,6 +1122,14 @@ def format_board(board: dict[str, Any]) -> str:
             lines.append("evidence_refs:")
             for ref in dec["evidence_refs"][:5]:
                 lines.append(f"  - {ref}")
+    sig = board.get("signal") or (board.get("signal_meta") or {}).get("signal")
+    if sig:
+        lines.append(
+            f"signal:   {str(sig).upper()}  "
+            f"reason={board.get('signal_reason') or (board.get('signal_meta') or {}).get('reason')}"
+        )
+        for h in (board.get("replan_hints") or [])[:3]:
+            lines.append(f"  hint: {h}")
     traces = board.get("traces") or []
     if traces:
         lines.append("")
@@ -856,13 +1172,21 @@ __all__ = [
     "BOARD_SCHEMA",
     "DECISION_SCHEMA",
     "DEFAULT_ROLES",
+    "SIGNAL_CONTINUE",
+    "SIGNAL_REPLAN",
+    "SIGNAL_STOP",
+    "BOARD_SIGNALS",
+    "LOW_CONFIDENCE",
     "RoleCollusionError",
     "ApplySelectError",
     "check_roles",
     "require_roles",
     "select_candidates",
     "gate_apply",
+    "candidate_from_grade",
+    "decision_for_grade",
     "decision_package",
+    "board_signal",
     "improve_board",
     "format_board",
     "format_selection",

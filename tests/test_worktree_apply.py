@@ -102,6 +102,9 @@ def test_run_apply_end_to_end_sandbox(tmp_path: Path):
     ]
     assert report["grade"]["repo"] == "wshobson/agents"
     assert report["grade"]["score"] == 16.0
+    assert report["decision"] is not None
+    assert report["decision"]["ok"] is True
+    assert report["signal"] == "continue"
     assert report["verify"]["ok"] is True
     assert report["main_untouched"]["ok"] is True
     assert report["cleanup"]["removed"] is True
@@ -112,8 +115,15 @@ def test_run_apply_end_to_end_sandbox(tmp_path: Path):
     with DecisionLedger.open(tmp_path) as led:
         rows = led.list_run("e2e-apply-1")
         agents = [r["agent"] for r in rows]
-        assert agents == ["mine", "grade", "claim_verify", "plan_apply", "apply"]
-        assert led.count(run_id="e2e-apply-1") == 5
+        assert agents == [
+            "mine",
+            "grade",
+            "claim_verify",
+            "decide",
+            "plan_apply",
+            "apply",
+        ]
+        assert led.count(run_id="e2e-apply-1") == 6
 
 
 def test_run_apply_keeps_worktree_when_requested(tmp_path: Path):
@@ -137,6 +147,47 @@ def test_run_apply_refuses_bad_grade(tmp_path: Path):
     report = wta.run_apply(tmp_path, fixture=bad, mode="sandbox")
     assert report["ok"] is False
     assert report["error"]
+
+
+def test_run_apply_decision_denies_collusion(tmp_path: Path):
+    """require_decision fail-closes when grader==implementer==verifier."""
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="collude-1",
+        mode="sandbox",
+        cleanup=True,
+        require_decision=True,
+        grader="same",
+        implementer="same",
+        verifier="same",
+        require_distinct_roles=True,
+    )
+    assert report["ok"] is False
+    assert report.get("decision") is not None
+    assert report["decision"]["ok"] is False
+    err = report.get("error") or ""
+    assert "decision" in err.lower() or "collusion" in err.lower() or "signal" in err.lower()
+    # Isolation: no pack on main
+    assert not (tmp_path / "skillpacks" / "markdown-sot-demo").exists()
+
+
+def test_run_apply_can_skip_decision_gate(tmp_path: Path):
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="skip-dec-1",
+        mode="sandbox",
+        cleanup=True,
+        require_decision=False,
+        grader="same",
+        implementer="same",
+        verifier="same",
+        require_distinct_roles=True,
+    )
+    # collusion recorded but not required → apply still proceeds
+    assert report["ok"] is True, report.get("error")
+    assert report.get("decision") is not None
 
 
 def test_cli_main_apply(tmp_path: Path, capsys):
@@ -237,7 +288,8 @@ def test_promote_to_main_after_apply(tmp_path: Path):
         agents = [r["agent"] for r in rows]
         assert agents[-1] == "promote"
         assert "promote" in agents
-        assert led.count(run_id="prom-e2e-1") == 6
+        assert "decide" in agents
+        assert led.count(run_id="prom-e2e-1") == 7
 
 
 def test_promote_idempotent_same_content(tmp_path: Path):

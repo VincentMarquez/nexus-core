@@ -240,10 +240,107 @@ def test_improve_board_structure(work: Path):
     assert board["candidates"]
     assert board["decision"] is not None
     assert board["decision"]["ok"] is True
+    assert board["signal"] == asel.SIGNAL_CONTINUE
     text = asel.format_board(board)
     assert "improve board" in text
     assert "wshobson" in text
     assert "ALLOW" in text or "DENY" in text
+    assert "CONTINUE" in text or "signal" in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Board signals (zenith stop/replan) + decision_for_grade
+# ---------------------------------------------------------------------------
+
+
+def test_board_signal_continue_on_allow():
+    dec = {
+        "ok": True,
+        "reason": "apply_allowed",
+        "confidence": 0.8,
+        "candidate": {"repo": "wshobson/agents"},
+    }
+    sig = asel.board_signal(
+        decision=dec,
+        roles_ok=True,
+        candidates=[{"repo": "wshobson/agents"}],
+    )
+    assert sig["signal"] == asel.SIGNAL_CONTINUE
+
+
+def test_board_signal_stop_on_collusion():
+    sig = asel.board_signal(
+        decision={"ok": False, "reason": "role_collusion:grader==implementer"},
+        roles_ok=False,
+        candidates=[{"repo": "x/y"}],
+    )
+    assert sig["signal"] == asel.SIGNAL_STOP
+    assert "collusion" in sig["reason"]
+
+
+def test_board_signal_replan_on_no_candidates():
+    sig = asel.board_signal(
+        decision={"ok": False, "reason": "no_candidates"},
+        roles_ok=True,
+        candidates=[],
+        skipped=[{"repo": "a/b", "skip_reason": "no_evidence"}],
+    )
+    assert sig["signal"] == asel.SIGNAL_REPLAN
+    assert sig["hints"]
+
+
+def test_board_signal_stop_on_principled_stop():
+    sig = asel.board_signal(
+        decision={"ok": True, "reason": "apply_allowed", "confidence": 0.9},
+        roles_ok=True,
+        candidates=[{"repo": "x/y"}],
+        stop_decision={"stop": True, "reason": "gaps_closed", "detail": "done"},
+    )
+    assert sig["signal"] == asel.SIGNAL_STOP
+    assert "principled_stop" in sig["reason"]
+
+
+def test_board_signal_replan_low_confidence():
+    sig = asel.board_signal(
+        decision={
+            "ok": True,
+            "reason": "apply_allowed",
+            "confidence": 0.1,
+            "candidate": {"repo": "x/y"},
+        },
+        roles_ok=True,
+        candidates=[{"repo": "x/y"}],
+        low_confidence=0.35,
+    )
+    assert sig["signal"] == asel.SIGNAL_REPLAN
+    assert "low_confidence" in sig["reason"]
+
+
+def test_decision_for_grade_from_claims_fixture():
+    grade = {
+        "repo": "wshobson/agents",
+        "score": 16.0,
+        "idea": 8.0,
+        "skill": 8.0,
+        "method": "grok:grok-4.5",
+        "path": ".nexus_workspaces/mine_eval/wshobson__agents",
+        "claims": [
+            {
+                "statement": "Markdown marketplace",
+                "path": "README.md",
+            }
+        ],
+    }
+    dec = asel.decision_for_grade(grade)
+    assert dec["ok"] is True
+    assert dec["candidate"]["repo"] == "wshobson/agents"
+    assert dec["evidence_refs"]
+    assert dec["action_order"][0]["action"] == "grade"
+
+
+def test_candidate_from_grade_requires_repo():
+    with pytest.raises(asel.ApplySelectError):
+        asel.candidate_from_grade({"score": 10})
 
 
 # ---------------------------------------------------------------------------

@@ -638,3 +638,25 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-051972dbae.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — decision→apply + board signals (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (wshobson 16 / cas / mission-control / zenith / routa / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: decision package **2511.15755**, anti-collusion **2601.00360**, MAEBE **2506.03053**, Thucy **2512.03278**, preference IRL **2602.04518** (deferred), notes `improve-rx-27056d5405` + priors
+- apply slice (**First apply slice** — close prior open: wire decision_package into worktree_apply / alive self_approve · board stop/replan):
+  - `src/nexus/apply_select.py` — `candidate_from_grade` / `decision_for_grade`; `board_signal` (continue|replan|stop); board + decision_package expose signal
+  - `src/nexus/worktree_apply.py` — after claim_verify, require decision package (default); ledger agent `decide`; fail-closed on deny/stop/replan
+  - `src/nexus/alive.py` — `require_decision` / implementer / verifier knobs; `_self_approve_decision_gate` before hard apply
+  - `src/nexus/cli.py` — `improve apply --no-require-decision` + role flags; board shows SIGNAL
+  - tests: `tests/test_apply_select.py` (signals + decision_for_grade), `tests/test_worktree_apply.py` (collusion deny), `tests/test_usage_alive.py` (gate)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: zenith stop/replan; 2511.15755 decision package; 2601.00360 roles; cas/forge worktree; routa board; mission-control operator gate (pattern only, no tree vendor)
+- non-goals kept: no preference-pair learning yet; no vendored trees; no auto-promote without flags
+- next open: preference-pair rubric learning · wire board signal into PrincipledStop gap board · more pattern catalog entries
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 430 passed
+
+
+## Cycle 2026-07-15 23:10:24Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-27056d5405.md`

@@ -108,6 +108,70 @@ def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
     assert loaded.seed_gaps is False
 
 
+def test_alive_require_decision_knobs_roundtrip(tmp_path, monkeypatch):
+    """Decision-package gate knobs survive alive.json round-trip."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="decide-wire",
+        enabled=True,
+        require_decision=False,
+        implementer="impl:a",
+        verifier="ver:b",
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.require_decision is False
+    assert loaded.implementer == "impl:a"
+    assert loaded.verifier == "ver:b"
+
+
+def test_self_approve_decision_gate_replan_without_candidates(tmp_path, monkeypatch):
+    """Empty workdir → board replan → self_approve blocked when require_decision."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".nexus_state").mkdir()
+    cfg = al.AliveConfig(
+        goal="g",
+        apply=True,
+        self_approve=True,
+        require_decision=True,
+        min_score=10.0,
+        grader="grok",
+    )
+    gate = al._self_approve_decision_gate(tmp_path, cfg, report={"steps": []})
+    assert gate["allow"] is False
+    assert gate["signal"] in ("replan", "stop")
+    assert gate["skip_reason"]
+
+
+def test_self_approve_decision_gate_allows_with_fixture(tmp_path, monkeypatch):
+    """With claims fixture present, decision allow + signal continue."""
+    monkeypatch.chdir(tmp_path)
+    root = Path(__file__).resolve().parents[1]
+    fx_src = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+    if not fx_src.is_file():
+        pytest.skip("claims fixture missing")
+    dest = tmp_path / "fixtures" / "mine_eval"
+    dest.mkdir(parents=True)
+    (dest / "grades_with_claims.json").write_text(
+        fx_src.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / ".nexus_state").mkdir(exist_ok=True)
+    cfg = al.AliveConfig(
+        goal="g",
+        apply=True,
+        self_approve=True,
+        require_decision=True,
+        min_score=10.0,
+        grader="grok",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    gate = al._self_approve_decision_gate(tmp_path, cfg, report={"steps": []})
+    assert gate["allow"] is True, gate
+    assert gate["signal"] == "continue"
+    assert (gate.get("decision") or {}).get("ok") is True
+
+
 def test_should_promote_on_done_auto_self_approve():
     """P3.3: self_approve apply landing auto-wires promote even if knob off."""
     cfg_off = al.AliveConfig(promote_on_done=False, self_approve=True, apply=True)

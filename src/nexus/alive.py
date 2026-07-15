@@ -78,6 +78,11 @@ class AliveConfig:
     promote_on_done: bool = False
     # when True, cycle step fails closed if IndependentVerify denies
     promote_require: bool = False
+    # require decision_package + board signal continue before self_approve apply
+    require_decision: bool = True
+    # implementer/verifier role ids for anti-collusion (grader uses cfg.grader label)
+    implementer: str = "worker:apply"
+    verifier: str = "judge:verify"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -112,6 +117,9 @@ class AliveConfig:
             seed_gaps=bool(d.get("seed_gaps", True)),
             promote_on_done=bool(d.get("promote_on_done", False)),
             promote_require=bool(d.get("promote_require", False)),
+            require_decision=bool(d.get("require_decision", True)),
+            implementer=str(d.get("implementer") or "worker:apply"),
+            verifier=str(d.get("verifier") or "judge:verify"),
         )
 
 
@@ -163,6 +171,103 @@ def _self_approve_apply_landed(report: dict[str, Any]) -> bool:
         if isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok"):
             return True
     return False
+
+
+def _grader_role(cfg: "AliveConfig") -> str:
+    """Map alive grader knob to anti-collusion role id (never equals implementer)."""
+    g = str(cfg.grader or "auto").strip().lower()
+    if g in ("", "auto", "heuristic"):
+        return "grok:grade"
+    if g.startswith("grok"):
+        return "grok:grade"
+    if g.startswith("ollama"):
+        return "ollama:grade"
+    return f"{g}:grade"
+
+
+def _self_approve_decision_gate(
+    root: Path,
+    cfg: "AliveConfig",
+    *,
+    report: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Board + decision package gate before self_approve hard apply.
+
+    Returns ``allow`` True only when require_decision is off *or* the improve
+    board signal is ``continue`` and the decision package is ok.
+    """
+    from . import apply_select as asel
+
+    grader = _grader_role(cfg)
+    implementer = str(cfg.implementer or asel.DEFAULT_ROLES["implementer"])
+    verifier = str(cfg.verifier or asel.DEFAULT_ROLES["verifier"])
+
+    stop_blob: Optional[dict[str, Any]] = None
+    if isinstance(report, dict):
+        for s in report.get("steps") or []:
+            if isinstance(s, dict) and s.get("step") == "principled_stop":
+                stop_blob = {
+                    "stop": bool(s.get("stop")),
+                    "reason": s.get("reason"),
+                    "detail": s.get("detail"),
+                }
+                break
+        # also accept top-level stop decision if present
+        if stop_blob is None and isinstance(report.get("stop"), dict):
+            stop_blob = report["stop"]
+
+    board = asel.improve_board(
+        root,
+        min_score=float(cfg.min_score),
+        limit=max(3, int(cfg.use_limit or 3)),
+        grader=grader,
+        implementer=implementer,
+        verifier=verifier,
+        goal=str(cfg.goal or "self-improve"),
+        auto_index=True,
+        stop_decision=stop_blob,
+    )
+    signal = str(board.get("signal") or "")
+    decision = board.get("decision") or {}
+    out: dict[str, Any] = {
+        "require_decision": bool(cfg.require_decision),
+        "signal": signal,
+        "signal_reason": board.get("signal_reason"),
+        "replan_hints": list(board.get("replan_hints") or []),
+        "decision": {
+            "ok": decision.get("ok"),
+            "reason": decision.get("reason"),
+            "confidence": decision.get("confidence"),
+            "candidate": decision.get("candidate"),
+        }
+        if decision
+        else None,
+        "roles": board.get("roles"),
+        "roles_ok": board.get("roles_ok"),
+        "candidates": len(board.get("candidates") or []),
+        "board_schema": board.get("schema"),
+        "allow": True,
+        "skip_reason": None,
+    }
+    if not cfg.require_decision:
+        out["allow"] = True
+        out["skip_reason"] = None
+        return out
+
+    if signal == asel.SIGNAL_STOP:
+        out["allow"] = False
+        out["skip_reason"] = f"board_stop:{board.get('signal_reason')}"
+        return out
+    if signal == asel.SIGNAL_REPLAN:
+        out["allow"] = False
+        out["skip_reason"] = f"board_replan:{board.get('signal_reason')}"
+        return out
+    if not decision or not decision.get("ok"):
+        out["allow"] = False
+        out["skip_reason"] = f"decision_denied:{(decision or {}).get('reason') or 'no_decision'}"
+        return out
+    out["allow"] = True
+    return out
 
 
 def _should_promote_on_done(
@@ -391,27 +496,40 @@ def cycle_once(
     applied = None
     if cfg.apply and cfg.self_approve and checks.get("ok"):
         try:
-            applied = rm.step_improve_ours(
-                root,
-                min_score=cfg.min_score,
-                limit=3,
-                apply=True,
-                our_repo=cfg.our_repo or None,
-                worker=cfg.worker or "auto",
-            )
-            report["steps"].append({
-                "step": "self_approve_apply",
-                "ok": True,
-                "apply": applied.get("apply"),
-                "plan": applied.get("plan"),
-            })
-            usage_mod.record(
-                5000,
-                source="improve_apply",
-                label="self_approve",
-                workdir=root,
-                enforce=True,
-            )
+            # Decision package + board signal before hard apply (2511.15755 / zenith)
+            gate = _self_approve_decision_gate(root, cfg, report=report)
+            report["steps"].append({"step": "self_approve_decision", **gate})
+            if not gate.get("allow"):
+                report["steps"].append({
+                    "step": "self_approve_apply",
+                    "skipped": gate.get("skip_reason") or "decision_or_signal_blocked",
+                    "signal": gate.get("signal"),
+                    "decision": gate.get("decision"),
+                })
+            else:
+                applied = rm.step_improve_ours(
+                    root,
+                    min_score=cfg.min_score,
+                    limit=3,
+                    apply=True,
+                    our_repo=cfg.our_repo or None,
+                    worker=cfg.worker or "auto",
+                )
+                report["steps"].append({
+                    "step": "self_approve_apply",
+                    "ok": True,
+                    "apply": applied.get("apply"),
+                    "plan": applied.get("plan"),
+                    "decision": gate.get("decision"),
+                    "signal": gate.get("signal"),
+                })
+                usage_mod.record(
+                    5000,
+                    source="improve_apply",
+                    label="self_approve",
+                    workdir=root,
+                    enforce=True,
+                )
         except usage_mod.BudgetExceeded as e:
             report["steps"].append({"step": "self_approve_apply", "blocked": str(e)})
         except Exception as e:
