@@ -20,6 +20,7 @@ DEFAULT_ALLOW = (
     "docs/",
     "scripts/",
     "cookbook/",
+    "skillpacks/",
     "connectors/",
     "bridge/",
     "tests/",

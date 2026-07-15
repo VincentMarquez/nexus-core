@@ -108,13 +108,17 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **Multi-LLM panel** | Heterogeneous models on one bus, role-mapped | Hard problems get debate, not monologue |
 | **Meta-review** | Multiple agents vote / cross-check | Catches single-model overconfidence |
 | **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review | Pushback *before* shipping |
-| **Production-like durability** | Atomic checkpoints, event journal, handoffs, replay/explain | Runs behave like Temporal-style workflows, not chat sessions |
+| **Production-like durability** | Atomic checkpoints, event journal, handoffs, DAG `depends_on` | Runs behave like Temporal-style workflows, not chat sessions |
+| **Operator audit pack** | `replay` / `explain` / `cost` / `prov` / `verify` / `graph` / `evidence` | Board-ready audit, not chat logs |
+| **HITL resume** | `nexus task resume --approve\|--reject` when `waiting_human` | Human gate without losing checkpoint state |
 | **Rubric judge** | Scores **your** criteria + artifacts | “Model said OK” is not success |
 | **Hybrid / LLM-optional** | Heuristic-only **or** any mix of CLIs/local | Cost control; degrades gracefully |
-| **GitHub / arXiv / procurement** | Real job entrypoints | Panel applied to concrete work |
+| **GitHub / arXiv / procurement** | Real job entrypoints + **security gate** on community drafts | Panel applied to concrete work; unsafe replies blocked |
 | **Self-improve (alive / full cycle)** | Mine → score → arXiv → Grok reason → apply → push | Improves *this* repo under a token budget |
+| **Safe publish** | Allowlisted paths only; **pytest green** required; never force-push | Self-improve can land on GitHub without wrecking main |
 | **Grok hard / local light** | Grok 4.5 grades + hard apply; Ollama for light bus work | Spend cloud where it counts |
-| **arXiv ledger** | `docs/ARXIV_LEDGER.csv` (Excel-friendly) | Don’t reprocess the same paper twice |
+| **arXiv ledger** | [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) (Excel-friendly) | Don’t reprocess the same paper twice |
+| **Skill packs** | [`skillpacks/`](skillpacks/README.md) — Markdown source + manifest | Portable patterns for Grok / Cursor / Claude / local |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
 | **Workspace MCP** | Jail for desktop/phone AI clients | External models join the same workspace |
 
@@ -141,10 +145,13 @@ Chat agents die with the process. **NEXUS treats multi-agent work like productio
 | **Context on resume** | Last-N journal lines injected into agent prompts | Context engineering (multi-file agents) |
 | **Fail-closed review** | Review `reject` / `veto` / `fail` stops the pipeline | Governance / audit pipelines |
 | **Causal “why”** | Judge rationale stored on `step_complete` | CEMA-style sequential explanations |
+| **DAG steps** | `StepDef.depends_on` + topo / ready helpers | open-multi-agent goal→DAG shape |
+| **HITL resume** | `waiting_human` → `nexus task resume --approve` | Rojak Temporal / mission-control ops |
 | **Decay-aware memory** | Optional SQLite memory half-life | openclaw-hawkins–style recency |
-| **Operator board** | CLI list / show / events / **replay** / **explain** | mission-control inspect / plan-replay |
+| **Operator board** | Full `nexus task` surface (below) | mission-control inspect / plan-replay |
+| **Evidence pack** | Portable JSON: timeline + cost + prov + gates | routa / AssetOpsBench board export |
 
-### Operator CLI
+### Operator CLI (first-class)
 
 ```bash
 # After any durable run (demo, nexus do, engine job):
@@ -153,29 +160,32 @@ nexus task show  <task_id>              # full checkpoint JSON
 nexus task events <task_id>             # pretty journal (or --json)
 nexus task replay <task_id>             # normalized timeline (no re-run)
 nexus task explain <task_id>            # causal chain: handoffs, vetoes, why
-nexus task cost|prov|verify|graph <id>  # spend, provenance, integrity, call-graph
+nexus task cost <id>                    # token/score rollup
+nexus task prov <id>                    # PROV-style agents/activities/entities
+nexus task verify <id>                  # checkpoint ↔ journal integrity
+nexus task graph <id> [--mermaid]       # agent call-graph
 nexus task evidence <id> --out e.json   # portable evidence pack
 nexus task resume <id> --approve        # HITL when waiting_human
+#          resume <id> --reject --feedback "needs tests"
 ```
 
 State lives under `.nexus_state/tasks/` (JSON checkpoints + `*.events.jsonl`). Safe to inspect; not secrets.  
-Optional metrics: `NEXUS_METRICS=1` (Prometheus textfile / OTel if installed).  
-Skill packs: [`skillpacks/`](skillpacks/README.md). Pipeline steps support DAG `depends_on`.
+Optional metrics: `NEXUS_METRICS=1` (Prometheus textfile / OpenTelemetry if installed).  
+Skill packs: [`skillpacks/durable-operator`](skillpacks/durable-operator/SKILL.md).
 
-### Prove it locally
+### Prove it locally (5-minute path)
 
 ```bash
-make demo                # crash → resume
-make demo-judge          # rubric vs “looks good”
-python3 examples/demo_hitl_resume.py
+make demo                              # crash → resume
+make demo-judge                        # rubric vs “looks good”
+python3 examples/demo_hitl_resume.py   # HITL approve → completed + evidence file
 nexus task list
-# pick an id from the list:
 nexus task replay  <id>
 nexus task explain <id>
 nexus task evidence <id> --out /tmp/evidence.json
 ```
 
-Cookbook: **[01 crash → resume](cookbook/01_crash_resume.md)** · **[12 task operator](cookbook/12_task_operator.md)** · `docs/SELF_IMPROVE_CYCLE.md`.
+Cookbook: **[01 crash → resume](cookbook/01_crash_resume.md)** · **[12 task operator](cookbook/12_task_operator.md)** · **[09 community](cookbook/09_github_community.md)** · skill packs [`skillpacks/`](skillpacks/README.md) · plan `docs/SELF_IMPROVE_CYCLE.md`.
 
 ---
 
@@ -189,18 +199,26 @@ cd nexus-core
 
 Creates a venv, installs the package, starts bus + dashboard, wires **Ollama and installed CLIs automatically** (mocks if missing).
 
-### Run the demo (no API keys)
+### Prove the production path (no API keys)
 
 ```bash
 make install
+make demo                              # crash → resume
+python3 examples/demo_hitl_resume.py   # human gate → resume --approve
+nexus task list
+nexus task evidence <id> --out /tmp/evidence.json
+```
+
+### Full demo suite
+
+```bash
 make demo-all          # full product showcase
 # or:  make demo-all-quick
-# or:  make demo           # crash→resume only
 # or:  nexus demo --all
 ```
 
-Proves crash→resume, rubric judge vs presence, smoke evals, platforms mesh, and resilience probes.  
-Guide: **[docs/DEMO.md](docs/DEMO.md)**
+Proves crash→resume, rubric judge vs presence, HITL, smoke evals, platforms mesh, and resilience probes.  
+Guide: **[docs/DEMO.md](docs/DEMO.md)** · operator: **[cookbook/12](cookbook/12_task_operator.md)**
 
 ### Paste a GitHub repo — autonomous repair loop
 
@@ -267,6 +285,8 @@ Reply to **anyone** on issues and pull requests from one desk — automatically 
 
 Design bet: **tests are the reward signal**, not “the model said OK.” Drafts may use LLMs; **loop results only come from real checks**.
 
+**Safety:** auto-drafts and bulk replies run through a **`security_gate`** before post — blocks secret-like tokens, `curl|bash` style payloads, and oversized dumps. Unsafe LLM drafts fall back to a minimal safe reply (or are skipped in bulk).
+
 | Mode | Command / path | What happens |
 |------|----------------|--------------|
 | **Automatic** | `.github/workflows/community-bot.yml` | First reply on issue/PR open; also on `@nexus` / `/triage` |
@@ -314,10 +334,11 @@ nexus github mine improve-ours                      # write IMPROVE_OURS.md plan
 nexus github mine improve-ours --apply --worker grok  # Grok hard-apply (opt-in)
 # SQLite: .nexus_state/repo_mine.sqlite  ·  clones: .nexus_workspaces/scout_repos/
 
-# Full self-improve cycle: 10 repos + 10 arXiv + Grok reason + apply + push (if tests green)
+# Full self-improve cycle: mine + arXiv + Grok reason + apply
+# Pushes only if pytest/smoke green; allowlisted paths only; never force-push
 export NEXUS_GROK_MODEL=grok-4.5
 PYTHONPATH=src python3 scripts/full_self_improve_cycle.py           # once
-PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 120
+PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 60
 # stop watch:  touch .nexus_state/STOP_FULL_CYCLE
 # arXiv dedup: docs/ARXIV_LEDGER.csv  (open in Excel; agents read it too)
 
@@ -481,14 +502,17 @@ PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 120
 nexus usage status
 ```
 
-**What gets committed when publish runs** (allowlist): `src/`, `docs/`, `tests/`, `scripts/`, **`README.md`**, `CHANGELOG.md`, … — never `.nexus_state/`, secrets, or force-push.
+**What gets committed when publish runs** (allowlist only): `src/`, `docs/`, `tests/`, `scripts/`, **`README.md`**, `CHANGELOG.md`, `cookbook/`, `skillpacks/`, …  
+
+**Safety:** never force-push; never commit `.nexus_state/` secrets; **refuses push if required tests fail**.
 
 | Artifact | Purpose |
 |----------|---------|
 | [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) | Excel-readable list of papers already used (skip next cycle) |
-| [`docs/SELF_IMPROVE_CYCLE.md`](docs/SELF_IMPROVE_CYCLE.md) | Latest Grok reasoning plan |
+| [`docs/SELF_IMPROVE_CYCLE.md`](docs/SELF_IMPROVE_CYCLE.md) | Latest self-improve plan / backlog |
 | [`docs/LATEST_IMPROVE_PLAN.md`](docs/LATEST_IMPROVE_PLAN.md) | Snapshot for the next apply |
 | [`docs/ALIVE_IMPROVEMENTS.md`](docs/ALIVE_IMPROVEMENTS.md) | Running log of cycles |
+| [`docs/evidence/`](docs/evidence/) | Task evidence packs written by alive/publish |
 
 Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · platforms: **[docs/PLATFORMS.md](docs/PLATFORMS.md)** · merge lab: **[docs/MERGE_REAL_NEXUS.md](docs/MERGE_REAL_NEXUS.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
 
@@ -608,6 +632,8 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `nexus start` / `stop` / `status` | Stack control |
 | `nexus doctor` | Hardware + tools |
 | `nexus demo` | Crash → resume proof |
+| `nexus task …` | Operator board: list / replay / evidence / resume |
+| `nexus alive once` / `watch` | Self-improve under budget |
 | `nexus mcp` / `--http` | Workspace MCP |
 
 ---
@@ -675,17 +701,15 @@ Ollama / CLIs   ──event bus──►  nexus start
 
 ## Cookbooks
 
-1. [Crash → resume](cookbook/01_crash_resume.md)  
-2. [Judge vs presence](cookbook/02_judge_vs_presence.md)  
-3. [Local LLM (Ollama)](cookbook/03_local_llm_ollama.md)  
-4. [Workspace MCP](cookbook/04_workspace_mcp.md)  
-5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)  
-6. [GitHub URL → fix](cookbook/06_github_do.md)  
-7. [Procurement agents](cookbook/07_procurement.md)  
-8. [arXiv research](cookbook/08_arxiv_research.md)  
-9. [GitHub community auto-reply](cookbook/09_github_community.md)
-10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)
-11. [Heartbeat + resilience](cookbook/11_heartbeat_resilience.md)  
+**Start here (the good path):**
+
+1. [Crash → resume](cookbook/01_crash_resume.md) — durable checkpoints  
+9. [GitHub community](cookbook/09_github_community.md) — tests as evidence + security gate  
+12. [Task operator board](cookbook/12_task_operator.md) — list / replay / evidence / HITL  
+
+**Also:** [02 judge](cookbook/02_judge_vs_presence.md) · [03 Ollama](cookbook/03_local_llm_ollama.md) · [04 MCP](cookbook/04_workspace_mcp.md) · [05 GLM](cookbook/05_glm52_colibri.md) · [06 GitHub do](cookbook/06_github_do.md) · [07 procure](cookbook/07_procurement.md) · [08 arXiv](cookbook/08_arxiv_research.md) · [10 platforms](cookbook/10_platforms_local_llm.md) · [11 heartbeat](cookbook/11_heartbeat_resilience.md)
+
+Skill packs: [`skillpacks/`](skillpacks/README.md) (e.g. [durable-operator](skillpacks/durable-operator/SKILL.md))
 
 Docs: **https://vincentmarquez.github.io/nexus-core/**
 
@@ -695,22 +719,27 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 
 | | |
 |--|--|
-| Durable engine + resume | ✅ |
+| Durable engine + crash resume | ✅ |
+| Operator audit (`task` list/replay/explain/cost/prov/verify/graph/evidence) | ✅ |
+| HITL `task resume --approve` | ✅ |
+| DAG step `depends_on` | ✅ |
 | Rubric-style judge | ✅ |
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
-| GitHub community bot + personal-repo loop + arXiv improve | ✅ |
+| GitHub community bot + security_gate on drafts | ✅ |
+| Self-improve alive + safe allowlisted push | ✅ |
+| Grok hard grade/apply · local Ollama light | ✅ |
+| arXiv research + ARXIV_LEDGER.csv | ✅ |
 | Multi-platform mesh (Grok CLI / Cursor / local LLM tools) | ✅ |
-| arXiv search / research jobs | ✅ |
+| Skill packs layout | ✅ |
+| Optional metrics (`NEXUS_METRICS=1`) | ✅ |
 | Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |
 | Mock agents (zero setup) | ✅ |
-| SQLite FTS memory | ✅ |
+| SQLite FTS / decay-aware memory | ✅ |
 | Circuit breakers | ✅ |
 | Event bus + SSE + dashboard | ✅ |
-| Ollama + CLI bridges | ✅ |
 | Workspace MCP | ✅ |
-| Human approve gate | ✅ |
 | Smoke evals + scoreboard | ✅ |
 | GitHub Actions CI + Pages | ✅ |
 
