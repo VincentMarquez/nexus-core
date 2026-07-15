@@ -1,4 +1,9 @@
-"""Durable checkpointed task engine."""
+"""Durable checkpointed task engine.
+
+Checkpoints use atomic write-then-rename (Temporal / Durable Functions shape).
+Each status/step transition also appends to an append-only JSONL event journal
+(replay + audit; edict/MisterSmith-inspired, filesystem-only).
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ from .cascade import CascadeIndex
 from .config import Settings
 from .judge import RubricJudge
 from .memory import MemorySpine
+from .persist import append_jsonl, atomic_write_json, event_row, read_jsonl
 from .steps import StepPolicy, structural_ok
 from .trust import TrustLog
 
@@ -77,6 +83,7 @@ class DurableEngine:
         cascade: Optional[CascadeIndex] = None,
         policy: Optional[StepPolicy] = None,
         auto_approve: bool = True,
+        journal: bool = True,
     ):
         self.settings = settings or Settings()
         self.settings.ensure_dirs()
@@ -87,14 +94,48 @@ class DurableEngine:
         self.judge = RubricJudge(self.panel, prefer_cross_vendor=self.settings.prefer_cross_vendor_judge)
         self.trust = TrustLog(self.settings.state_dir / "trust.json")
         self.auto_approve = auto_approve
+        self.journal = journal
 
     def _task_path(self, task_id: str) -> Path:
         return self.settings.state_dir / "tasks" / f"{task_id}.json"
 
+    def _events_path(self, task_id: str) -> Path:
+        return self.settings.state_dir / "tasks" / f"{task_id}.events.jsonl"
+
+    def record_event(
+        self,
+        task_id: str,
+        event: str,
+        *,
+        step: Optional[int] = None,
+        agent: str = "",
+        status: str = "",
+        detail: str = "",
+        extra: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Append one audit event for *task_id* (no-op when journal disabled)."""
+        if not self.journal:
+            return
+        append_jsonl(
+            self._events_path(task_id),
+            event_row(
+                event,
+                task_id=task_id,
+                step=step,
+                agent=agent,
+                status=status,
+                detail=detail,
+                extra=extra,
+            ),
+        )
+
+    def events(self, task_id: str, *, limit: Optional[int] = None) -> list[dict[str, Any]]:
+        """Return the append-only event log for a task (replay / audit)."""
+        return read_jsonl(self._events_path(task_id), limit=limit)
+
     def save(self, task: Task) -> None:
         path = self._task_path(task.task_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(task.to_dict(), indent=2), encoding="utf-8")
+        atomic_write_json(path, task.to_dict())
 
     def load(self, task_id: str) -> Task:
         path = self._task_path(task_id)
@@ -107,10 +148,21 @@ class DurableEngine:
             task.status = TaskStatus.failed
             task.meta["error"] = "autonomy disabled; refusing auto_created task"
             self.save(task)
+            self.record_event(
+                task.task_id, "failed",
+                status=task.status.value, detail=task.meta["error"],
+            )
             return task
 
+        prev = task.status
         task.status = TaskStatus.running
         self.save(task)
+        self.record_event(
+            task.task_id, "status",
+            status=task.status.value,
+            detail=f"{prev.value}->{task.status.value}" if isinstance(prev, TaskStatus) else "running",
+            step=task.current_step,
+        )
 
         steps = list(self.policy)
         start_step = task.current_step
@@ -123,6 +175,11 @@ class DurableEngine:
                 break
 
             agent_name = self.panel.resolve(step)
+            self.record_event(
+                task.task_id, "step_start",
+                step=step.number, agent=agent_name, status=task.status.value,
+                detail=step.name,
+            )
             ctx = {
                 "cascade": self.cascade.prompt_block(),
                 "memory": self.memory.search(task.objective, ns=task.namespace, k=3),
@@ -146,13 +203,28 @@ class DurableEngine:
                         task.status = TaskStatus.failed
                         task.meta["error"] = "rejected by human"
                         self.save(task)
+                        self.record_event(
+                            task.task_id, "failed",
+                            step=step.number, status=task.status.value,
+                            detail=task.meta["error"],
+                        )
                         return task
                     task.current_step = step.number
                     self.save(task)
+                    self.record_event(
+                        task.task_id, "step_complete",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail="human approved",
+                    )
                     continue
                 task.status = TaskStatus.waiting_human
                 task.meta["waiting_step"] = step.number
                 self.save(task)
+                self.record_event(
+                    task.task_id, "waiting_human",
+                    step=step.number, status=task.status.value,
+                    detail=step.name,
+                )
                 return task
 
             try:
@@ -175,6 +247,11 @@ class DurableEngine:
                 task.status = TaskStatus.failed
                 task.meta["error"] = f"step {step.number} agent error: {e}"
                 self.save(task)
+                self.record_event(
+                    task.task_id, "failed",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                )
                 return task
 
             if self.settings.structural_pre_gate:
@@ -183,6 +260,11 @@ class DurableEngine:
                     task.status = TaskStatus.failed
                     task.meta["error"] = f"structural pre-gate: {reason}"
                     self.save(task)
+                    self.record_event(
+                        task.task_id, "failed",
+                        step=step.number, agent=agent_name, status=task.status.value,
+                        detail=task.meta["error"],
+                    )
                     return task
 
             verdict = self.judge.evaluate(
@@ -204,6 +286,12 @@ class DurableEngine:
                 task.meta["error"] = f"judge failed step {step.number}: {verdict.rationale}"
                 task.outputs[step.number] = {**output, "_verdict": verdict.to_dict()}
                 self.save(task)
+                self.record_event(
+                    task.task_id, "failed",
+                    step=step.number, agent=agent_name, status=task.status.value,
+                    detail=task.meta["error"],
+                    extra={"decision": verdict.decision},
+                )
                 return task
 
             task.outputs[step.number] = {**output, "_verdict": verdict.to_dict()}
@@ -212,19 +300,40 @@ class DurableEngine:
             if "artifacts" in output:
                 task.meta["_artifact_path"] = (output["artifacts"] or [None])[0]
             self.save(task)
+            self.record_event(
+                task.task_id, "step_complete",
+                step=step.number, agent=agent_name, status=task.status.value,
+                detail=step.name,
+                extra={"decision": getattr(verdict, "decision", "")},
+            )
 
         if stopped_early:
             task.status = TaskStatus.running
             self.save(task)
+            self.record_event(
+                task.task_id, "checkpoint",
+                step=task.current_step, status=task.status.value,
+                detail=f"stopped early after {task.current_step}",
+            )
             return task
 
         task.status = TaskStatus.completed
         task.meta["completed_at"] = time.time()
         self.save(task)
+        self.record_event(
+            task.task_id, "completed",
+            step=task.current_step, status=task.status.value,
+        )
         return task
 
     def resume(self, task_id: str, *, approve: Optional[bool] = None) -> Task:
         task = self.load(task_id)
+        self.record_event(
+            task_id, "resume",
+            step=task.current_step, status=task.status.value,
+            detail="approve" if approve is not None else "continue",
+            extra={"approve": approve} if approve is not None else None,
+        )
         if task.status == TaskStatus.waiting_human and approve is not None:
             step_n = int(task.meta.get("waiting_step") or 9)
             task.outputs[step_n] = {
@@ -238,6 +347,11 @@ class DurableEngine:
                 task.status = TaskStatus.failed
                 task.meta["error"] = "rejected by human"
                 self.save(task)
+                self.record_event(
+                    task_id, "failed",
+                    step=step_n, status=task.status.value,
+                    detail=task.meta["error"],
+                )
                 return task
         return self.run(task)
 
@@ -247,6 +361,11 @@ class DurableEngine:
             return []
         out = []
         for p in sorted(d.glob("*.json")):
+            # skip sidecar/tmp files
+            if p.name.endswith(".tmp") or p.name.endswith(".events.jsonl"):
+                continue
+            if ".events." in p.name:
+                continue
             try:
                 t = Task.from_dict(json.loads(p.read_text(encoding="utf-8")))
                 out.append(
@@ -255,6 +374,7 @@ class DurableEngine:
                         "status": t.status.value,
                         "current_step": t.current_step,
                         "objective": t.objective[:120],
+                        "events": len(self.events(t.task_id)) if self.journal else 0,
                     }
                 )
             except Exception:

@@ -45,6 +45,10 @@ class AliveConfig:
     arxiv_queries: list[str] = field(default_factory=list)
     min_score: float = 12.0
     fetch_count: int = 6
+    # how many arXiv papers to pull per cycle (user-facing research depth)
+    arxiv_count: int = 10
+    # how many mined repos to keep/use after scoring
+    use_limit: int = 10
     # apply code changes only when explicitly enabled
     apply: bool = False
     # if true, apply when make/smoke-like checks pass after plan (still needs apply=True)
@@ -75,6 +79,8 @@ class AliveConfig:
             arxiv_queries=list(d.get("arxiv_queries") or []),
             min_score=float(d.get("min_score") or 12.0),
             fetch_count=int(d.get("fetch_count") or 6),
+            arxiv_count=int(d.get("arxiv_count") or 10),
+            use_limit=int(d.get("use_limit") or 10),
             apply=bool(d.get("apply", False)),
             self_approve=bool(d.get("self_approve", False)),
             push_github=bool(d.get("push_github", False)),
@@ -180,7 +186,7 @@ def cycle_once(
             fetch_count=cfg.fetch_count,
             eval_limit=cfg.fetch_count,
             min_score=cfg.min_score,
-            use_limit=min(4, cfg.fetch_count),
+            use_limit=max(1, int(cfg.use_limit or cfg.fetch_count or 10)),
             use_ollama=cfg.use_ollama,
             prove=cfg.prove,
             improve=True,
@@ -222,7 +228,7 @@ def cycle_once(
                 aq,
                 repo=cfg.our_repo or None,
                 workdir=root,
-                max_results=4,
+                max_results=max(1, int(cfg.arxiv_count or 10)),
                 apply=False,
                 post_issue=False,
                 also_scout=False,

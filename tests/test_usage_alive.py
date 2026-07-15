@@ -25,3 +25,22 @@ def test_alive_init_and_dry(tmp_path, monkeypatch):
     assert loaded.goal == "test goal"
     rep = al.cycle_once(tmp_path, dry_run=True)
     assert rep.get("dry_run") is True
+
+
+def test_alive_config_arxiv_and_use_limits(tmp_path, monkeypatch):
+    """Full-cycle knobs: 10 papers + 10 repos (alive config round-trip)."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="depth",
+        arxiv_count=10,
+        use_limit=10,
+        fetch_count=10,
+        enabled=True,
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.arxiv_count == 10
+    assert loaded.use_limit == 10
+    assert loaded.fetch_count == 10
+    d = loaded.to_dict()
+    assert d["arxiv_count"] == 10 and d["use_limit"] == 10

@@ -1139,12 +1139,23 @@ def improve_from_arxiv(
         except Exception as e:
             apply_result = {"error": str(e)}
 
+    paper_rows = []
+    for p in job.papers or []:
+        if isinstance(p, dict):
+            paper_rows.append({
+                "arxiv_id": p.get("arxiv_id"),
+                "title": p.get("title"),
+                "abs_url": p.get("abs_url") or p.get("pdf_url"),
+                "summary": (p.get("summary") or "")[:600],
+                "authors": p.get("authors") or [],
+            })
     return {
         "query": query,
         "repo": repo,
         "research_job": job.job_id,
         "research_status": job.status,
-        "papers": len(job.papers or []),
+        "papers": len(paper_rows),
+        "paper_list": paper_rows,
         "notes": str(notes_path),
         "issue": issue_url,
         "apply": apply_result,

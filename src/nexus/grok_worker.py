@@ -236,24 +236,62 @@ def grok_grade(
     }
 
 
+def grok_reason(
+    evidence: str,
+    *,
+    goal: str = "self-improve this multi-agent repository",
+    model: Optional[str] = None,
+    label: str = "reason",
+) -> dict[str, Any]:
+    """Grok 4.5 pure reasoning over papers + repos (no tools). Returns markdown text."""
+    prompt = (
+        "You are the research+engineering reasoner for NEXUS self-improvement.\n"
+        "You have NO tools. Use only the EVIDENCE below.\n"
+        f"GOAL: {goal}\n\n"
+        "Write a concrete markdown plan with these sections:\n"
+        "1. ## Executive summary (5 bullets)\n"
+        "2. ## 10 arXiv papers — what to steal for this codebase (table or numbered list: "
+        "id, idea, concrete NEXUS change)\n"
+        "3. ## 10 GitHub repos — portable patterns (repo, score if given, pattern, where to port)\n"
+        "4. ## Prioritized engineering backlog (P0/P1/P2, each with files/modules to touch)\n"
+        "5. ## First apply slice (smallest PR-sized change that proves the loop, tests to run)\n"
+        "Be specific to multi-agent durability, MCP, mine/alive loops, grading, and demos. "
+        "Do not invent paper ids or repos not present in EVIDENCE.\n\n"
+        f"EVIDENCE:\n{evidence[:50000]}\n"
+    )
+    return grok_prompt(
+        prompt,
+        model=model,
+        max_turns=1,
+        tools=False,
+        timeout_s=300,
+        label=label,
+        enforce_budget=True,
+    )
+
+
 def grok_hard_improve(
     workdir: Path,
     goal: str,
     *,
     model: Optional[str] = None,
-    max_turns: int = 12,
+    max_turns: int = 16,
 ) -> dict[str, Any]:
     """Hard work: Grok agentically improves the local checkout toward the goal."""
     workdir = Path(workdir).resolve()
     prompt = (
         "You are the hard-worker for NEXUS self-improvement on this git checkout.\n"
         f"Working directory: {workdir}\n"
+        "Model: Grok 4.5 CLI. You MAY use tools to read/edit/test.\n"
         "Rules:\n"
         "- Prefer small, tested changes; keep make test / pytest green.\n"
         "- Do NOT force-push; do NOT commit secrets; do NOT vendor whole upstream trees.\n"
         "- Port patterns from local clones under .nexus_workspaces/scout_repos/ if useful.\n"
-        "- Update docs/LATEST_IMPROVE_PLAN.md and docs/ALIVE_IMPROVEMENTS.md if you change behavior.\n"
-        "- When done, summarize files changed.\n\n"
+        "- Read docs/SELF_IMPROVE_CYCLE.md and .nexus_state/repo_mine/IMPROVE_OURS.md if present.\n"
+        "- Update docs/LATEST_IMPROVE_PLAN.md and docs/ALIVE_IMPROVEMENTS.md when you change behavior.\n"
+        "- Implement the **First apply slice** from the plan if feasible in this session; "
+        "otherwise land 1–3 high-value code or docs improvements with tests.\n"
+        "- When done, summarize files changed and tests run.\n\n"
         f"GOAL:\n{goal}\n"
     )
     res = grok_prompt(
@@ -262,7 +300,7 @@ def grok_hard_improve(
         cwd=workdir,
         max_turns=max_turns,
         tools=True,
-        timeout_s=900,
+        timeout_s=1200,
         label="hard_improve",
     )
     return res

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Optional
+
+from .persist import atomic_write_json
 
 
 @dataclass
@@ -62,9 +63,8 @@ class TrustLog:
     def _flush(self) -> None:
         if not self.path:
             return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "provenance": [p.to_dict() for p in self.provenance],
             "verdicts": self.verdicts,
         }
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        atomic_write_json(self.path, payload)
