@@ -358,3 +358,98 @@ def test_call_graph_profile(tmp_path: Path):
     missing = engine.graph("nope")
     assert missing["found"] is False
 
+
+def test_task_norms_parse():
+    """P6: constraints/meta → structured norms (NorMAS light)."""
+    from nexus.engine import task_norms
+
+    t = Task(
+        task_id="n1",
+        objective="norms",
+        constraints=[
+            "require:tests",
+            "deny:network",
+            "must:review",
+            "max_tokens=900",
+            "keep artifacts small",
+        ],
+        meta={"require_human": True},
+    )
+    n = task_norms(t)
+    assert n["max_tokens"] == 900
+    assert "tests" in n["require"]
+    assert "review" in n["require"]
+    assert "human" in n["require"]
+    assert "network" in n["deny"]
+    kinds = {r["kind"] for r in n["rules"]}
+    assert "budget" in kinds
+    assert "require" in kinds
+    assert "deny" in kinds
+    assert "constraint" in kinds
+    assert n["n_rules"] >= 5
+
+    # meta-only budget
+    t2 = Task(task_id="n2", objective="x", meta={"max_tokens": 42})
+    n2 = task_norms(t2)
+    assert n2["max_tokens"] == 42
+    assert any(r.get("key") == "max_tokens" for r in n2["rules"])
+
+
+def test_evidence_pack(tmp_path: Path):
+    """P6: evidence() unifies timeline/cost/prov/verify/graph + readiness gates."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="ev1",
+        objective="evidence pack demo",
+        success_criteria=["artifact contains DEMO_OK"],
+        constraints=["require:tests", "deny:prod-write", "max_tokens=500000"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+
+    pack = engine.evidence("ev1")
+    assert pack["found"] is True
+    assert pack["schema"] == "nexus.evidence/v1"
+    assert pack["ready"] is True
+    assert pack["gates"]["integrity_ok"] is True
+    assert pack["gates"]["completed"] is True
+    assert pack["gates"]["budget_ok"] is True
+    assert pack["gates"]["has_timeline"] is True
+    assert pack["n_timeline"] > 0
+    assert pack["timeline"]
+    assert pack["cost"]["total_tokens"] > 0
+    assert pack["verify"]["ok"] is True
+    assert pack["story"]
+    assert pack["norms"]["max_tokens"] == 500_000
+    assert "tests" in pack["norms"]["require"]
+    assert "prod-write" in pack["norms"]["deny"]
+    # full pack includes agents list
+    assert (pack.get("provenance") or {}).get("agents")
+    assert (pack.get("graph") or {}).get("nodes")
+
+    compact = engine.evidence("ev1", compact=True)
+    assert compact["compact"] is True
+    assert compact["ready"] is True
+    # compact provenance is summary counts, not full agent list
+    assert "n_agents" in (compact.get("provenance") or {})
+    assert "agents" not in (compact.get("provenance") or {})
+
+    missing = engine.evidence("nope")
+    assert missing["found"] is False
+    assert missing["schema"] == "nexus.evidence/v1"
+
+    # budget-failed task is not ready
+    t2 = Task(
+        task_id="ev2",
+        objective="budget fail",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={"max_tokens": 1},
+    )
+    t2 = engine.run(t2)
+    assert t2.status == TaskStatus.failed
+    bad = engine.evidence("ev2")
+    assert bad["found"] is True
+    assert bad["ready"] is False
+    assert bad["gates"]["budget_ok"] is False or bad["gates"]["completed"] is False
+

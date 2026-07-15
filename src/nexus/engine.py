@@ -28,6 +28,12 @@ Budget + call-graph (P5):
   maxTokenBudget / mission-control spend cap shape; may overshoot by one step).
 - ``graph(task_id)`` — agent call-graph + space-time sequence from journal
   (MAS call-graph / space-time profiling papers; routa trace shape).
+
+Evidence pack + norms (P6):
+- ``evidence(task_id)`` — single portable audit pack (routa evidence board /
+  mission-control export / AssetOpsBench eval shape).
+- ``task_norms(task)`` — constraints/meta as structured norms (NorMAS /
+  constitutional multi-agent governance light).
 """
 
 from __future__ import annotations
@@ -77,6 +83,76 @@ def task_max_tokens(task: "Task") -> Optional[int]:
                 except ValueError:
                     break
     return None
+
+
+def task_norms(task: "Task") -> dict[str, Any]:
+    """Interpret constraints + meta as structured operator norms.
+
+    Light NorMAS / constitutional-governance shape: free-form constraints stay
+    as ``raw``; recognized prefixes become typed rules (require / deny / budget).
+    Does not enforce — use for evidence packs and operator boards.
+    """
+    raw = [str(c) for c in (task.constraints or [])]
+    rules: list[dict[str, Any]] = []
+    require: list[str] = []
+    deny: list[str] = []
+
+    for c in raw:
+        s = c.strip()
+        low = s.lower().replace(" ", "")
+        # budget already handled by task_max_tokens; still surface as rule
+        for prefix in ("max_tokens=", "max_tokens:"):
+            if low.startswith(prefix):
+                try:
+                    n = int(low[len(prefix) :])
+                    if n > 0:
+                        rules.append({"kind": "budget", "key": "max_tokens", "value": n, "source": c})
+                except ValueError:
+                    rules.append({"kind": "budget", "key": "max_tokens", "value": None, "source": c})
+                break
+        else:
+            for kind, prefixes in (
+                ("require", ("require:", "require=", "must:", "must=")),
+                ("deny", ("deny:", "deny=", "forbid:", "forbid=", "no:")),
+            ):
+                matched = False
+                for p in prefixes:
+                    if low.startswith(p.replace(" ", "")) or s.lower().startswith(p):
+                        # keep original value after first separator
+                        sep = ":" if ":" in s else ("=" if "=" in s else None)
+                        val = s.split(sep, 1)[1].strip() if sep else s
+                        rules.append({"kind": kind, "value": val, "source": c})
+                        if kind == "require":
+                            require.append(val)
+                        else:
+                            deny.append(val)
+                        matched = True
+                        break
+                if matched:
+                    break
+            else:
+                # unstructured constraint → soft norm
+                if s:
+                    rules.append({"kind": "constraint", "value": s, "source": c})
+
+    cap = task_max_tokens(task)
+    # meta-level norms (not duplicated if already in rules)
+    if cap is not None and not any(r.get("key") == "max_tokens" for r in rules):
+        rules.append({"kind": "budget", "key": "max_tokens", "value": cap, "source": "meta.max_tokens"})
+
+    if (task.meta or {}).get("require_human") in (True, "true", "1", 1):
+        rules.append({"kind": "require", "value": "human", "source": "meta.require_human"})
+        if "human" not in require:
+            require.append("human")
+
+    return {
+        "raw": raw,
+        "rules": rules,
+        "require": require,
+        "deny": deny,
+        "max_tokens": cap,
+        "n_rules": len(rules),
+    }
 
 
 class TaskStatus(str, Enum):
@@ -1496,4 +1572,171 @@ class DurableEngine:
                 "by_agent": cost_sum.get("by_agent") or {},
             },
             "n_events": len(events),
+        }
+
+    def evidence(
+        self,
+        task_id: str,
+        *,
+        compact: bool = False,
+        timeline_limit: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """Unified portable evidence pack for a task (routa / mission-control export).
+
+        Read-only composition of checkpoint, norms, timeline, explain, cost,
+        provenance, verify, and call-graph — one document for delivery boards,
+        eval harnesses, and post-hoc audit (AssetOpsBench evidence shape).
+
+        When *compact* is True, omits full provenance relations and graph
+        sequence (keeps summaries + readiness gates).
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "schema": "nexus.evidence/v1",
+                "error": f"task not found: {task_id}",
+            }
+
+        explained = self.explain(task_id)
+        cost_sum = self.cost(task_id)
+        verified = self.verify(task_id)
+        graph_doc = self.graph(task_id)
+        norms = task_norms(task)
+        timeline = self.replay(task_id, limit=timeline_limit)
+
+        # Full vs compact slices
+        if compact:
+            prov = self.provenance(task_id)
+            provenance_brief = {
+                "schema": prov.get("schema"),
+                "n_agents": len(prov.get("agents") or []),
+                "n_activities": len(prov.get("activities") or []),
+                "n_entities": len(prov.get("entities") or []),
+                "n_relations": len(prov.get("relations") or []),
+                "n_handoffs": len(prov.get("handoffs") or []),
+                "story": prov.get("story"),
+            }
+            graph_brief = {
+                "schema": graph_doc.get("schema"),
+                "n_agents": graph_doc.get("n_agents", 0),
+                "n_handoffs": graph_doc.get("n_handoffs", 0),
+                "n_events": graph_doc.get("n_events", 0),
+                "mermaid": graph_doc.get("mermaid"),
+                "nodes": [
+                    {
+                        "id": n.get("id"),
+                        "vendor": n.get("vendor"),
+                        "tokens": n.get("tokens", 0),
+                        "n_completes": n.get("n_completes", 0),
+                    }
+                    for n in (graph_doc.get("nodes") or [])
+                ],
+                "edges": graph_doc.get("edges") or [],
+            }
+            provenance_out: Any = provenance_brief
+            graph_out: Any = graph_brief
+        else:
+            provenance_out = self.provenance(task_id)
+            graph_out = graph_doc
+
+        # Delivery / readiness gates (routa Entrix-inspired hard checks)
+        status = task.status.value
+        terminal = status in (TaskStatus.completed.value, TaskStatus.failed.value)
+        integrity_ok = bool(verified.get("ok"))
+        budget_exhausted = bool(
+            cost_sum.get("budget_exhausted") or task.meta.get("budget_exhausted")
+        )
+        budget_ok = not budget_exhausted
+        has_timeline = len(timeline) > 0
+        n_vetoes = len(explained.get("vetoes") or [])
+        n_failures = len(explained.get("failures") or [])
+        completed = status == TaskStatus.completed.value
+        # Ready to treat as delivered evidence: completed + integrity + budget
+        ready = bool(completed and integrity_ok and budget_ok and has_timeline)
+        gates = {
+            "integrity_ok": integrity_ok,
+            "budget_ok": budget_ok,
+            "has_timeline": has_timeline,
+            "terminal": terminal,
+            "completed": completed,
+            "no_veto": n_vetoes == 0,
+            "ready": ready,
+        }
+        gate_failures = [k for k, v in gates.items() if k != "ready" and not v]
+
+        task_brief = {
+            "task_id": task.task_id,
+            "status": status,
+            "current_step": task.current_step,
+            "objective": task.objective,
+            "success_criteria": list(task.success_criteria or []),
+            "namespace": task.namespace,
+            "constraints": list(task.constraints or []),
+            "last_agent": task.meta.get("last_agent") or "",
+            "error": task.meta.get("error"),
+            "tokens_total": int(task.meta.get("tokens_total") or 0),
+            "max_tokens": task_max_tokens(task),
+            "budget_exhausted": budget_exhausted,
+            "waiting_step": task.meta.get("waiting_step"),
+            "completed_at": task.meta.get("completed_at"),
+        }
+
+        explain_brief = {
+            "story": explained.get("story"),
+            "status": explained.get("status"),
+            "n_events": explained.get("n_events"),
+            "handoffs": explained.get("handoffs") or [],
+            "vetoes": explained.get("vetoes") or [],
+            "failures": explained.get("failures") or [],
+            "steps": explained.get("steps") or [],
+            "cost": explained.get("cost") or {},
+            "error": explained.get("error"),
+            "last_agent": explained.get("last_agent") or "",
+        }
+
+        verify_brief = {
+            "ok": verified.get("ok"),
+            "n_errors": verified.get("n_errors", 0),
+            "n_warns": verified.get("n_warns", 0),
+            "issues": verified.get("issues") or [],
+            "checks": verified.get("checks") or {},
+            "journal_tokens": verified.get("journal_tokens"),
+            "meta_tokens": verified.get("meta_tokens"),
+        }
+
+        cost_brief = {
+            "total_tokens": cost_sum.get("total_tokens", 0),
+            "avg_score": cost_sum.get("avg_score"),
+            "request_count": cost_sum.get("request_count", 0),
+            "max_tokens": cost_sum.get("max_tokens"),
+            "remaining_tokens": cost_sum.get("remaining_tokens"),
+            "budget_exhausted": cost_sum.get("budget_exhausted", False),
+            "by_agent": cost_sum.get("by_agent") or {},
+            "thresholds": cost_sum.get("thresholds") or {},
+        }
+
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "schema": "nexus.evidence/v1",
+            "generated_at": time.time(),
+            "compact": compact,
+            "task": task_brief,
+            "norms": norms,
+            "gates": gates,
+            "gate_failures": gate_failures,
+            "ready": ready,
+            "story": explained.get("story") or "",
+            "explain": explain_brief,
+            "cost": cost_brief,
+            "verify": verify_brief,
+            "timeline": timeline,
+            "n_timeline": len(timeline),
+            "provenance": provenance_out,
+            "graph": graph_out,
+            "n_vetoes": n_vetoes,
+            "n_failures": n_failures,
         }

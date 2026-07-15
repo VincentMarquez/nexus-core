@@ -224,3 +224,60 @@ def test_task_graph_and_budget_cost_cli(tmp_path: Path, capsys):
 
     rc = main(["task", "graph", "missing", "--state-dir", state])
     assert rc == 1
+
+
+def test_task_evidence_cli(tmp_path: Path, capsys):
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cli6",
+        objective="cli evidence pack",
+        success_criteria=["artifact contains DEMO_OK"],
+        constraints=["require:tests", "deny:network"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    state = str(settings.state_dir)
+
+    rc = main(["task", "evidence", "cli6", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "evidence cli6" in out
+    assert "READY" in out or "gates:" in out
+    assert "norms:" in out
+    assert "require" in out.lower() or "tests" in out
+
+    rc = main(["task", "evidence", "cli6", "--state-dir", state, "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"schema"' in out
+    assert "nexus.evidence/v1" in out
+    assert "cli6" in out
+
+    out_file = tmp_path / "pack.json"
+    rc = main(
+        [
+            "task",
+            "evidence",
+            "cli6",
+            "--state-dir",
+            state,
+            "--compact",
+            "--out",
+            str(out_file),
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "wrote evidence pack" in out or "written:" in out
+    assert out_file.is_file()
+    import json as _json
+
+    data = _json.loads(out_file.read_text(encoding="utf-8"))
+    assert data["schema"] == "nexus.evidence/v1"
+    assert data["task_id"] == "cli6"
+    assert data["compact"] is True
+    assert data.get("ready") is True
+
+    rc = main(["task", "evidence", "missing", "--state-dir", state])
+    assert rc == 1

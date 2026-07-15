@@ -1214,8 +1214,9 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events + replay/explain/cost/prov/verify/graph."""
+    """Operator surface: list/show/events + replay/explain/cost/prov/verify/graph/evidence."""
     from .engine import DurableEngine
+    from .persist import atomic_write_json
 
     settings = _task_settings(args)
     engine = DurableEngine(settings=settings, auto_approve=True, journal=True)
@@ -1607,6 +1608,101 @@ def cmd_task(args: argparse.Namespace) -> int:
         else:
             print("issues:       (none)")
         return 0 if rep.get("ok") else 1
+
+    if sub == "evidence":
+        # routa / mission-control portable evidence pack (P6)
+        compact = bool(getattr(args, "compact", False))
+        rep = engine.evidence(args.task_id, compact=compact)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        out_path = getattr(args, "out", None)
+        if out_path:
+            path = Path(out_path)
+            atomic_write_json(path, rep)
+            print(f"wrote evidence pack → {path}  schema={rep.get('schema')}")
+            if not getattr(args, "json", False):
+                # still print a short human summary after write
+                pass
+            else:
+                return 0
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        task = rep.get("task") or {}
+        gates = rep.get("gates") or {}
+        ready = "READY" if rep.get("ready") else "NOT_READY"
+        print(f"# evidence {rep['task_id']}  schema={rep.get('schema')}  {ready}")
+        print(
+            f"status:       {task.get('status')}  step={task.get('current_step')}  "
+            f"tokens={task.get('tokens_total', 0)}"
+        )
+        print(f"objective:    {task.get('objective', '')}")
+        print(f"story:        {rep.get('story', '')}")
+        cost = rep.get("cost") or {}
+        if cost:
+            budget_s = ""
+            if cost.get("max_tokens") is not None:
+                budget_s = f"  max={cost.get('max_tokens')} rem={cost.get('remaining_tokens')}"
+            print(
+                f"cost:         tokens={cost.get('total_tokens', 0)}  "
+                f"avg_score={cost.get('avg_score')}{budget_s}"
+            )
+        norms = rep.get("norms") or {}
+        if norms:
+            print(
+                f"norms:        rules={norms.get('n_rules', 0)}  "
+                f"require={norms.get('require') or []}  "
+                f"deny={norms.get('deny') or []}  "
+                f"max_tokens={norms.get('max_tokens')}"
+            )
+            for r in (norms.get("rules") or [])[:12]:
+                kind = r.get("kind") or "?"
+                if kind == "budget":
+                    print(f"  [{kind}] max_tokens={r.get('value')}  ({r.get('source')})")
+                else:
+                    print(f"  [{kind}] {r.get('value') or r.get('source')}")
+            if len(norms.get("rules") or []) > 12:
+                print(f"  … +{len(norms['rules']) - 12} more (use --json)")
+        if gates:
+            print("gates:")
+            for k, v in gates.items():
+                mark = "pass" if v else "FAIL"
+                print(f"  {k}: {mark}")
+        if rep.get("gate_failures"):
+            print(f"gate_failures: {rep['gate_failures']}")
+        ver = rep.get("verify") or {}
+        print(
+            f"verify:       {'OK' if ver.get('ok') else 'FAIL'}  "
+            f"errors={ver.get('n_errors', 0)}  warns={ver.get('n_warns', 0)}"
+        )
+        print(
+            f"timeline:     {rep.get('n_timeline', 0)} events  "
+            f"vetoes={rep.get('n_vetoes', 0)}  failures={rep.get('n_failures', 0)}"
+        )
+        graph = rep.get("graph") or {}
+        if graph:
+            print(
+                f"graph:        agents={graph.get('n_agents', len(graph.get('nodes') or []))}  "
+                f"handoffs={graph.get('n_handoffs', 0)}"
+            )
+        prov = rep.get("provenance") or {}
+        if prov and not compact:
+            print(
+                f"provenance:   agents={len(prov.get('agents') or [])}  "
+                f"activities={len(prov.get('activities') or [])}  "
+                f"relations={len(prov.get('relations') or [])}"
+            )
+        elif prov and compact:
+            print(
+                f"provenance:   agents={prov.get('n_agents', 0)}  "
+                f"activities={prov.get('n_activities', 0)}  "
+                f"relations={prov.get('n_relations', 0)}  (compact)"
+            )
+        if out_path:
+            print(f"written:      {out_path}")
+        # inspect-only: always exit 0 when pack found (use --json + gates for automation)
+        return 0
 
     print(f"unknown task subcommand: {sub}", file=sys.stderr)
     return 2
@@ -2555,6 +2651,24 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     tk_graph.add_argument("--state-dir", default=None)
     tk_graph.set_defaults(func=cmd_task)
+    tk_evd = tk_sub.add_parser(
+        "evidence",
+        help="portable evidence pack (norms + gates + timeline + cost + prov + graph)",
+    )
+    tk_evd.add_argument("task_id")
+    tk_evd.add_argument("--json", action="store_true", help="emit full JSON evidence pack")
+    tk_evd.add_argument(
+        "--compact",
+        action="store_true",
+        help="omit full provenance relations / graph sequence (summaries only)",
+    )
+    tk_evd.add_argument(
+        "--out",
+        default=None,
+        help="write JSON pack to path (atomic write-then-rename)",
+    )
+    tk_evd.add_argument("--state-dir", default=None)
+    tk_evd.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

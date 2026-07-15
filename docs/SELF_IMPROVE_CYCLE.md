@@ -1,45 +1,93 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-15 · model `grok-4.5` · repos=10 · arXiv=10_
+_Generated 2026-07-15 18:32 UTC · hard-apply P6 by Grok 4.5 CLI worker_
 
-## Cycle goal
+Model: `grok-4.5` · repos=10 · arXiv=10
 
-Self-improve nexus-core from mined multi-agent repos and arXiv papers: grade patterns, reason a scoped plan, hard-apply small tested slices, keep pytest green.
+---
 
-## Inputs
+## Evidence (this cycle)
 
-1. **Repo mine** — `.nexus_state/repo_mine/IMPROVE_OURS.md` + `USE_LATEST.md`  
-   Top patterns: mission-control (spend/ops), cycgraph (token budgets), open-multi-agent (`maxTokenBudget`), MisterSmith (budget hard-cap), routa (traces), rojak (durability), AgenticGoKit (telemetry).
-2. **arXiv** — latest `improve-rx-7afb87b115` (tool-use / MAS profiling / plan reuse) plus prior durability, CEMA, PROV-AGENT, value-system papers.
-3. **Prior hard-apply** — P0–P4 already on main path (journal → handoff/veto → replay/explain → cost → provenance/verify).
+### Mined repos (score ≥ 10, local clones under `.nexus_workspaces/scout_repos/`)
 
-## Reasoning summary
+| Repo | Score | Pattern to port |
+|------|------:|-----------------|
+| wshobson/agents | 16 | multi-harness validate/smoke tooling |
+| phodal/routa | 16 | workspace board: goals/tasks/traces/**evidence** |
+| builderz-labs/mission-control | 15 | tasks, spend, **export**, operator inspect |
+| IBM/AssetOpsBench | 15 | eval harness + multi-agent evidence |
+| labsai/EDDI | 15 | config-driven orchestration + audit |
+| MattMagg/MisterSmith | 15 | supervision, CLI/HTTP operator surface |
+| AgenticGoKit/AgenticGoKit | 14 | workflows, multi-LLM, observability |
+| StreetLamb/rojak | 14 | Temporal durability + HITL resume |
+| parijatmukherjee/openclaw-hawkins | 14 | durable state + decay memory |
+| wmcmahan/cycgraph | 14 | budgets, zero-trust slices, eval gates |
 
-| Gap | Pattern source | Decision |
-|-----|----------------|----------|
-| Cost is observe-only | cycgraph / OMA maxTokenBudget / mission-control | P5 per-task `max_tokens` hard-stop |
-| No agent interaction view | MAS call-graph + space-time papers; routa traces | P5 `graph()` + mermaid |
-| Plan reuse / least-privilege tools | arXiv 2512.21309 / 2606.20023 | Defer to P6 (larger surface) |
+### arXiv papers (job `rx-b98ae48d28` + prior ledger)
 
-## First apply slice (landed)
+Notable for apply:
 
-- `src/nexus/engine.py`
-  - `task_max_tokens()` from `meta.max_tokens` or constraint `max_tokens=N`
-  - Pre-step and post-step budget gates; journal `budget` + `failed` events
-  - `cost()` exposes `max_tokens` / `remaining_tokens` / `budget_exhausted`
-  - `graph(task_id)` → nodes, handoff edges, space-time sequence, mermaid (`nexus.graph/v1`)
-- `src/nexus/cli.py` — `nexus task graph [--json] [--mermaid]`; cost budget line
-- Tests: budget hard-stop, graph profile, CLI graph/cost budget
-- Docs: `LATEST_IMPROVE_PLAN.md`, this file, `ALIVE_IMPROVEMENTS.md`, cookbook `01_crash_resume.md`
+- **2603.13189** — LLM Constitutional Multi-Agent Governance → norms / gates
+- **1709.02018** — Normative MAS (Kelsenian / NorMAS) → structured constraints
+- **nlin/0611054** — Trust-based recommendation → trust already on path
+- **2412.20138** — TradingAgents multi-agent society → role audit trail
+- Prior: PROV-AGENT, CEMA, context engineering, plan-replay, call-graph, budgets
 
-## Verify
+## Already landed (P0–P5)
+
+- **P0** atomic checkpoints + JSONL journal + decay memory
+- **P1** handoff / review veto / journal context / `nexus task list|show|events`
+- **P2** `replay` + `explain` + `why` on step_complete
+- **P3** `cost` rollup + score/tokens/thresholds
+- **P4** `provenance` + `verify` integrity
+- **P5** `max_tokens` hard-stop + `graph` call-graph / mermaid
+
+## First apply slice (this session) — **P6 evidence pack + norms**
+
+**Goal:** one portable operator document that answers “what happened, under which rules, is it delivery-ready?” without re-running agents.
+
+| Piece | Where | Shape |
+|-------|--------|--------|
+| `task_norms(task)` | `src/nexus/engine.py` | parse `require:` / `deny:` / `must:` / `max_tokens=` + meta → rules |
+| `engine.evidence(id)` | `src/nexus/engine.py` | `nexus.evidence/v1` pack: task, norms, gates, story, cost, verify, timeline, prov, graph |
+| `nexus task evidence` | `src/nexus/cli.py` | human summary · `--json` · `--compact` · `--out PATH` |
+| tests | `tests/test_engine.py`, `tests/test_task_cli.py` | norms parse, ready/not-ready, CLI write |
+
+### Readiness gates (routa Entrix-inspired)
+
+- `integrity_ok` — `verify().ok`
+- `budget_ok` — not budget-exhausted
+- `has_timeline` — journal non-empty
+- `completed` / `terminal` / `no_veto`
+- `ready` — completed ∧ integrity ∧ budget ∧ timeline
+
+### Patterns (not vendored trees)
+
+- routa evidence board / delivery readiness
+- mission-control search-and-export
+- AssetOpsBench evaluation evidence
+- NorMAS + constitutional multi-agent governance (structured norms, not SDL)
+
+## P0 / deferred (next cycles)
+
+1. **HITL CLI** — engine already has `waiting_human` + `resume(approve=)`; expose `nexus task resume --approve|--reject` (rojak).
+2. **Norm enforcement** — optional fail-closed on `require:` / `deny:` at step boundaries (constitutional gate).
+3. **Trust-weighted agent resolve** — use `TrustLog` scores when multiple agents can run a step.
+4. **Wall-clock budget** — `max_wall_s` alongside `max_tokens` (cycgraph multi-budget).
+5. **Plan reuse** — arXiv 2512.21309 style: cache successful step plans by objective hash.
+
+## Commands
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
+nexus task evidence <id>
+nexus task evidence <id> --json
+nexus task evidence <id> --compact --out /tmp/pack.json
 ```
 
-## Next cycle candidates
+## Done criteria
 
-1. Soft budget / downgrade policy (MisterSmith SoftCap)  
-2. Plan skeleton reuse after successful completes  
-3. Tool privilege tier on agent panels (least privilege)  
+- [x] First apply slice implemented with tests
+- [x] `pytest` green
+- [x] `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md` updated
+- [ ] No force-push / no secrets / no vendored upstream trees

@@ -141,3 +141,20 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-7afb87b115.md`
+
+## Cycle 2026-07-15 hard-apply P6 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (wshobson/agents / routa / mission-control / AssetOpsBench / EDDI / MisterSmith / …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-b98ae48d28.md` (+ prior rx-7afb87b115 / …)
+- apply slice (P6 evidence pack + norms — First apply this session):
+  - `src/nexus/engine.py` — `task_norms()`; `evidence()` pack `nexus.evidence/v1` (timeline/cost/prov/verify/graph + readiness gates)
+  - `src/nexus/cli.py` — `nexus task evidence` (+ `--json` / `--compact` / `--out`)
+  - tests: `tests/test_engine.py` (norms + evidence), `tests/test_task_cli.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook evidence inspect
+- patterns: routa evidence board, mission-control export, AssetOpsBench eval, NorMAS / constitutional governance (2603.13189, 1709.02018)
+- evidence: `PYTHONPATH=src python3 -m pytest -q`
+
+## Cycle 2026-07-15 18:35:55Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-b98ae48d28.md`
