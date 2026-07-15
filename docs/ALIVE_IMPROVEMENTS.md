@@ -245,3 +245,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-feabc6cebc.md`
+
+## Cycle 2026-07-15 hard-apply P0 first-apply-slice (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: lumen (primary) + tiger_cowork path safety + Network-AI/mission-control MCP/CLI parity; plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT action order **2510.13343**, Thucy evidence links **2512.03278**, CEMA causal lite **2302.10809**, context pack **2508.08322**
+- apply slice (P0.1–P0.5 **First apply slice** from LATEST_IMPROVE_PLAN):
+  - `src/nexus/improve_apply.py` — idempotent phase FSM (`briefed→context_packed→applying→audited→done`), migration-phase guards, decision audit (`repo/score/idea/skill/method/pattern/files_touched/action_order/evidence_refs`), workspace path jail, durable state under `.nexus_workspaces/improve_apply/`
+  - `src/nexus/cli.py` — `nexus demo self-improve-slice [--fixture] [--show-audit] [--run-id]`
+  - `src/nexus/mcp_server.py` — tool `apply_phase` (advance=all|one|status)
+  - tests: `tests/test_improve_apply.py` (FSM, audit orphans, path safety, integration, MCP, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` success criteria checked; this log
+- patterns: ahmedEid1/lumen (phase guards + decision audit), Sompote/tiger_cowork (path safety), Network-AI/mission-control (MCP+CLI)
+- non-goals kept: no vault, no multi-grader, no vendored trees
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 212 passed
+
+## Cycle 2026-07-15 19:43:57Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-7bb7c48716.md`

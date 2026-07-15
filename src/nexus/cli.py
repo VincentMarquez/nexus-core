@@ -360,6 +360,25 @@ def cmd_demo(args: argparse.Namespace) -> int:
     import subprocess
 
     root = Path(__file__).resolve().parents[2]
+    # First-apply slice: grade → durable phase FSM → decision audit
+    slice_name = getattr(args, "slice", None) or getattr(args, "demo_slice", None)
+    if slice_name == "self-improve-slice" or getattr(args, "self_improve_slice", False):
+        from . import improve_apply as ia
+
+        workdir = Path(getattr(args, "workdir", None) or root).resolve()
+        fixture = getattr(args, "fixture", None)
+        if fixture:
+            fixture = str(Path(fixture))
+        status = ia.run_demo(
+            workdir,
+            fixture=fixture,
+            run_id=getattr(args, "run_id", None),
+            show_audit=bool(getattr(args, "show_audit", True)),
+            dry_run=not bool(getattr(args, "no_dry_run", False)),
+        )
+        print(status.get("demo_text") or ia.format_demo(status))
+        return 0 if status.get("phase") == "done" else 1
+
     if getattr(args, "all", False) or getattr(args, "showcase", False):
         script = root / "scripts" / "demo_showcase.sh"
         cmd = ["bash", str(script)]
@@ -1983,7 +2002,14 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("doctor", help="detect hardware and tools").set_defaults(func=cmd_doctor)
     p_demo = sub.add_parser(
         "demo",
-        help="crash→resume demo (or --all for full product showcase)",
+        help="crash→resume demo, self-improve-slice, or --all showcase",
+    )
+    p_demo.add_argument(
+        "slice",
+        nargs="?",
+        default=None,
+        choices=["self-improve-slice"],
+        help="optional: self-improve-slice (grade→phase FSM→audit proof)",
     )
     p_demo.add_argument(
         "--all",
@@ -1996,6 +2022,27 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--quick",
         action="store_true",
         help="with --all, skip slower optional sections",
+    )
+    p_demo.add_argument(
+        "--fixture",
+        default=None,
+        help="grade fixture path or mine_eval dir (self-improve-slice)",
+    )
+    p_demo.add_argument(
+        "--show-audit",
+        action="store_true",
+        default=True,
+        help="print decision audit JSON (self-improve-slice; default on)",
+    )
+    p_demo.add_argument(
+        "--run-id",
+        default=None,
+        help="resume an existing improve-apply run id",
+    )
+    p_demo.add_argument(
+        "--workdir",
+        default=None,
+        help="project root for improve-apply state (default: repo root)",
     )
     p_demo.set_defaults(func=cmd_demo)
 

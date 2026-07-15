@@ -191,6 +191,33 @@ TOOLS = [
             }
         }
     },
+    {
+        "name": "apply_phase",
+        "description": (
+            "Start/resume the improve-apply phase machine (briefed→context_packed→"
+            "applying→audited→done). Returns current phase + last decision audit. "
+            "Idempotent; dry-run by default."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Existing run id to resume (optional)",
+                },
+                "fixture": {
+                    "type": "string",
+                    "description": "Grade fixture path or mine_eval dir (optional)",
+                },
+                "advance": {
+                    "type": "string",
+                    "description": "one | all | status (default: all)",
+                    "default": "all",
+                },
+                "dry_run": {"type": "boolean", "default": True},
+            },
+        },
+    },
 ]
 
 
@@ -385,6 +412,38 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             from . import platforms as plat
             res = plat.connect_all(_root(), force=bool(args.get("force", False)))
             return _tool_result(json.dumps({"results": res.get("results"), "next": res.get("next")}, indent=2))
+
+        if name == "apply_phase":
+            from . import improve_apply as ia
+
+            root = _root()
+            run_id = args.get("run_id") or None
+            fixture = args.get("fixture") or None
+            advance = str(args.get("advance") or "all").lower()
+            dry_run = bool(args.get("dry_run", True))
+            run = ia.resume_or_start(
+                root,
+                run_id=run_id,
+                fixture=fixture,
+                dry_run=dry_run,
+            )
+            if advance in {"status", "show"}:
+                status = run.status()
+            elif advance in {"one", "step", "next"}:
+                status = run.advance_one()
+            else:
+                status = run.run_to_done()
+            slim = {
+                "run_id": status.get("run_id"),
+                "phase": status.get("phase"),
+                "grade": status.get("grade"),
+                "audit_path": status.get("audit_path"),
+                "context_pack_path": status.get("context_pack_path"),
+                "state_path": status.get("state_path"),
+                "timeline": status.get("timeline"),
+                "audit": status.get("audit"),
+            }
+            return _tool_result(json.dumps(slim, indent=2, default=str))
 
         return _tool_result(f"unknown tool: {name}", is_error=True)
 
