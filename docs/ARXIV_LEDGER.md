@@ -2,21 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 98_
+_Rows: 109_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| 2606.20023 | When Lower Privileges Suffice: Investigating Over-Privileged Tool Sele | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 2606.20485 | Optimal Order of Multi-Agent and General Many-Body Systems | 1 | 2026-07-15T18:26:22Z | tool use multi LLM agent systems |
-| 1309.1742 | Multi-Agent Systems and Blood Cell Formation | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 1709.02018 | Modeling Normative Multi-Agent Systems from a Kelsenian Perspective | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2110.08172 | MLFC: From 10 to 50 Planners in the Multi-Agent Programming Contest | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2208.01769 | Deep Reinforcement Learning for Multi-Agent Interaction | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2405.01839 | SocialGFs: Learning Social Gradient Fields for Multi-Agent Reinforceme | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2412.20138 | TradingAgents: Multi-Agents LLM Financial Trading Framework | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2503.12684 | On Some Fundamental Problems for Multi-Agent Systems Over Multilayer N | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2603.13189 | LLM Constitutional Multi-Agent Governance | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 2606.31578 | Holonic Active Distillation for Scalable Multi-Agent Learning in Multi | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
 | nlin | A Model of a Trust-based Recommendation System on a Social Network | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
 | 1706.03235 | ACCNet: Actor-Coordinator-Critic Net for "Learning-to-Communicate" wit | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
 | 2006.00176 | When2com: Multi-Agent Perception via Communication Graph Grouping | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
@@ -56,3 +45,14 @@ _Rows: 98_
 | 2510.05748 | Communication Enables Cooperation in LLM Agents: A Comparison with Cur | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
 | 2601.10758 | Agents at Risk: How Users Unwittingly Undermine LLM Safety | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
 | 2607.09330 | Communication-Efficient Digital-Twin Coordination for Heterogeneous LL | 1 | 2026-07-15T19:12:16Z | multi agent communication coordination L |
+| 1902.07497 | Analysing Factorizations of Action-Value Networks for Cooperative Mult | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2103.00033 | Serverless Workflows with Durable Functions and Netherite | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2203.07416 | Refined Hardness of Distance-Optimal Multi-Agent Path Finding | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2210.17540 | Agent-Time Attention for Sparse Rewards Multi-Agent Reinforcement Lear | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2306.09930 | Flow-Bench: A Dataset for Computational Workflow Anomaly Detection | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2309.00985 | Multi-agent Collective Construction using 3D Decomposition | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2403.14783 | Multi-Agent VQA: Exploring Multi-Agent Foundation Models in Zero-Shot  | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2504.02870 | AI Hiring with LLMs: A Context-Aware and Explainable Multi-Agent Frame | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2605.28999 | Measuring Real-World Prompt Injection Attacks in LLM-based Resume Scre | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2607.01425 | Agent4cs: A Multi-agent System for Code Summarization in Large Hierarc | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2607.07052 | Progressive Crystallization: Turning Agent Exploration into Determinis | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |

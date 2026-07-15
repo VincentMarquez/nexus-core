@@ -1,12 +1,12 @@
 # Self-improve cycle — backlog & status
 
-_Generated 2026-07-15 · Model: `grok-4.5` · hard-apply P11 (state slice)._
+_Generated 2026-07-15 · Model: `grok-4.5` · hard-apply P0.3 (eval-gated memory)._
 
 ## Executive summary
 
 - NEXUS (`VincentMarquez/nexus-core`) self-improves via mine → arXiv → Grok grade/reason/apply → keep tests green.
-- **Landed (P0–P11):** atomic checkpoints, event journal, handoffs, replay/explain, cost, provenance, verify, graph, evidence, HITL resume, wall budget, opt-in norm enforcement, RunBudget + TaintSet + DurableAgent, **zero-trust StateSlice**.
-- **This session First apply:** cycgraph-style `read_keys` / `write_keys` permission scoping (fail-closed empty defaults).
+- **Landed (P0–P11 + P0.3):** atomic checkpoints, event journal, handoffs, replay/explain, cost, provenance, verify, graph, evidence, HITL resume, wall budget, opt-in norm enforcement, RunBudget + TaintSet + DurableAgent, zero-trust StateSlice, **eval-gated memory writes**.
+- **This session First apply:** cycgraph-style eval-gated retention — lessons enter retained memory only when score ≥ judge pass threshold (else trial namespace / deny).
 - Prefer patterns from `.nexus_workspaces/scout_repos/`; never vendor whole trees.
 
 ## Operator CLI (production audit)
@@ -42,8 +42,8 @@ Cookbook: [cookbook/01_crash_resume.md](../cookbook/01_crash_resume.md) · [cook
 | P8 | wall-clock budget | **done** |
 | P9 | enforce_norms deny/require | **done** |
 | P10 | RunBudget + Taint + DurableAgent | **done** |
-| P11 | Zero-trust StateSlice (`read_keys`/`write_keys`) | **done this session** |
-| P0.3 | Eval-gated memory write | **open** |
+| P11 | Zero-trust StateSlice (`read_keys`/`write_keys`) | **done** |
+| P0.3 | Eval-gated memory write | **done this session** |
 | P0.4 | Principled stopping (zenith) | **open** |
 | P0.5 | Independent verify before promote | **open** |
 
@@ -51,39 +51,40 @@ Cookbook: [cookbook/01_crash_resume.md](../cookbook/01_crash_resume.md) · [cook
 
 | Score | Repo | Pattern |
 |------:|------|---------|
-| 16 | phodal/routa | Evidence / delivery board |
 | 16 | wshobson/agents | Multi-harness skill packs |
-| 15 | mission-control | Ops cost + quality gates |
-| 15 | MisterSmith | Supervised runtime + MCP |
-| 15 | cycgraph / EDDI / zenith | Multi-budget, taint, slice, adaptive stop |
-| 14 | open-multi-agent | Goal → task DAG + plan-replay |
-| 13 | swarm / edict | Handoff + review veto |
+| 15 | mission-control / routa / MisterSmith | Ops cost, evidence board, supervised runtime |
+| 15 | cycgraph / EDDI / zenith | Multi-budget, taint, slice, **eval-gated retention**, adaptive stop |
+| 15 | lumen / tiger_cowork / openrouter-deep-research-mcp | Durability, atomic stores, circuit breakers |
+| 14 | swarm / edict | Handoff + review veto |
 
 ## First apply slice (this session)
 
-**P11 — Zero-trust state slicing**
+**P0.3 — Eval-gated memory write**
 
-1. `src/nexus/durability/state_slice.py` — `StateSlice`, `SliceError`, `slice_from_step`
-2. Wire into `DurableAgent.view` / `write` / `read` / `run_step` / `meta_patch`
-3. Tests: `tests/durability/test_state_slice.py`
+1. `src/nexus/durability/eval_memory.py` — `EvalGate`, `GatedMemoryWriter`, `MemoryWriteDenied`, trial/retained namespaces
+2. Package exports in `src/nexus/durability/__init__.py`
+3. Tests: `tests/durability/test_eval_memory.py` (MemorySpine + SqliteMemory)
 4. Docs: this file + `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`
 
 ### Usage sketch
 
 ```python
-from nexus.durability import DurableAgent, RunBudget, StateSlice
+from nexus.durability import EvalGate, GatedMemoryWriter
+from nexus.memory import MemorySpine
 
-agent = DurableAgent(
-    budget=RunBudget(max_steps=5),
-    slice=StateSlice.from_keys(read_keys=["goal"], write_keys=["plan"]),
-    state={"goal": "ship", "secret": "nope"},
-)
-assert agent.view() == {"goal": "ship"}
-agent.write("plan", {"n": 3})          # ok
-agent.write("secret", "leak")          # SliceError
+store = MemorySpine()
+writer = GatedMemoryWriter(store=store, gate=EvalGate())  # min_score=0.7 (judge PASS)
+
+r = writer.write("Prefer atomic rename", ns="proj/lessons", score=0.85, decision="pass")
+assert r.retained  # kind=lesson in proj/lessons
+
+r = writer.write("Skip tests always", ns="proj/lessons", score=0.2)
+assert r.trial     # lands in proj/lessons/trial only
+
+writer.promote("human-reviewed lesson", ns="proj/lessons", gate_reason="ops-board")
 ```
 
-Or opt-in from task meta: `{"read_keys": [...], "write_keys": [...]}`.
+Opt-in from task meta: `memory_min_score`, `memory_require_pass`, `memory_allow_trial`, or nested `eval_gate`.
 
 ## Reasoning plan (cycle discipline)
 
