@@ -1,11 +1,12 @@
-"""Per-run durability safety primitives (cycgraph pattern port).
+"""Per-run durability safety primitives (cycgraph + zenith pattern ports).
 
 Small modules only — budgets, taint labels, zero-trust state slices,
-eval-gated memory writes, and a thin DurableAgent step wrapper.
-Not a full monorepo copy.
+eval-gated memory writes, principled stop, independent verify-before-promote,
+and a thin DurableAgent step wrapper. Not a full monorepo copy.
 
 Evidence drivers:
 - wmcmahan/cycgraph — budgets, zero-trust state, taint tracking, eval-gated retention
+- Intelligent-Internet/zenith — gap review, stopping discipline, independent verify
 - arXiv 2303.16641 — adversarial hierarchy (untrusted mined input)
 """
 
@@ -21,6 +22,30 @@ from .eval_memory import (
     WriteResult,
     retained_namespace,
     trial_namespace,
+)
+from .stop import (
+    REASON_ABORT,
+    REASON_BUDGET,
+    REASON_CONTINUE,
+    REASON_GAPS_CLOSED,
+    REASON_MAX_CYCLES,
+    REASON_NO_PROGRESS,
+    REASON_TESTS_RED,
+    REASON_USER,
+    GapItem,
+    PrincipledStop,
+    StopDecision,
+    StopPolicy,
+    cycle_progressed,
+    default_stop_path,
+)
+from .verify_promote import (
+    DEFAULT_VERIFY_MIN_SCORE,
+    IndependentVerify,
+    VerifyError,
+    VerifyResult,
+    promote_memory_verified,
+    promote_taint_verified,
 )
 
 __all__ = [
@@ -45,4 +70,24 @@ __all__ = [
     "WriteResult",
     "retained_namespace",
     "trial_namespace",
+    "REASON_ABORT",
+    "REASON_BUDGET",
+    "REASON_CONTINUE",
+    "REASON_GAPS_CLOSED",
+    "REASON_MAX_CYCLES",
+    "REASON_NO_PROGRESS",
+    "REASON_TESTS_RED",
+    "REASON_USER",
+    "GapItem",
+    "PrincipledStop",
+    "StopDecision",
+    "StopPolicy",
+    "cycle_progressed",
+    "default_stop_path",
+    "DEFAULT_VERIFY_MIN_SCORE",
+    "IndependentVerify",
+    "VerifyError",
+    "VerifyResult",
+    "promote_memory_verified",
+    "promote_taint_verified",
 ]

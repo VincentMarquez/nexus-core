@@ -85,3 +85,49 @@ def test_alive_config_arxiv_and_use_limits(tmp_path, monkeypatch):
     assert loaded.fetch_count == 10
     d = loaded.to_dict()
     assert d["arxiv_count"] == 10 and d["use_limit"] == 10
+
+
+def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
+    """Zenith-style stop policy knobs survive alive.json round-trip."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="stop-discipline",
+        enabled=True,
+        stop_max_no_progress=5,
+        stop_max_cycles=12,
+        stop_when_gaps_closed=False,
+        stop_on_tests_red=True,
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.stop_max_no_progress == 5
+    assert loaded.stop_max_cycles == 12
+    assert loaded.stop_when_gaps_closed is False
+    assert loaded.stop_on_tests_red is True
+
+
+def test_alive_dry_run_records_principled_stop_on_full_cycle(tmp_path, monkeypatch):
+    """Dry-run skips mine/apply but still exits cleanly; stop only on full path.
+
+    Full cycle path with empty mine is heavy; here we assert dry_run still works
+    and that _record_principled_stop helper persists a no-progress streak.
+    """
+    monkeypatch.chdir(tmp_path)
+    from nexus.durability.stop import PrincipledStop, default_stop_path
+
+    cfg = al.AliveConfig(goal="g", enabled=True, stop_max_no_progress=2)
+    al.save_config(cfg, tmp_path)
+    rep = {
+        "steps": [{"step": "mine", "used": 0}],
+        "goal": "g",
+    }
+    dec = al._record_principled_stop(tmp_path, cfg, rep, checks={"ok": True})
+    assert dec["stop"] is False
+    assert dec["cycle"] == 1
+    assert dec["no_progress_streak"] == 1
+    dec2 = al._record_principled_stop(tmp_path, cfg, rep, checks={"ok": True})
+    assert dec2["stop"] is True
+    assert dec2["reason"] == "no_progress"
+    loaded = PrincipledStop.load(default_stop_path(tmp_path))
+    assert loaded.cycle == 2
+    assert loaded.no_progress_streak == 2

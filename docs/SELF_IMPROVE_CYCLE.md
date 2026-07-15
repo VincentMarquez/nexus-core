@@ -1,12 +1,12 @@
 # Self-improve cycle — backlog & status
 
-_Generated 2026-07-15 · Model: `grok-4.5` · hard-apply P0.3 (eval-gated memory)._
+_Generated 2026-07-15 · Model: `grok-4.5` · hard-apply P0.4 + P0.5 (principled stop + independent verify)._
 
 ## Executive summary
 
 - NEXUS (`VincentMarquez/nexus-core`) self-improves via mine → arXiv → Grok grade/reason/apply → keep tests green.
-- **Landed (P0–P11 + P0.3):** atomic checkpoints, event journal, handoffs, replay/explain, cost, provenance, verify, graph, evidence, HITL resume, wall budget, opt-in norm enforcement, RunBudget + TaintSet + DurableAgent, zero-trust StateSlice, **eval-gated memory writes**.
-- **This session First apply:** cycgraph-style eval-gated retention — lessons enter retained memory only when score ≥ judge pass threshold (else trial namespace / deny).
+- **Landed (P0–P11 + P0.3–P0.5):** atomic checkpoints, event journal, handoffs, replay/explain, cost, provenance, verify, graph, evidence, HITL resume, wall budget, opt-in norm enforcement, RunBudget + TaintSet + DurableAgent, zero-trust StateSlice, eval-gated memory writes, **principled stop (zenith)**, **independent verify-before-promote**.
+- **This session First apply:** zenith-style gap board + no-progress thrash stop for the alive loop; independent verifier required before taint→trusted / memory promote.
 - Prefer patterns from `.nexus_workspaces/scout_repos/`; never vendor whole trees.
 
 ## Operator CLI (production audit)
@@ -43,9 +43,9 @@ Cookbook: [cookbook/01_crash_resume.md](../cookbook/01_crash_resume.md) · [cook
 | P9 | enforce_norms deny/require | **done** |
 | P10 | RunBudget + Taint + DurableAgent | **done** |
 | P11 | Zero-trust StateSlice (`read_keys`/`write_keys`) | **done** |
-| P0.3 | Eval-gated memory write | **done this session** |
-| P0.4 | Principled stopping (zenith) | **open** |
-| P0.5 | Independent verify before promote | **open** |
+| P0.3 | Eval-gated memory write | **done** |
+| P0.4 | Principled stopping (zenith) | **done this session** |
+| P0.5 | Independent verify before promote | **done this session** |
 
 ## Top mined patterns (reuse, don’t vendor)
 
@@ -53,38 +53,52 @@ Cookbook: [cookbook/01_crash_resume.md](../cookbook/01_crash_resume.md) · [cook
 |------:|------|---------|
 | 16 | wshobson/agents | Multi-harness skill packs |
 | 15 | mission-control / routa / MisterSmith | Ops cost, evidence board, supervised runtime |
-| 15 | cycgraph / EDDI / zenith | Multi-budget, taint, slice, **eval-gated retention**, adaptive stop |
+| 15 | cycgraph / EDDI / zenith | Multi-budget, taint, slice, eval-gated retention, **gap stop**, independent verify |
 | 15 | lumen / tiger_cowork / openrouter-deep-research-mcp | Durability, atomic stores, circuit breakers |
 | 14 | swarm / edict | Handoff + review veto |
 
 ## First apply slice (this session)
 
-**P0.3 — Eval-gated memory write**
+**P0.4 — Principled stopping (zenith)** + **P0.5 — Independent verify before promote**
 
-1. `src/nexus/durability/eval_memory.py` — `EvalGate`, `GatedMemoryWriter`, `MemoryWriteDenied`, trial/retained namespaces
-2. Package exports in `src/nexus/durability/__init__.py`
-3. Tests: `tests/durability/test_eval_memory.py` (MemorySpine + SqliteMemory)
-4. Docs: this file + `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`
+1. `src/nexus/durability/stop.py` — `PrincipledStop`, `StopPolicy`, `GapItem`, `cycle_progressed`
+2. `src/nexus/durability/verify_promote.py` — `IndependentVerify`, `promote_taint_verified`, `promote_memory_verified`
+3. `src/nexus/alive.py` — stop knobs + record/persist on each cycle; `watch` exits on principled stop
+4. Package exports in `src/nexus/durability/__init__.py`
+5. Tests: `tests/durability/test_stop.py`, `test_verify_promote.py`, alive knobs in `tests/test_usage_alive.py`
+6. Docs: this file + `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`
 
-### Usage sketch
+### Usage sketch — principled stop
 
 ```python
-from nexus.durability import EvalGate, GatedMemoryWriter
-from nexus.memory import MemorySpine
+from nexus.durability import PrincipledStop, StopPolicy
 
-store = MemorySpine()
-writer = GatedMemoryWriter(store=store, gate=EvalGate())  # min_score=0.7 (judge PASS)
-
-r = writer.write("Prefer atomic rename", ns="proj/lessons", score=0.85, decision="pass")
-assert r.retained  # kind=lesson in proj/lessons
-
-r = writer.write("Skip tests always", ns="proj/lessons", score=0.2)
-assert r.trial     # lands in proj/lessons/trial only
-
-writer.promote("human-reviewed lesson", ns="proj/lessons", gate_reason="ops-board")
+stop = PrincipledStop(policy=StopPolicy(max_no_progress=3))
+stop.register_gap("P0.4", "principled stop module")
+d = stop.record_cycle(progressed=True)
+assert not d.stop
+stop.close_gap("P0.4", evidence="landed + tests green")
+d = stop.record_cycle(progressed=True)
+assert d.stop and d.reason == "gaps_closed"
 ```
 
-Opt-in from task meta: `memory_min_score`, `memory_require_pass`, `memory_allow_trial`, or nested `eval_gate`.
+Alive knobs in `alive.json`: `stop_max_no_progress`, `stop_max_cycles`, `stop_when_gaps_closed`, `stop_on_tests_red`.
+State persists at `.nexus_state/alive_stop.json`.
+
+### Usage sketch — independent verify before promote
+
+```python
+from nexus.durability import IndependentVerify, TaintSet, TaintLevel, promote_taint_verified
+
+t = TaintSet()
+t.stamp("digest", level=TaintLevel.MINED, source="scout_repos/foo")
+v = IndependentVerify()  # min_score=0.7, require cross-agent
+ok = v.evaluate(implementer="coder", verifier="reviewer", score=0.9, decision="pass")
+promote_taint_verified(t, "digest", gate="ops-board", verify=ok)
+t.require_trusted("digest")  # ok
+```
+
+Same gate wraps memory via `promote_memory_verified(writer, text, ns=..., verify=ok, gate_reason=...)`.
 
 ## Reasoning plan (cycle discipline)
 
@@ -93,6 +107,7 @@ Opt-in from task meta: `memory_min_score`, `memory_require_pass`, `memory_allow_
 3. **Grade** patterns vs NEXUS gaps (durability, operator audit, memory trust).
 4. **First apply** one small tested slice; keep `pytest` green.
 5. **Log** in `ALIVE_IMPROVEMENTS.md` + refresh this plan.
+6. **Stop** when gaps closed or no-progress thrash (principled stop) — do not loop forever.
 
 ## Commands
 

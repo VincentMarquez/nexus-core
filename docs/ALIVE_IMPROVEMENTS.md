@@ -225,3 +225,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-d6df1c0e2b.md`
+
+## Cycle 2026-07-15 hard-apply P0.4 + P0.5 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: zenith (primary) + cycgraph + IMPROVE_OURS top repos (mission-control, routa, MisterSmith, …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-feabc6cebc.md`; principles 2502.07165, adversarial hierarchy 2303.16641)
+- apply slice (P0.4 principled stop + P0.5 independent verify — **First apply slice** this session):
+  - `src/nexus/durability/stop.py` — `PrincipledStop`, `StopPolicy`, `GapItem`, gap board, no-progress thrash, max_cycles/budget/abort, `cycle_progressed`
+  - `src/nexus/durability/verify_promote.py` — `IndependentVerify`, `VerifyError`, `promote_taint_verified`, `promote_memory_verified`
+  - `src/nexus/alive.py` — stop knobs in `AliveConfig`; record/persist each cycle; `watch` exits on principled stop
+  - `src/nexus/durability/__init__.py` — exports
+  - tests: `tests/durability/test_stop.py`, `test_verify_promote.py`, `tests/test_usage_alive.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`
+- patterns: Intelligent-Internet/zenith (gap review + stop discipline + independent validation); cycgraph promote gate (pattern only, no tree vendor)
+- next open: auto-register IMPROVE_OURS backlog ids into gap board; optional engine review→promote hook
+- evidence: `PYTHONPATH=src python3 -m pytest -q`
+
+## Cycle 2026-07-15 19:33:23Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-feabc6cebc.md`

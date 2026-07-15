@@ -67,6 +67,11 @@ class AliveConfig:
     our_repo: str = ""
     interval_s: int = 3600
     enabled: bool = True
+    # zenith-style principled stop (gap board + no-progress thrash guard)
+    stop_max_no_progress: int = 3
+    stop_max_cycles: int = 0  # 0 = unlimited (watch max_cycles still applies)
+    stop_when_gaps_closed: bool = True
+    stop_on_tests_red: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -94,6 +99,10 @@ class AliveConfig:
             our_repo=str(d.get("our_repo") or ""),
             interval_s=int(d.get("interval_s") or 3600),
             enabled=bool(d.get("enabled", True)),
+            stop_max_no_progress=int(d.get("stop_max_no_progress") or 3),
+            stop_max_cycles=int(d.get("stop_max_cycles") or 0),
+            stop_when_gaps_closed=bool(d.get("stop_when_gaps_closed", True)),
+            stop_on_tests_red=bool(d.get("stop_on_tests_red", False)),
         )
 
 
@@ -387,6 +396,17 @@ def cycle_once(
     except Exception:
         pass
 
+    # 7) principled stop (zenith gap / no-progress discipline)
+    try:
+        stop_dec = _record_principled_stop(root, cfg, report, checks=checks)
+        report["stop"] = stop_dec
+        if stop_dec.get("stop"):
+            report["stopped"] = True
+            report["stop_reason"] = stop_dec.get("reason")
+            report["steps"].append({"step": "principled_stop", **stop_dec})
+    except Exception as e:
+        report["steps"].append({"step": "principled_stop", "error": str(e)})
+
     report["usage"] = usage_mod.status(root)
     report["ok"] = True
     _save_state(report, root)
@@ -396,6 +416,52 @@ def cycle_once(
 def _save_state(report: dict[str, Any], workdir: Path) -> None:
     p = state_path(workdir)
     p.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
+
+
+def _record_principled_stop(
+    root: Path,
+    cfg: AliveConfig,
+    report: dict[str, Any],
+    *,
+    checks: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Load stop board, record this cycle's progress, persist, return decision."""
+    from .durability.stop import (
+        PrincipledStop,
+        StopPolicy,
+        cycle_progressed,
+        default_stop_path,
+    )
+
+    path = default_stop_path(root)
+    stopper = PrincipledStop.load(path)
+    # refresh policy from alive config each cycle (operator knobs)
+    max_cycles = int(cfg.stop_max_cycles or 0) or None
+    stopper.policy = StopPolicy(
+        max_no_progress=max(1, int(cfg.stop_max_no_progress or 3)),
+        max_cycles=max_cycles,
+        stop_when_gaps_closed=bool(cfg.stop_when_gaps_closed),
+        require_registered_gaps=True,
+        stop_on_tests_red=bool(cfg.stop_on_tests_red),
+        stop_on_budget=True,
+    )
+    # if apply path ran, stash for progress heuristic
+    if any(
+        isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok")
+        for s in (report.get("steps") or [])
+    ):
+        report.setdefault("applied", {"status": "completed"})
+    progressed = cycle_progressed(report)
+    tests_ok = True if not checks else bool(checks.get("ok"))
+    budget_ok = not bool(report.get("blocked"))
+    decision = stopper.record_cycle(
+        progressed=progressed,
+        tests_ok=tests_ok,
+        budget_ok=budget_ok,
+        note=f"goal={cfg.goal[:80]}",
+    )
+    stopper.save(path)
+    return decision.to_dict()
 
 
 def watch(
@@ -411,6 +477,8 @@ def watch(
     print(f"  goal:     {cfg.goal}")
     print(f"  interval: {interval}s")
     print(f"  apply:    {cfg.apply}  self_approve: {cfg.self_approve}")
+    print(f"  stop:     max_no_progress={cfg.stop_max_no_progress} "
+          f"max_cycles={cfg.stop_max_cycles or '∞'}")
     print(f"  usage:    {usage_mod.status(root).get('day_pct')}% daily")
     print("  Ctrl-C to stop")
     n = 0
@@ -424,6 +492,10 @@ def watch(
             else:
                 for s in rep.get("steps") or []:
                     print(f"  {s.get('step')}: {json.dumps({k: s.get(k) for k in s if k != 'step'}, default=str)[:160]}")
+            if rep.get("stopped"):
+                print(f"  PRINCIPLED STOP: {rep.get('stop_reason')} "
+                      f"— {(rep.get('stop') or {}).get('detail', '')}")
+                return 0
             if max_cycles and n >= max_cycles:
                 return 0
             time.sleep(max(60.0, interval))
