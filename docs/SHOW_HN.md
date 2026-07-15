@@ -2,9 +2,9 @@
 
 **Title options** (pick one):
 
-1. `Show HN: Durable multi-agent jobs for real repos (resume + rubric judge)`  
-2. `Show HN: nexus-core – agents that finish software work after kill -9`  
-3. `Show HN: Paste a GitHub URL; agents fix/test with verifiable success`
+1. `Show HN: Many LLMs talk together on hard problems (durable multi-agent panel)`  
+2. `Show HN: nexus-core – Claude/Codex/Gemini/Grok/local reason as a team`  
+3. `Show HN: Multi-LLM debate + resume after kill -9 + rubric judge`
 
 ---
 
@@ -12,20 +12,20 @@
 
 Hi HN —
 
-**nexus-core** is a specialized multi-agent **orchestration engine** for long-running software tasks — not a chat toy and not “an AI that does anything.”
+**nexus-core** is a multi-agent **orchestration engine** where **several LLMs talk and reason together** on hard work — not a single-chat wrapper and not “an AI that does anything.”
 
-**Pain:** agent workflows die mid-run and lose progress; “validators” often only check that a model replied, not that the work met the goal.
+**Pain:** one model overconfidently “finishes”; multi-agent demos die mid-run; validators only check that *someone replied*.
 
 **Bet:**
 
-1. **Durable execution** — checkpoint after each step; resume after `kill -9`  
-2. **Rubric judge** — success = explicit criteria + artifacts, not vibes  
-3. **Adversarial pipeline** — plan is challenged before implement  
-4. **GitHub-native jobs** — `nexus do owner/repo --goal "fix failing tests"`  
-5. **Hybrid** — Ollama/CLIs when present; heuristic-only when not  
+1. **Heterogeneous panel** — Claude / Codex / Gemini / Grok / Ollama / GLM on one bus, role-mapped  
+2. **Adversary + meta-review** — models challenge each other before you ship  
+3. **Durable execution** — checkpoint after each step; resume after `kill -9`  
+4. **Rubric judge** — success = explicit criteria + artifacts, not vibes  
+5. **Real jobs** — `nexus do` (GitHub), `nexus research` (arXiv), `nexus procure`  
 6. **Autonomy default off** — no unattended token burn  
 
-**Complementary to Cursor:** Cursor helps *you* edit. NEXUS *runs* overnight/repair loops on whole repos.
+**Complementary to Cursor:** Cursor helps *you* edit. NEXUS runs a **panel** overnight on whole repos.
 
 **60-second proof:**
 

@@ -2,11 +2,13 @@
 
 ![NEXUS Core banner](assets/banner.svg)
 
-**Durable multi-agent execution for real software work.**
+**Many LLMs talk and reason together on hard problems.**
 
-Take a GitHub repo, run agents across crashes, and only finish when a **rubric judge** confirms success — not when the model says “done.”
+Claude · GPT/Codex · Gemini · Grok · Ollama · GLM — shared bus, adversarial challenge, meta-review, durable checkpoints, and a **rubric judge** that needs evidence.
 
-Not a general “do anything” agent. A **specialized orchestration engine** for long-running, checkable work in **software**, **arXiv research**, and **procurement**.
+Not a general “do anything” agent. A **specialized multi-agent orchestration engine** for software, arXiv research, and procurement.
+
+![LLMs reason together](assets/arch-llms-reason-together.svg)
 
 ## 60-second start
 

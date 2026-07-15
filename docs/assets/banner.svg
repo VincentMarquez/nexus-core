@@ -47,10 +47,10 @@
   <text x="140" y="104" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#94a3b8" letter-spacing="0.18em">MULTI-AGENT · DURABLE · LOCAL-FIRST</text>
 
   <!-- main tagline -->
-  <text x="64" y="180" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="#f1f5f9">Durable multi-agent work</text>
-  <text x="64" y="218" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="url(#accent)">on real software repos</text>
-  <text x="64" y="258" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#cbd5e1">Resume after crashes · rubric judge · GitHub URL → fix loop</text>
-  <text x="64" y="284" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" fill="#94a3b8">Not “the model said OK.” Evidence + criteria only.</text>
+  <text x="64" y="172" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#f1f5f9">Many LLMs talk &amp; reason together</text>
+  <text x="64" y="210" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="url(#accent)">on hard problems — durably</text>
+  <text x="64" y="250" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" fill="#cbd5e1">Claude · GPT/Codex · Gemini · Grok · local · GLM — shared bus, challenge, meta-review</text>
+  <text x="64" y="278" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#94a3b8">Resume after crashes · rubric judge · not “one model said OK”</text>
 
   <!-- feature pills -->
   <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600">

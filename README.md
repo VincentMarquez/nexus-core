@@ -13,36 +13,87 @@
 </p>
 
 <p align="center">
-  <b>Durable multi-agent execution for real software work.</b><br>
-  Take a GitHub repo, run agents across crashes, and only finish when a <b>rubric judge</b> confirms success — not when the model says “done.”
+  <b>Many LLMs talk and reason together on hard problems.</b><br>
+  Claude · GPT/Codex · Gemini · Grok · Ollama · GLM — on one bus, challenging each other,<br>
+  surviving crashes, finishing only when a <b>rubric judge</b> sees real evidence.
 </p>
 
 <p align="center">
   <a href="https://vincentmarquez.github.io/nexus-core/"><b>Docs</b></a> ·
+  <a href="#llms-that-reason-together"><b>Multi-LLM panel</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/getting-started/"><b>Get started</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/COMPARE/"><b>vs other tools</b></a> ·
-  <a href="https://vincentmarquez.github.io/nexus-core/cookbooks/"><b>Cookbooks</b></a> ·
-  <a href="#what-this-is-not">What this is not</a>
+  <a href="https://vincentmarquez.github.io/nexus-core/cookbooks/"><b>Cookbooks</b></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/arch-llms-reason-together.svg" alt="Multiple LLMs talk and reason together through the NEXUS bus" width="100%">
 </p>
 
 ---
 
 ## Elevator pitch
 
-> **nexus-core** is a durable multi-agent system for real software tasks. It can take a GitHub repo, work on it across process crashes, and only deliver when a rubric judge confirms it *actually* succeeded — not just when the model claims it did.
+> **One model is a smart intern. A panel that argues, checks, and resumes is a team.**  
+> **nexus-core** wires heterogeneous LLMs so they **plan, challenge, implement, test, and meta-review together** on hard work — software repos, research, procurement — with **durable checkpoints** and a **rubric judge** that ignores “looks good to me.”
 
-Two pillars:
+Three pillars:
 
-1. **Reliability & verifiability** — checkpoints + resume, rubric judge, adversarial pipeline  
-2. **Practical engineering workflows** — `nexus do owner/repo`, local LLMs/CLIs, observable bus  
-
-It is **not** “an AI that does anything.” It is a **specialized orchestration engine** for long-running, checkable jobs across three domains:
+1. **Collective reasoning** — different models in different roles; adversary + meta-review, not a single chat  
+2. **Reliability & verifiability** — resume after crash; success = criteria + artifacts  
+3. **Practical jobs** — `nexus do`, `nexus research`, `nexus procure`  
 
 | Domain | Entry | What you get |
 |--------|-------|----------------|
-| **Software** | `nexus do owner/repo` | Clone → install → test → fix loop |
-| **Research** | `nexus research "…"` / `nexus arxiv` | arXiv search, abstracts, brief, report |
-| **Procurement** | `nexus procure demo` | Deterministic scorecard, TCO, expert lenses |
+| **Software** | `nexus do owner/repo` | Multi-agent clone → install → test → fix |
+| **Research** | `nexus research "…"` | arXiv + multi-model brief |
+| **Procurement** | `nexus procure demo` | Engine math + expert lenses (+ LLM extract) |
+
+---
+
+## LLMs that reason together
+
+Hard problems need **more than one voice**. NEXUS is built so models **talk through a shared bus**, keep a durable task state, and only ship when evidence holds.
+
+<p align="center">
+  <img src="docs/assets/arch-multi-agent.svg" alt="Multi-agent research panel — heterogeneous model vendors" width="100%">
+</p>
+
+| Role in the panel | Typical model | What it does on hard problems |
+|-------------------|---------------|-------------------------------|
+| **Planner** | Claude / GPT | Frames approach, risks, steps |
+| **Adversary** | Grok / local / second vendor | Attacks the plan before code |
+| **Implementer** | Codex / Claude / GLM | Writes patches and artifacts |
+| **Tester** | Local / fast model | Runs checks, returns evidence |
+| **Reviewer** | Cross-vendor if possible | Verdict on quality |
+| **Meta-review** | **Several agents at once** | Panel vote — not one monologue |
+| **Judge** | Separate rubric path | Scores **your** success criteria |
+
+```text
+  Claude ──┐                    ┌── challenge plan
+  Codex  ──┼──►  NEXUS bus  ────┼── implement + test
+  Gemini ──┤     + durable   ───┼── meta-review (panel)
+  Grok   ──┤     checkpoints ───┼── rubric judge
+  Ollama ──┤                    └── human gate (optional)
+  GLM    ──┘
+```
+
+**Why this matters for hard problems**
+
+- **Disagreement is a feature** — the adversary step and meta-review force pushback  
+- **Vendor diversity** — one model’s blind spot is another’s strength  
+- **Shared memory + cascade** — they don’t thrash the same files blindly  
+- **Crash-safe** — a 2-hour multi-agent debate doesn’t die with one process  
+- **Observable** — dashboard + SSE so you see who said what  
+
+Wire whatever you already pay for / run locally:
+
+```bash
+./run                          # auto-detects claude, codex, gemini, ollama
+nexus start -y                 # same
+# map roles explicitly when running the engine over the bus:
+python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=local,adversary=local
+```
 
 ---
 
@@ -50,15 +101,15 @@ It is **not** “an AI that does anything.” It is a **specialized orchestratio
 
 | Capability | What it does | Why it matters |
 |------------|--------------|----------------|
-| **Durable execution** | Checkpoints after each step; resume after `kill -9` | Overnight agent runs usually die and lose everything |
-| **Rubric judge** | Scores **your** success criteria + artifacts | Most stacks treat “model replied” as success |
-| **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review → meta-review | Built-in pushback before shipping |
-| **Hybrid / LLM-optional** | Heuristic-only mode **or** Ollama / Claude / Codex / Gemini | Cost control + runs when models are down |
-| **GitHub-native jobs** | `nexus do owner/repo --goal "fix failing tests"` | URL → clone → install → check → fix loop |
-| **arXiv research** | `nexus research "topic"` / `nexus arxiv search` | Public API → abstracts → brief (no key) |
-| **Procurement agents** | Engine + Incoterms/Legal/Engineering lenses | **Numbers from code, not the model** |
+| **Multi-LLM panel** | Heterogeneous models on one bus, role-mapped | Hard problems get debate, not monologue |
+| **Meta-review** | Multiple agents vote / cross-check | Catches single-model overconfidence |
+| **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review | Pushback *before* shipping |
+| **Durable execution** | Checkpoints after each step; resume after `kill -9` | Long multi-agent runs survive crashes |
+| **Rubric judge** | Scores **your** criteria + artifacts | “Model said OK” is not success |
+| **Hybrid / LLM-optional** | Heuristic-only **or** any mix of CLIs/local | Cost control; degrades gracefully |
+| **GitHub / arXiv / procurement** | Real job entrypoints | Panel applied to concrete work |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
-| **Workspace MCP** | Project-jail tools for desktop/phone AI clients | Safe external control of the workspace |
+| **Workspace MCP** | Jail for desktop/phone AI clients | External models join the same workspace |
 
 ---
 
@@ -223,6 +274,10 @@ Ollama / CLIs   ──event bus──►  nexus start
 ---
 
 ## Architecture
+
+<p align="center">
+  <img src="docs/assets/arch-llms-reason-together.svg" alt="LLMs reason together" width="100%">
+</p>
 
 <p align="center">
   <img src="docs/assets/arch-overview.svg" alt="System overview" width="100%">

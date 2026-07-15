@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Multiple LLMs talk and reason together on hard problems">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070b14"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="hub" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#22d3ee"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="48" y="48" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="800" fill="#f8fafc">Many LLMs. One hard problem. Shared reasoning.</text>
+  <text x="48" y="80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#94a3b8">Claude · Codex/GPT · Gemini · Grok · Ollama/local · GLM — talk through the NEXUS bus, challenge each other, agree only when evidence holds</text>
+
+  <!-- Outer agent nodes -->
+  <!-- Claude -->
+  <g transform="translate(80,140)">
+    <rect width="200" height="100" rx="16" fill="#1c1917" stroke="#f59e0b" stroke-width="2"/>
+    <text x="100" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#fbbf24">Claude</text>
+    <text x="100" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a8a29e">plan · review · challenge</text>
+    <text x="100" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#78716c">CLI / MCP</text>
+  </g>
+  <!-- GPT/Codex -->
+  <g transform="translate(340,140)">
+    <rect width="200" height="100" rx="16" fill="#052e1c" stroke="#10b981" stroke-width="2"/>
+    <text x="100" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#34d399">Codex / GPT</text>
+    <text x="100" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#6ee7b7">implement · patch</text>
+    <text x="100" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#047857">CLI bridge</text>
+  </g>
+  <!-- Gemini -->
+  <g transform="translate(600,140)">
+    <rect width="200" height="100" rx="16" fill="#0c1929" stroke="#3b82f6" stroke-width="2"/>
+    <text x="100" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#60a5fa">Gemini</text>
+    <text x="100" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#93c5fd">research · multimodal</text>
+    <text x="100" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#1d4ed8">CLI / API</text>
+  </g>
+  <!-- Grok -->
+  <g transform="translate(860,140)">
+    <rect width="200" height="100" rx="16" fill="#09090b" stroke="#a1a1aa" stroke-width="2"/>
+    <text x="100" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#fafafa">Grok</text>
+    <text x="100" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#d4d4d8">adversary · critique</text>
+    <text x="100" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#71717a">MCP / web</text>
+  </g>
+  <!-- Local -->
+  <g transform="translate(200,520)">
+    <rect width="220" height="100" rx="16" fill="#0f172a" stroke="#22d3ee" stroke-width="2"/>
+    <text x="110" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#67e8f9">Ollama / local</text>
+    <text x="110" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#a5f3fc">fast loops · private data</text>
+    <text x="110" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0e7490">HTTP bridge</text>
+  </g>
+  <!-- GLM -->
+  <g transform="translate(520,520)">
+    <rect width="220" height="100" rx="16" fill="#1e1b4b" stroke="#c084fc" stroke-width="2"/>
+    <text x="110" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#e9d5ff">GLM-5.2 / colibrì</text>
+    <text x="110" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#d8b4fe">heavy MoE · deep work</text>
+    <text x="110" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#7c3aed">coli serve bridge</text>
+  </g>
+  <!-- Judge -->
+  <g transform="translate(840,520)">
+    <rect width="220" height="100" rx="16" fill="#14532d" stroke="#4ade80" stroke-width="2"/>
+    <text x="110" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700" fill="#86efac">Rubric judge</text>
+    <text x="110" y="64" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#bbf7d0">criteria + artifacts</text>
+    <text x="110" y="84" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#166534">cross-vendor check</text>
+  </g>
+
+  <!-- Center hub: NEXUS bus + dialogue -->
+  <circle cx="640" cy="360" r="110" fill="#0b1220" stroke="url(#hub)" stroke-width="3" filter="url(#glow)"/>
+  <circle cx="640" cy="360" r="88" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="640" y="340" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="20" font-weight="800" fill="#f8fafc">NEXUS</text>
+  <text x="640" y="364" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" fill="#22d3ee">event bus · panel</text>
+  <text x="640" y="386" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#94a3b8">shared context</text>
+  <text x="640" y="406" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#94a3b8">durable steps</text>
+
+  <!-- Dialogue bubbles around hub -->
+  <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11">
+    <rect x="420" y="280" width="130" height="36" rx="10" fill="#1e293b" stroke="#475569"/>
+    <text x="485" y="302" text-anchor="middle" fill="#e2e8f0">“Here's my plan…”</text>
+
+    <rect x="730" y="280" width="150" height="36" rx="10" fill="#1e293b" stroke="#f59e0b"/>
+    <text x="805" y="302" text-anchor="middle" fill="#fcd34d">“Risk: that fails if…”</text>
+
+    <rect x="400" y="400" width="150" height="36" rx="10" fill="#1e293b" stroke="#34d399"/>
+    <text x="475" y="422" text-anchor="middle" fill="#6ee7b7">“Patch ready — tests?”</text>
+
+    <rect x="730" y="400" width="160" height="36" rx="10" fill="#1e293b" stroke="#a78bfa"/>
+    <text x="810" y="422" text-anchor="middle" fill="#ddd6fe">“Meta-review: 2/3 agree”</text>
+  </g>
+
+  <!-- Spokes to hub (simplified lines) -->
+  <g stroke="#475569" stroke-width="1.5" fill="none" opacity="0.7">
+    <path d="M180 240 Q 400 300 540 330" marker-end="url(#arr)"/>
+    <path d="M440 240 Q 520 300 580 320" marker-end="url(#arr)"/>
+    <path d="M700 240 Q 680 300 680 320" marker-end="url(#arr)"/>
+    <path d="M960 240 Q 820 300 740 330" marker-end="url(#arr)"/>
+    <path d="M310 520 Q 450 460 560 400" marker-end="url(#arr)"/>
+    <path d="M630 520 Q 640 480 640 420" marker-end="url(#arr)"/>
+    <path d="M950 520 Q 820 460 720 400" marker-end="url(#arrC)"/>
+  </g>
+
+  <!-- Bottom process strip -->
+  <rect x="48" y="650" width="1184" height="48" rx="12" fill="#020617" stroke="#1e293b"/>
+  <text x="640" y="680" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" fill="#cbd5e1">
+    plan → challenge → implement → test → review → <tspan fill="#22d3ee" font-weight="700">meta-review (panel)</tspan> → judge → deliver
+  </text>
+</svg>
