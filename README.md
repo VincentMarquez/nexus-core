@@ -21,6 +21,7 @@
 <p align="center">
   <a href="https://vincentmarquez.github.io/nexus-core/"><b>Docs</b></a> ·
   <a href="#llms-that-reason-together"><b>Multi-LLM panel</b></a> ·
+  <a href="#alive--self-improve-under-your-goals--token-budget"><b>Self-improve</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/getting-started/"><b>Get started</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/COMPARE/"><b>vs other tools</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/cookbooks/"><b>Cookbooks</b></a>
@@ -41,13 +42,14 @@ Three pillars:
 
 1. **Collective reasoning** — different models in different roles; adversary + meta-review, not a single chat  
 2. **Reliability & verifiability** — resume after crash; success = criteria + artifacts  
-3. **Practical jobs** — `nexus do`, `nexus research`, `nexus procure`  
+3. **Practical jobs** — `nexus do`, `nexus research`, `nexus procure`, **self-improve** (`alive` / full cycle)  
 
 | Domain | Entry | What you get |
 |--------|-------|----------------|
 | **Software** | `nexus do owner/repo` | Multi-agent clone → install → test → fix |
-| **Research** | `nexus research "…"` | arXiv + multi-model brief |
+| **Research** | `nexus research "…"` | arXiv + brief; **CSV ledger** skips papers already used |
 | **Procurement** | `nexus procure demo` | Engine math + expert lenses (+ LLM extract) |
+| **Self-improve** | `nexus alive once` / full-cycle script | Mine 10 repos + 10 papers → Grok reason/apply → push if tests green |
 
 ---
 
@@ -62,12 +64,13 @@ Hard problems need **more than one voice**. NEXUS is built so models **talk thro
 | Role in the panel | Typical model | What it does on hard problems |
 |-------------------|---------------|-------------------------------|
 | **Planner** | Claude / GPT | Frames approach, risks, steps |
-| **Adversary** | Grok / local / second vendor | Attacks the plan before code |
-| **Implementer** | Codex / Claude / GLM | Writes patches and artifacts |
+| **Adversary / hard grader** | **Grok 4.5 CLI** | Grades mined repos; hard improve apply |
+| **Implementer** | Codex / Claude / GLM / **Grok** | Writes patches and artifacts |
 | **Tester** | Local / fast model | Runs checks, returns evidence |
 | **Reviewer** | Cross-vendor if possible | Verdict on quality |
 | **Meta-review** | **Several agents at once** | Panel vote — not one monologue |
 | **Judge** | Separate rubric path | Scores **your** success criteria |
+| **Light turns** | **Ollama / local** | Bus agent `local`, cheap drafts, grade fallback |
 
 ```text
   Claude ──┐                    ┌── challenge plan
@@ -108,6 +111,9 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **Rubric judge** | Scores **your** criteria + artifacts | “Model said OK” is not success |
 | **Hybrid / LLM-optional** | Heuristic-only **or** any mix of CLIs/local | Cost control; degrades gracefully |
 | **GitHub / arXiv / procurement** | Real job entrypoints | Panel applied to concrete work |
+| **Self-improve (alive / full cycle)** | Mine → score → arXiv → Grok reason → apply → push | Improves *this* repo under a token budget |
+| **Grok hard / local light** | Grok 4.5 grades + hard apply; Ollama for light bus work | Spend cloud where it counts |
+| **arXiv ledger** | `docs/ARXIV_LEDGER.csv` (Excel-friendly) | Don’t reprocess the same paper twice |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
 | **Workspace MCP** | Jail for desktop/phone AI clients | External models join the same workspace |
 
@@ -210,7 +216,8 @@ Design bet: **tests are the reward signal**, not “the model said OK.” Drafts
 | **Search other repos** | `nexus github search "topic"` | Find public repos to learn from (continuous improvement fuel) |
 | **Scout (connect + prove)** | `nexus github scout "topic"` | Search → **clone/pull** → **prove** (detect + allowlisted install/test) → notes |
 | **Connect one repo** | `nexus github connect owner/repo` | Shallow clone or `git pull` into `.nexus_workspaces/scout_repos/` + prove |
-| **Mine (use, don’t follow)** | `nexus github mine run -q "topic"` | Like followme: discover → grade (Ollama) → **clone/prove for your code** — never follow/star |
+| **Mine (use, don’t follow)** | `nexus github mine run -q "topic"` | Discover → **Grok grade** (Ollama/heuristic fallback) → **clone for your code** — never follow/star |
+| **Improve ours** | `nexus github mine improve-ours --apply --worker grok` | Port patterns from scored clones; **Grok hard worker** by default |
 | **Improve (arXiv + scout)** | `nexus github improve --arxiv "…" --scout "…"` | Papers **and** other repos → notes → optional `--apply` fix job |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
@@ -239,17 +246,28 @@ nexus github scout "multi agent durable" --workdir . --connect --prove
 nexus github connect langchain-ai/langgraph --workdir . --prove   # one repo
 
 # Discover + grade + USE other repos (not follow/star) → improve OURS
-nexus github mine run -q "multi agent durable" -n 8 --min-score 12 --improve
-nexus github mine improve-ours                    # write IMPROVE_OURS.md plan
-nexus github mine improve-ours --apply --repo YOU/REPO   # port patterns (opt-in)
+# Grading: Grok 4.5 (hard) → local Ollama (light) → heuristic
+nexus github mine run -q "multi agent durable" -n 10 --min-score 12 \
+  --grader auto --improve
+nexus github mine evaluate -l 10 --grader grok      # force Grok 4.5 scores
+nexus github mine improve-ours                      # write IMPROVE_OURS.md plan
+nexus github mine improve-ours --apply --worker grok  # Grok hard-apply (opt-in)
 # SQLite: .nexus_state/repo_mine.sqlite  ·  clones: .nexus_workspaces/scout_repos/
+
+# Full self-improve cycle: 10 repos + 10 arXiv + Grok reason + apply + push (if tests green)
+export NEXUS_GROK_MODEL=grok-4.5
+PYTHONPATH=src python3 scripts/full_self_improve_cycle.py           # once
+PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 120
+# stop watch:  touch .nexus_state/STOP_FULL_CYCLE
+# arXiv dedup: docs/ARXIV_LEDGER.csv  (open in Excel; agents read it too)
 
 # Schedule ChatGPT/Claude-friendly machine jobs (cron text)
 nexus schedule -q "multi agent durable" --mcp-http
 # → heartbeat + mine + optional MCP HTTP for ChatGPT Connectors (tunnel required)
 
 # Research loop: arXiv papers + other repos → improve this codebase
-nexus github improve --arxiv "multi agent orchestration" --with-scout --max 6
+# (skips paper ids already listed in ARXIV_LEDGER.csv)
+nexus github improve --arxiv "multi agent orchestration" --with-scout --max 10
 nexus github improve --scout "your topic" --apply        # scout-only + nexus do
 # Continuous on your machine: comments + daily papers + twice-daily repo scout
 nexus github watch --autonomous --workdir . \
@@ -312,8 +330,17 @@ you / contributor replies on issue or PR
 
 **Any local LLM** (Ollama / OpenAI-compatible) and **cloud agents** should share the same tools and hand off through NEXUS. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
 
+**Recommended split of labor**
+
+| Work | Engine | Notes |
+|------|--------|--------|
+| **Hard grading** (idea/skill on mined repos) | **Grok 4.5 CLI** | `grader=auto\|grok` |
+| **Hard improve / apply** | **Grok 4.5 CLI** | `worker=auto\|grok` — agentic edits + tests |
+| **Light bus turns / drafts** | **Ollama / nexus-local** | Cheap; grade fallback if Grok offline |
+| **Offline** | Heuristic keywords | `--heuristic-only` |
+
 ```text
-  Grok CLI ──┐   (cloud Grok *or* /model nexus-local)
+  Grok CLI ──┐   (cloud grok-4.5 *or* /model nexus-local for light work)
   Cursor   ──┼──►  Workspace MCP (nexus mcp)  ──►  project tools
   Claude   ──┤         + event bus                 (files, tests, github,
   Codex    ──┤         + durable engine             scout, workspace chat)
@@ -331,6 +358,7 @@ you / contributor replies on issue or PR
 ```bash
 # One-time on this machine (project root = your repo)
 nexus platforms connect --path . --start
+export NEXUS_GROK_MODEL=grok-4.5   # pin hard worker / grader
 
 # Grok CLI: tools from MCP work for *whatever model* you pick (including local)
 grok                          # enable MCP server nexus-workspace if prompted
@@ -340,7 +368,7 @@ grok                          # enable MCP server nexus-workspace if prompted
 # Claude Desktop: merge connectors/examples/claude-desktop.nexus.json
 ```
 
-**Rule:** the local LLM is not second-class. **(1)** Inside **Grok CLI** (or Cursor) with `nexus-workspace` MCP, it uses the same tools as cloud models. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
+**Rule:** local models share the same **tools**, but **hard grading and hard apply default to Grok 4.5**. **(1)** Inside **Grok CLI** (or Cursor) with `nexus-workspace` MCP, models share project tools. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
 
 ```bash
 nexus platforms doctor          # mesh health
@@ -352,7 +380,7 @@ Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_S
 
 ### Alive — self-improve under your goals + token budget
 
-NEXUS can stay **alive**: search/research the ecosystem, **score repos**, plan improvements to **your** code, and optionally self-approve when tests pass — while you **throttle tokens**.
+NEXUS can stay **alive**: search/research the ecosystem, **score repos with Grok**, pull **new** arXiv papers, plan improvements to **your** code, and optionally self-approve when tests pass — while you **throttle tokens**.
 
 #### ML architecture (alive / mine / budget)
 
@@ -362,28 +390,47 @@ NEXUS can stay **alive**: search/research the ecosystem, **score repos**, plan i
 
 | Layer | Role |
 |-------|------|
-| **① User goal** | `alive.json` — what to chase, apply?, self_approve? |
+| **① User goal** | `alive.json` — what to chase, `grader`/`worker`, apply?, self_approve? |
 | **② Token budget** | Daily/monthly/per-call caps; block or warn (`nexus usage`) |
-| **③ Sensors** | GitHub search, arXiv, clones, issues/PRs, heartbeat |
-| **④ Scoring** | idea + skill for **reuse** (Ollama or heuristic) — never follow/star |
-| **⑤ Improve ours** | USE clones → IMPROVE_OURS.md → tests → optional self-approve |
-| **⑥ Publish** | `push_github` → commit allowlisted files → `git push` (no force) |
-| **⑦ Control** | `alive watch` / `scripts/alive_both.sh` — lab + product together |
+| **③ Sensors** | GitHub search, arXiv (ledger-aware), clones, issues/PRs, heartbeat |
+| **④ Scoring** | idea + skill for **reuse** — **Grok 4.5** → Ollama → heuristic — never follow/star |
+| **⑤ Improve ours** | USE clones → plan → **Grok hard apply** (or bus) → tests |
+| **⑥ Publish** | `push_github` → commit allowlisted paths → `git push` **only if tests green** (no force) |
+| **⑦ Control** | `alive watch` / `scripts/full_self_improve_cycle.py --watch` — keep going until you stop |
 
 ```bash
 nexus usage set --daily 200000 --monthly 3000000   # throttle
-nexus alive init --goal "improve multi-agent durability" -q "multi agent durable"
+export NEXUS_GROK_MODEL=grok-4.5
+
+nexus alive init \
+  --goal "improve multi-agent durability" \
+  -q "multi agent durable" \
+  --grader auto --worker grok \
+  --repo VincentMarquez/nexus-core
 nexus alive once                                   # mine → plan (budget-aware)
 nexus alive watch --interval 3600                  # keep going
 
-# FULL loop: improve + land on GitHub (opt-in)
+# FULL loop: improve + land on GitHub (opt-in; refuses push if pytest fails)
 nexus alive init --repo YOU/REPO --apply --self-approve --push-github
 nexus alive once    # mine → tests → commit → git push (no force)
-# lab still runs separately:  cd ~/Desktop/research && python3 run.py
+
+# Heavier product cycle: 10 repos + 10 arXiv + Grok reason + apply
+PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 120
+# stop: touch .nexus_state/STOP_FULL_CYCLE
+
 nexus usage status
 ```
 
-Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · merge lab: **[docs/MERGE_REAL_NEXUS.md](docs/MERGE_REAL_NEXUS.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
+**What gets committed when publish runs** (allowlist): `src/`, `docs/`, `tests/`, `scripts/`, **`README.md`**, `CHANGELOG.md`, … — never `.nexus_state/`, secrets, or force-push.
+
+| Artifact | Purpose |
+|----------|---------|
+| [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) | Excel-readable list of papers already used (skip next cycle) |
+| [`docs/SELF_IMPROVE_CYCLE.md`](docs/SELF_IMPROVE_CYCLE.md) | Latest Grok reasoning plan |
+| [`docs/LATEST_IMPROVE_PLAN.md`](docs/LATEST_IMPROVE_PLAN.md) | Snapshot for the next apply |
+| [`docs/ALIVE_IMPROVEMENTS.md`](docs/ALIVE_IMPROVEMENTS.md) | Running log of cycles |
+
+Docs: **[docs/ALIVE.md](docs/ALIVE.md)** · mine: **[docs/REPO_MINE.md](docs/REPO_MINE.md)** · platforms: **[docs/PLATFORMS.md](docs/PLATFORMS.md)** · merge lab: **[docs/MERGE_REAL_NEXUS.md](docs/MERGE_REAL_NEXUS.md)** · schedule: **[docs/SCHEDULE_AGENTS.md](docs/SCHEDULE_AGENTS.md)** · figure `docs/assets/arch-alive-self-improve.svg`
 
 ### Resilience (power / WiFi / cloud poke)
 
@@ -403,11 +450,20 @@ Full docs: **[docs/RESILIENCE.md](docs/RESILIENCE.md)** · cookbook **[11](cookb
 
 ### Research (arXiv)
 
+Search and brief papers; **do not reprocess the same paper** across cycles.
+
 ```bash
 nexus arxiv search "retrieval augmented generation"
-nexus research "durable multi-agent systems" --max 8
+nexus research "durable multi-agent systems" --max 10
 # optional PDFs:  nexus research "…" --pdf
 ```
+
+| File | Role |
+|------|------|
+| [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) | Canonical seen-ids (open in Excel / Sheets; Grok reads it) |
+| [`docs/ARXIV_LEDGER.md`](docs/ARXIV_LEDGER.md) | Short markdown twin |
+
+Pipeline: over-fetch → drop ids already in the CSV (version-stripped) → record new rows → only reuse old papers if not enough new hits.
 
 Persona: [docs/agents/RESEARCH_ARXIV.md](docs/agents/RESEARCH_ARXIV.md) · cookbook [08](cookbook/08_arxiv_research.md)
 
