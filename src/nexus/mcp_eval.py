@@ -34,6 +34,8 @@ SCHEMA_VERSION = "nexus.mcp_eval/v1"
 SCENARIO_PACK_SCHEMA = "nexus.scenario_pack/v1"
 DEFAULT_OUT_DIR = ".nexus_state/mcp_eval"
 DEFAULT_PACK_DIR = ".nexus_state/mcp_eval/packs"
+# Committed samples (git-tracked); runtime copies land under DEFAULT_PACK_DIR
+BUNDLED_PACKS_REL = "fixtures/mcp_eval/packs"
 
 # ---------------------------------------------------------------------------
 # Models
@@ -267,6 +269,105 @@ def discover_packs(
     if not d.is_dir():
         return []
     return sorted(p for p in d.glob("*.json") if p.is_file())
+
+
+def bundled_packs_dir(
+    workdir: Optional[Path | str] = None,
+) -> Optional[Path]:
+    """Locate committed sample packs under ``fixtures/mcp_eval/packs``.
+
+    Search order:
+    1. ``workdir/fixtures/mcp_eval/packs``
+    2. package-adjacent repo root (``src/nexus/../../fixtures/...``)
+    3. ``cwd/fixtures/mcp_eval/packs``
+    """
+    candidates: list[Path] = []
+    if workdir is not None:
+        candidates.append(Path(workdir).resolve() / BUNDLED_PACKS_REL)
+    # src/nexus/mcp_eval.py → repo root
+    pkg_root = Path(__file__).resolve().parents[2]
+    candidates.append(pkg_root / BUNDLED_PACKS_REL)
+    candidates.append(Path.cwd().resolve() / BUNDLED_PACKS_REL)
+    seen: set[Path] = set()
+    for d in candidates:
+        if d in seen:
+            continue
+        seen.add(d)
+        if d.is_dir() and any(d.glob("*.json")):
+            return d
+    return None
+
+
+def list_bundled_packs(
+    workdir: Optional[Path | str] = None,
+) -> list[Path]:
+    """Sorted ``*.json`` sample packs shipped in the repo (not runtime state)."""
+    d = bundled_packs_dir(workdir)
+    if d is None:
+        return []
+    return sorted(p for p in d.glob("*.json") if p.is_file())
+
+
+def ensure_sample_packs(
+    workdir: Path | str,
+    *,
+    pack_dir: str = DEFAULT_PACK_DIR,
+    force: bool = False,
+    source: Optional[Path | str] = None,
+) -> dict[str, Any]:
+    """Copy bundled sample packs into ``workdir/pack_dir`` (idempotent).
+
+    ``.nexus_state/`` is gitignored; this installs CI-friendly samples so
+    ``--discover-packs`` finds them. Never overwrites existing files unless
+    *force* is True. Pattern: AssetOpsBench ``scenarios/`` packs, local copy.
+    """
+    root = Path(workdir).resolve()
+    rel = str(pack_dir or DEFAULT_PACK_DIR).lstrip("/\\")
+    if ".." in Path(rel).parts:
+        raise ScenarioPackError("pack_dir escapes project root")
+    dest_dir = root / rel
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    src_dir = Path(source).resolve() if source else bundled_packs_dir(root)
+    if src_dir is None or not src_dir.is_dir():
+        return {
+            "ok": False,
+            "installed": [],
+            "skipped": [],
+            "dest": str(dest_dir),
+            "source": None,
+            "reason": "bundled_packs_not_found",
+        }
+
+    installed: list[str] = []
+    skipped: list[str] = []
+    for src in sorted(src_dir.glob("*.json")):
+        if not src.is_file():
+            continue
+        dest = dest_dir / src.name
+        if dest.is_file() and not force:
+            skipped.append(src.name)
+            continue
+        try:
+            dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            installed.append(src.name)
+        except OSError as e:
+            return {
+                "ok": False,
+                "installed": installed,
+                "skipped": skipped,
+                "dest": str(dest_dir),
+                "source": str(src_dir),
+                "reason": f"write_error:{e}",
+            }
+    return {
+        "ok": True,
+        "installed": installed,
+        "skipped": skipped,
+        "dest": str(dest_dir),
+        "source": str(src_dir),
+        "count": len(installed) + len(skipped),
+    }
 
 
 def merge_scenarios(
@@ -756,6 +857,135 @@ def set_llm_judge(
     """Register or clear a process-wide LLM-as-judge scorer (opt-in)."""
     global _LLM_JUDGE_FN
     _LLM_JUDGE_FN = fn
+
+
+def make_ollama_judge(
+    *,
+    host: str = "http://127.0.0.1:11434",
+    model: str = "gemma2",
+    timeout: float = 60.0,
+    fallback_heuristic: bool = True,
+) -> Callable[[Scenario, Trajectory], ScorerResult]:
+    """Build an opt-in Ollama LLM-as-judge (AssetOpsBench judge spirit).
+
+    Offline-safe: when Ollama is down and *fallback_heuristic* is True,
+    uses :func:`score_heuristic_judge`. When False, returns fail-closed
+    ``ollama_unavailable``. Never logs secrets from the trajectory.
+    """
+    import urllib.error
+    import urllib.request
+
+    def _judge(scenario: Scenario, traj: Trajectory) -> ScorerResult:
+        if traj.is_error:
+            return ScorerResult(
+                ok=False, score=0.0, reason="tool_error", method="llm_judge"
+            )
+        criteria = scenario.expected
+        if isinstance(criteria, dict):
+            criteria_text = str(
+                criteria.get("criteria")
+                or criteria.get("characteristic_form")
+                or criteria.get("text")
+                or criteria
+            )
+        else:
+            criteria_text = str(criteria or "")
+        answer_preview = (traj.answer or "")[:2000]
+        prompt = (
+            "You are a strict offline eval judge for an MCP tool smoke test.\n"
+            "Reply with ONLY JSON: "
+            '{"ok": <bool>, "score": <0.0-1.0>, "reason": "<short>"}\n'
+            f"Scenario: {scenario.id} tool={scenario.tool}\n"
+            f"Question: {scenario.text}\n"
+            f"Criteria: {criteria_text[:1500]}\n"
+            f"Tool answer (truncated):\n{answer_preview}\n"
+        )
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.0, "num_predict": 128},
+            "format": "json",
+        }
+        url = host.rstrip("/") + "/api/generate"
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                body = json.loads(r.read().decode())
+            text = (body.get("response") or "").strip()
+            obj: Any = None
+            if text.startswith("{"):
+                obj = json.loads(text)
+            else:
+                m = re.search(r"\{.*\}", text, re.S)
+                if m:
+                    obj = json.loads(m.group(0))
+            if not isinstance(obj, dict):
+                raise ValueError("non_json_response")
+            ok = bool(obj.get("ok"))
+            try:
+                score = float(obj.get("score"))
+            except (TypeError, ValueError):
+                score = 1.0 if ok else 0.0
+            score = max(0.0, min(1.0, score))
+            reason = str(obj.get("reason") or "ollama_judge")[:200]
+            return ScorerResult(
+                ok=ok,
+                score=round(score, 4),
+                reason=reason,
+                method="llm_judge",
+            )
+        except Exception as e:
+            if fallback_heuristic:
+                base = score_heuristic_judge(scenario, traj)
+                return ScorerResult(
+                    ok=base.ok,
+                    score=base.score,
+                    reason=f"ollama_fallback:{type(e).__name__}:{base.reason}",
+                    method="llm_judge",
+                )
+            return ScorerResult(
+                ok=False,
+                score=0.0,
+                reason=f"ollama_unavailable:{type(e).__name__}",
+                method="llm_judge",
+            )
+
+    return _judge
+
+
+def configure_llm_judge_from_env() -> Optional[str]:
+    """Register Ollama judge when ``NEXUS_MCP_EVAL_LLM_JUDGE`` is truthy.
+
+    Env:
+    - ``NEXUS_MCP_EVAL_LLM_JUDGE`` — 1/true/on enables adapter
+    - ``NEXUS_OLLAMA_HOST`` / ``OLLAMA_HOST`` — default 127.0.0.1:11434
+    - ``NEXUS_OLLAMA_MODEL`` / ``OLLAMA_MODEL`` — default gemma2
+
+    Returns method label when configured, else None.
+    """
+    import os
+
+    flag = (os.environ.get("NEXUS_MCP_EVAL_LLM_JUDGE") or "").strip().lower()
+    if flag not in {"1", "true", "yes", "on", "ollama"}:
+        return None
+    host = (
+        os.environ.get("NEXUS_OLLAMA_HOST")
+        or os.environ.get("OLLAMA_HOST")
+        or "http://127.0.0.1:11434"
+    )
+    model = (
+        os.environ.get("NEXUS_OLLAMA_MODEL")
+        or os.environ.get("OLLAMA_MODEL")
+        or "gemma2"
+    )
+    set_llm_judge(make_ollama_judge(host=host, model=model))
+    return f"ollama:{model}"
 
 
 def score_llm_judge(scenario: Scenario, traj: Trajectory) -> ScorerResult:

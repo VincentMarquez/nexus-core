@@ -2458,30 +2458,59 @@ def cmd_eval(args: argparse.Namespace) -> int:
         return 0
 
     if sub == "packs":
-        found = me.discover_packs(root)
-        if as_json:
-            print(
-                json.dumps(
-                    {
-                        "schema": me.SCENARIO_PACK_SCHEMA,
-                        "pack_dir": me.DEFAULT_PACK_DIR,
-                        "count": len(found),
-                        "packs": [str(p) for p in found],
-                    },
-                    indent=2,
-                )
+        install = bool(getattr(args, "install_samples", False))
+        install_result = None
+        if install:
+            install_result = me.ensure_sample_packs(
+                root, force=bool(getattr(args, "force", False))
             )
+        found = me.discover_packs(root)
+        bundled = me.list_bundled_packs(root)
+        payload = {
+            "schema": me.SCENARIO_PACK_SCHEMA,
+            "pack_dir": me.DEFAULT_PACK_DIR,
+            "count": len(found),
+            "packs": [str(p) for p in found],
+            "bundled_dir": str(me.bundled_packs_dir(root) or ""),
+            "bundled": [str(p) for p in bundled],
+            "bundled_count": len(bundled),
+        }
+        if install_result is not None:
+            payload["install"] = install_result
+        if as_json:
+            print(json.dumps(payload, indent=2, default=str))
         else:
             print(f"pack_dir: {root / me.DEFAULT_PACK_DIR}  count={len(found)}")
             for p in found:
-                print(f"  {p.relative_to(root)}")
-        return 0
+                try:
+                    print(f"  {p.relative_to(root)}")
+                except ValueError:
+                    print(f"  {p}")
+            if bundled:
+                print(f"bundled:  {me.bundled_packs_dir(root)}  count={len(bundled)}")
+                for p in bundled:
+                    print(f"  {p.name}")
+            if install_result is not None:
+                print(
+                    f"install: ok={install_result.get('ok')} "
+                    f"installed={install_result.get('installed')} "
+                    f"skipped={install_result.get('skipped')}"
+                )
+        return 0 if (install_result is None or install_result.get("ok")) else 1
 
     if sub in ("run", "smoke"):
         do_export = not bool(getattr(args, "no_export", False))
         out_dir = getattr(args, "out", None) or me.DEFAULT_OUT_DIR
         # Ensure project-local tools see the intended root
         os.environ.setdefault("NEXUS_PROJECT_ROOT", str(root))
+        if bool(getattr(args, "install_samples", False)):
+            me.ensure_sample_packs(root)
+            discover = True
+        if bool(getattr(args, "llm_judge", False)):
+            os.environ.setdefault("NEXUS_MCP_EVAL_LLM_JUDGE", "1")
+            me.configure_llm_judge_from_env()
+        elif os.environ.get("NEXUS_MCP_EVAL_LLM_JUDGE"):
+            me.configure_llm_judge_from_env()
         report = me.run_and_export(
             root,
             domains=domains,
@@ -3788,6 +3817,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             action="store_true",
             help="also load *.json under .nexus_state/mcp_eval/packs",
         )
+        p.add_argument(
+            "--install-samples",
+            action="store_true",
+            help="copy fixtures sample packs then enable --discover-packs",
+        )
+        p.add_argument(
+            "--llm-judge",
+            action="store_true",
+            help="register Ollama LLM-as-judge (falls back to heuristic offline)",
+        )
         p.add_argument("--json", action="store_true")
 
     ev_list = ev_sub.add_parser(
@@ -3797,10 +3836,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     ev_list.set_defaults(func=cmd_eval)
 
     ev_packs = ev_sub.add_parser(
-        "packs", help="list discovered JSON packs under default pack dir"
+        "packs",
+        help="list discovered JSON packs; --install-samples copies fixtures/",
     )
     ev_packs.add_argument("--path", default=None, help="project root (default: cwd)")
     ev_packs.add_argument("--json", action="store_true")
+    ev_packs.add_argument(
+        "--install-samples",
+        action="store_true",
+        help="copy fixtures/mcp_eval/packs/*.json → .nexus_state/mcp_eval/packs/",
+    )
+    ev_packs.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite existing installed sample packs",
+    )
     ev_packs.set_defaults(func=cmd_eval)
 
     for name, help_s in (

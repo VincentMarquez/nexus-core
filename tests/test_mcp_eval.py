@@ -485,3 +485,152 @@ def test_cli_eval_pack_flag(tmp_path: Path, monkeypatch, capsys):
     rep = json.loads(capsys.readouterr().out)
     assert rep["ok"]
     assert rep["total"] == 1
+
+
+# ---------------------------------------------------------------------------
+# P2.6 sample packs + P2.5 ollama judge adapter
+# ---------------------------------------------------------------------------
+
+
+def test_ensure_sample_packs_from_bundled(tmp_path: Path):
+    """Copy fixtures/mcp_eval/packs → .nexus_state/mcp_eval/packs (idempotent)."""
+    # Build a local bundled source that mirrors repo fixtures layout
+    src = tmp_path / "fixtures" / "mcp_eval" / "packs"
+    src.mkdir(parents=True)
+    me.write_scenario_pack(
+        src / "operator_smoke.json",
+        [
+            me.Scenario(
+                id="sample.operator.status",
+                domain="status",
+                text="status",
+                tool="nexus_status",
+                scoring_method="tool_ok",
+                tags=["sample"],
+            )
+        ],
+        name="operator_smoke",
+        description="fixture sample",
+    )
+    (src / "readme_only.txt").write_text("ignore\n", encoding="utf-8")
+
+    res = me.ensure_sample_packs(tmp_path, source=src)
+    assert res["ok"] is True
+    assert "operator_smoke.json" in res["installed"]
+    dest = tmp_path / ".nexus_state" / "mcp_eval" / "packs" / "operator_smoke.json"
+    assert dest.is_file()
+
+    # second call skips existing
+    res2 = me.ensure_sample_packs(tmp_path, source=src)
+    assert res2["ok"]
+    assert res2["installed"] == []
+    assert "operator_smoke.json" in res2["skipped"]
+
+    found = me.discover_packs(tmp_path)
+    assert any(p.name == "operator_smoke.json" for p in found)
+
+    suite = me.resolve_scenarios(
+        workdir=tmp_path, include_builtin=False, discover=True
+    )
+    assert any(s.id == "sample.operator.status" for s in suite)
+
+
+def test_list_bundled_packs_repo_fixtures():
+    """Repo-shipped fixtures are discoverable when present."""
+    # Prefer real repo fixtures when tests run from checkout
+    repo = Path(__file__).resolve().parents[1]
+    d = me.bundled_packs_dir(repo)
+    if d is None:
+        pytest.skip("fixtures/mcp_eval/packs not present")
+    packs = me.list_bundled_packs(repo)
+    names = {p.name for p in packs}
+    assert "operator_smoke.json" in names
+    assert "privilege_safety.json" in names
+    # load without network
+    rows = me.load_scenario_pack(d / "operator_smoke.json")
+    assert len(rows) >= 1
+    assert all(r.tool for r in rows)
+
+
+def test_make_ollama_judge_falls_back_offline():
+    """Ollama adapter falls back to heuristic when host is unreachable."""
+    judge = me.make_ollama_judge(
+        host="http://127.0.0.1:1",  # closed port
+        model="gemma2",
+        timeout=0.2,
+        fallback_heuristic=True,
+    )
+    sc = me.Scenario(
+        id="j",
+        domain="x",
+        text="t",
+        tool="t",
+        scoring_method="llm_judge",
+        expected="project_root server nexus",
+    )
+    r = judge(sc, _traj("project_root=/tmp server=nexus-workspace ok"))
+    assert r.method == "llm_judge"
+    assert "fallback" in r.reason or r.ok
+    assert r.ok  # heuristic should hit tokens
+
+    judge_strict = me.make_ollama_judge(
+        host="http://127.0.0.1:1",
+        timeout=0.2,
+        fallback_heuristic=False,
+    )
+    r2 = judge_strict(sc, _traj("project_root=/tmp"))
+    assert not r2.ok
+    assert "ollama_unavailable" in r2.reason
+
+
+def test_configure_llm_judge_from_env(monkeypatch):
+    me.set_llm_judge(None)
+    monkeypatch.delenv("NEXUS_MCP_EVAL_LLM_JUDGE", raising=False)
+    assert me.configure_llm_judge_from_env() is None
+
+    monkeypatch.setenv("NEXUS_MCP_EVAL_LLM_JUDGE", "1")
+    monkeypatch.setenv("NEXUS_OLLAMA_MODEL", "test-model")
+    label = me.configure_llm_judge_from_env()
+    assert label == "ollama:test-model"
+    try:
+        # registered callable should be invokable (offline fallback)
+        sc = me.Scenario(
+            id="e",
+            domain="x",
+            text="t",
+            tool="t",
+            scoring_method="llm_judge",
+            expected="hello world",
+        )
+        r = me.score_llm_judge(sc, _traj("hello world from tool"))
+        assert r.method == "llm_judge"
+    finally:
+        me.set_llm_judge(None)
+
+
+def test_cli_install_samples(tmp_path: Path, monkeypatch, capsys):
+    # local fixtures under tmp project
+    src = tmp_path / "fixtures" / "mcp_eval" / "packs"
+    src.mkdir(parents=True)
+    me.write_scenario_pack(
+        src / "operator_smoke.json",
+        [
+            me.Scenario(
+                id="cli.sample",
+                domain="status",
+                text="s",
+                tool="nexus_status",
+                scoring_method="tool_ok",
+            )
+        ],
+        name="operator_smoke",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NEXUS_PROJECT_ROOT", str(tmp_path))
+    rc = cli_main(
+        ["eval", "packs", "--path", str(tmp_path), "--install-samples", "--json"]
+    )
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["install"]["ok"] is True
+    assert out["count"] >= 1

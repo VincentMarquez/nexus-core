@@ -1,106 +1,92 @@
 # Latest improve plan (from full self-improve cycle)
 
-_Generated 2026-07-15 · Grok 4.5 hard-apply session_
+_Generated 2026-07-15 · Grok 4.5 hard-apply · 10+ repos + 20 arXiv_
 
-Model: `grok-4.5` · mined repos ≥10 · arXiv improve notes under `.nexus_state/arxiv_improve/`
+Model: `grok-4.5` · sources: `.nexus_state/repo_mine/IMPROVE_OURS.md` + arXiv `rx-3c113dc2aa` / prior notes
 
 ---
 
-## 1. Goal
+## Goal
 
-Self-improve **nexus-core** from mined multi-agent repos + arXiv papers: small, tested ports of patterns (not vendored trees). Keep `pytest` green.
+Self-improve nexus-core from mined multi-agent repos + arXiv, with **small, tested** slices. Prefer patterns (not vendored trees) from `.nexus_workspaces/scout_repos/`.
 
-## 2. Evidence used
+## Evidence already landed (prior cycles)
 
-### Mined repos (IMPROVE_OURS, score ≥ 10)
+P0 durability (atomic persist, budgets, taint, state slice, eval memory, principled stop, independent verify) · P1 ops plane / DAG / consensus / context pack / vault+gaps · P2 skillpacks / tool catalog / MCP eval · P3 review→promote + improve_apply promote gate.
 
-| Repo | Score | Pattern to port |
-|------|------:|-----------------|
-| **IBM/AssetOpsBench** | 15 | **JSON scenario packs + static/judge scorers (P2.4)** |
-| Intelligent-Internet/zenith | 13 | Independent verify before close/promote (P3.1) |
-| wmcmahan/cycgraph (prior) | — | Promote-gate discipline (already in durability) |
-| builderz-labs/mission-control | 15 | CLI/MCP/export parity |
-| ahmedEid1/lumen | 15 | Phase guards + honest grades |
-| wshobson/agents | 16 | Multi-harness skillpacks (done P2.1) |
-| phodal/routa | 15 | Board/evidence export |
-| labsai/EDDI | 16 | Production config signals |
-| (+ more in IMPROVE_OURS) | | |
+## First apply slice (this session) — P2.6 + P2.5 + P3.2
 
-### arXiv (latest `improve-rx-0a75f9514d` + prior)
+Close the open items from the previous hard-apply cycle:
 
-| Id | Idea for NEXUS |
-|----|----------------|
-| 2203.08975 | Multi-agent communication survey → tool surface health smoke |
-| 2511.15755 | Deterministic multi-agent decision audit |
-| 2508.08322 | Context engineering packs (landed P1.4) |
-| 2510.13343 | Ordered action decisions / next_agent (landed) |
-| 2512.03278 | Evidence-linked claims (grade + audit) |
-| 2310.12670 | Fault-tolerant checkpointing |
-| 2508.02866 | PROV-AGENT provenance (landed operator board) |
+1. **Sample scenario pack fixtures** (in-repo, AssetOpsBench shape)
+2. **Wire `promote_on_done` from alive cycle**
+3. **Optional real LLM judge adapter** (Ollama, offline fallback)
 
-## 3. Prior slices already landed
+### P2.6 — sample packs under `fixtures/mcp_eval/packs/`
 
-P0 durability · P1 operator board · improve_apply FSM · grade_artifact · ops_store · skillpacks · tool_catalog · **P2.3 domain MCP eval smoke** · **P3 engine review→promote** · context pack · vault · gap seed · consensus · DAG.
+`.nexus_state/` is gitignored, so samples **ship** under committed fixtures and install on demand:
 
-## 4. Open backlog (priority)
+| Path | Role |
+|------|------|
+| `fixtures/mcp_eval/packs/operator_smoke.json` | read-only operator surface |
+| `fixtures/mcp_eval/packs/privilege_safety.json` | path jail + vault no-leak + catalog validate |
+| `src/nexus/mcp_eval.py` | `bundled_packs_dir`, `list_bundled_packs`, `ensure_sample_packs` |
+| CLI | `nexus eval packs --install-samples` · `nexus eval smoke --install-samples` |
 
-| Pri | Item | Source | Status |
-|-----|------|--------|--------|
-| P2.3 | Domain MCP eval smoke | AssetOpsBench | **done** |
-| P3 | Engine review→promote hook | zenith / cycgraph | **done** |
-| **P2.4** | **JSON scenario packs + pack CLI/MCP** | AssetOpsBench scenarios/*.json | **this session** |
-| **P2.5** | **Optional llm_judge scorer (pluggable; offline fallback)** | AssetOpsBench static_json / judge | **this session** |
-| **P3.1** | **improve_apply promote gate wiring** | zenith IndependentVerify | **this session** |
+Patterns: IBM/AssetOpsBench `scenarios/*.json`; mission-control CLI/export parity.
 
-## 5. First apply slice (this session) — P2.4 + P2.5 + P3.1
+### P2.5 — Ollama LLM-as-judge adapter
 
-### P2.4 — JSON scenario packs
+| API | Behavior |
+|-----|----------|
+| `make_ollama_judge(host=, model=)` | HTTP `/api/generate` JSON ok/score/reason |
+| Offline | heuristic keyword fallback (CI-safe) |
+| Env | `NEXUS_MCP_EVAL_LLM_JUDGE=1` + optional `NEXUS_OLLAMA_*` |
+| CLI | `nexus eval smoke --llm-judge` |
 
-**Load AssetOpsBench-shaped JSON packs and merge with the built-in suite.**
+Patterns: AssetOpsBench judge scorer; small multi-LLM tool agents (arXiv 2401.07324).
 
-#### Scope
+### P3.2 — alive `promote_on_done`
 
-1. `src/nexus/mcp_eval.py`
-   - `nexus.scenario_pack/v1` load/write/merge/discover
-   - Alias map for AssetOpsBench fields (`type`→domain, `args`→arguments, `characteristic_form`→expected)
-   - `evaluate` / `list_scenarios` / `run_and_export` accept `--pack` / discover
-2. CLI: `nexus eval list|smoke|run|packs` with `--pack`, `--no-builtin`, `--discover-packs`
-3. MCP tool `mcp_eval`: `pack`, `no_builtin`, `discover_packs`, action `packs`
-4. Tests: pack load/merge/discover/CLI
+| Knob | Default | Effect |
+|------|---------|--------|
+| `AliveConfig.promote_on_done` | `false` | After self_check, run dry `ImproveApplyRun` with IndependentVerify |
+| `AliveConfig.promote_require` | `false` | Fail-closed (block cycle) when verify denies |
 
-### P2.5 — Optional LLM-as-judge (offline-safe)
+Patterns: zenith independent validation; cycgraph promote gate; lumen decision audit path.
 
-1. Scorers: `heuristic_judge`, `llm_judge` (injected callable; fallback to heuristic)
-2. Fail-closed only when `expected.require_llm=true` and no judge registered
-3. Alias `static_json` → `json_path_eq`
+## Success criteria
 
-### P3.1 — improve_apply promote gate
+- [x] Sample packs load as `nexus.scenario_pack/v1` and install into `.nexus_state/mcp_eval/packs/`
+- [x] `nexus eval packs --install-samples` reports installed/skipped
+- [x] Ollama judge adapter falls back offline without network
+- [x] Alive config round-trips promote knobs; green checks → promote ok
+- [x] `pytest` green
 
-1. `ImproveApplyRun._promote_gate()` before `done` when `meta.promote_on_done`
-2. Uses `IndependentVerify` (cross-agent by default; degraded same-agent for demos)
-3. Fail-closed on `meta.promote_require`; soft-deny still completes
-4. Timeline events `promote` / `promote_denied`; `meta.promote` audit blob
+## Non-goals
 
-### Non-goals
+- No vendored AssetOpsBench industrial IoT trees
+- No force-push / secrets in packs or reports
+- No full multi-grader panel (consensus already exists)
 
-- Do not vendor AssetOpsBench monorepo / IoT fixtures
-- Do not call network LLMs in default CI path
-- Do not force promote on every improve-apply run (opt-in only)
+## Next open
 
-### Acceptance criteria
+- Wire `promote_on_done=true` in full-cycle alive demos when self_approve lands real apply
+- Optional Grok (not only Ollama) judge adapter behind same `set_llm_judge` hook
+- Scenario pack CI job: `eval smoke --install-samples --tag sample --no-builtin`
 
-- [x] Load pack object / bare array / single scenario JSON
-- [x] Pack id overrides builtin when merged
-- [x] `nexus eval smoke --pack … --no-builtin` green offline
-- [x] `heuristic_judge` / `llm_judge` fallback + require_llm fail-closed
-- [x] improve_apply promote pass journals `promote`; require path stays at `audited`
-- [x] `PYTHONPATH=src python3 -m pytest -q` green
-
-## 6. Commands
+## Commands
 
 ```bash
-nexus eval packs --json
-nexus eval list --pack path/to/pack.json --no-builtin --json
-nexus eval smoke --pack path/to/pack.json --discover-packs --max-privilege read
-PYTHONPATH=src python3 -m pytest -q tests/test_mcp_eval.py tests/test_improve_apply.py
+# install samples + discover
+nexus eval packs --install-samples
+nexus eval smoke --install-samples --tag sample --no-builtin --no-export
+
+# optional LLM judge (Ollama; falls back offline)
+NEXUS_MCP_EVAL_LLM_JUDGE=1 nexus eval smoke --llm-judge --no-export
+
+# alive promote wire (opt-in)
+# set promote_on_done / promote_require in .nexus_state/alive.json
+
+PYTHONPATH=src python3 -m pytest -q
 ```

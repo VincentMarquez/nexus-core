@@ -108,6 +108,68 @@ def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
     assert loaded.seed_gaps is False
 
 
+def test_alive_promote_on_done_knobs_roundtrip(tmp_path, monkeypatch):
+    """P3.2 promote_on_done / promote_require survive alive.json round-trip."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="promote-wire",
+        enabled=True,
+        promote_on_done=True,
+        promote_require=True,
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.promote_on_done is True
+    assert loaded.promote_require is True
+    d = loaded.to_dict()
+    assert d["promote_on_done"] is True and d["promote_require"] is True
+
+
+def test_run_promote_on_done_pass(tmp_path, monkeypatch):
+    """Alive promote step completes improve_apply with IndependentVerify ok."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="promote",
+        enabled=True,
+        promote_on_done=True,
+        promote_require=False,
+        our_repo="local/test",
+    )
+    step = al._run_promote_on_done(
+        tmp_path,
+        cfg,
+        checks={"ok": True, "checks": []},
+        applied=None,
+    )
+    assert step["step"] == "promote_on_done"
+    assert step["ok"] is True
+    assert step["phase"] == "done"
+    prom = step.get("promote") or {}
+    assert prom.get("ok") is True
+    assert prom.get("skipped") is not True
+
+
+def test_run_promote_on_done_require_blocks_on_red(tmp_path, monkeypatch):
+    """promote_require + red tests → blocked step (fail-closed)."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="promote",
+        enabled=True,
+        promote_on_done=True,
+        promote_require=True,
+    )
+    step = al._run_promote_on_done(
+        tmp_path,
+        cfg,
+        checks={"ok": False, "checks": [{"name": "pytest", "ok": False}]},
+        applied=None,
+    )
+    assert step["step"] == "promote_on_done"
+    assert step["ok"] is False
+    # either PhaseGuardError blocked or soft deny with blocked message
+    assert step.get("blocked") or (step.get("promote") or {}).get("ok") is False
+
+
 def test_alive_dry_run_records_principled_stop_on_full_cycle(tmp_path, monkeypatch):
     """Dry-run skips mine/apply but still exits cleanly; stop only on full path.
 

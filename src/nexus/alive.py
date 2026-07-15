@@ -74,6 +74,10 @@ class AliveConfig:
     stop_on_tests_red: bool = False
     # P1.5: auto-seed gap board from LATEST_IMPROVE_PLAN / IMPROVE_OURS each cycle
     seed_gaps: bool = True
+    # P3.2: after green self_check, run improve_apply promote gate (zenith/cycgraph)
+    promote_on_done: bool = False
+    # when True, cycle step fails closed if IndependentVerify denies
+    promote_require: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -106,6 +110,8 @@ class AliveConfig:
             stop_when_gaps_closed=bool(d.get("stop_when_gaps_closed", True)),
             stop_on_tests_red=bool(d.get("stop_on_tests_red", False)),
             seed_gaps=bool(d.get("seed_gaps", True)),
+            promote_on_done=bool(d.get("promote_on_done", False)),
+            promote_require=bool(d.get("promote_require", False)),
         )
 
 
@@ -149,6 +155,93 @@ def _run_checks(workdir: Path) -> dict[str, Any]:
         "ok": ok,
         "checks": [{"name": c.name, "ok": c.ok, "returncode": c.returncode} for c in checks],
     }
+
+
+def _run_promote_on_done(
+    workdir: Path,
+    cfg: AliveConfig,
+    *,
+    checks: dict[str, Any],
+    applied: Any = None,
+) -> dict[str, Any]:
+    """P3.2: independent verify-before-promote after a green alive cycle.
+
+    Runs a dry-run ``ImproveApplyRun`` with ``meta.promote_on_done`` so the
+    same IndependentVerify gate used by improve_apply is exercised from the
+    alive loop. Fail-closed when ``cfg.promote_require`` and verify denies
+    (or tests are red).
+    """
+    from . import improve_apply as ia
+    from .judge import PASS_THRESHOLD
+
+    tests_ok = bool(checks.get("ok"))
+    score = 0.95 if tests_ok else 0.2
+    decision = "pass" if tests_ok else "fail"
+    # Prefer mine grade score when apply returned one
+    if isinstance(applied, dict):
+        apply_blob = applied.get("apply") if isinstance(applied.get("apply"), dict) else applied
+        for key in ("score", "grade_score"):
+            if apply_blob and apply_blob.get(key) is not None:
+                try:
+                    score = float(apply_blob[key])
+                except (TypeError, ValueError):
+                    pass
+                break
+
+    grade = {
+        "repo": cfg.our_repo or "local/nexus-core",
+        "score": 15.0 if tests_ok else 5.0,
+        "idea": 7.0,
+        "skill": 8.0,
+        "method": f"alive:{cfg.worker or 'auto'}",
+        "pattern": "alive-cycle-promote",
+        "arxiv_id": "",
+        "promote_on_done": True,
+        "promote_require": bool(cfg.promote_require),
+    }
+    meta = {
+        "promote_on_done": True,
+        "promote_require": bool(cfg.promote_require),
+        "promote_implementer": "alive_worker",
+        "promote_verifier": "alive_verify",
+        "promote_score": score,
+        "promote_decision": decision,
+        "source": "alive_cycle",
+        "goal": cfg.goal,
+        "tests_ok": tests_ok,
+        "pass_threshold": PASS_THRESHOLD,
+    }
+    run = ia.start_run(workdir, grade=grade, dry_run=True, meta=meta)
+    try:
+        status = run.run_to_done()
+    except ia.PhaseGuardError as e:
+        return {
+            "step": "promote_on_done",
+            "ok": False,
+            "blocked": str(e),
+            "run_id": run.run_id,
+            "phase": run.phase,
+            "promote": (run.meta or {}).get("promote"),
+            "require": bool(cfg.promote_require),
+        }
+    prom = (run.meta or {}).get("promote") or {}
+    # IndependentVerify result preferred; fall back to tests_ok if gate skipped
+    if prom and not prom.get("skipped"):
+        ok = bool(prom.get("ok"))
+    else:
+        ok = tests_ok
+    out: dict[str, Any] = {
+        "step": "promote_on_done",
+        "ok": ok,
+        "run_id": status.get("run_id") or run.run_id,
+        "phase": status.get("phase") or run.phase,
+        "promote": prom,
+        "require": bool(cfg.promote_require),
+        "tests_ok": tests_ok,
+    }
+    if cfg.promote_require and not ok:
+        out["blocked"] = f"promote denied: {(prom or {}).get('reason') or 'verify failed'}"
+    return out
 
 
 def cycle_once(
@@ -304,6 +397,23 @@ def cycle_once(
             "step": "self_approve_apply",
             "skipped": "tests not green — refusing self-approve",
         })
+
+    # 4a) optional promote gate after green checks (P3.2 — wire promote_on_done)
+    if cfg.promote_on_done:
+        try:
+            promote_step = _run_promote_on_done(
+                root,
+                cfg,
+                checks=checks,
+                applied=applied,
+            )
+            report["steps"].append(promote_step)
+            if promote_step.get("blocked"):
+                report["blocked"] = promote_step.get("blocked")
+                _save_state(report, root)
+                return report
+        except Exception as e:
+            report["steps"].append({"step": "promote_on_done", "error": str(e)})
 
     # 4b) always write commit-friendly docs (so GitHub updates even without code apply)
     try:

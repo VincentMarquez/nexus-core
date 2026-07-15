@@ -483,6 +483,11 @@ TOOLS = [
                     "default": False,
                     "description": "Also load *.json under .nexus_state/mcp_eval/packs",
                 },
+                "install_samples": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Copy fixtures/mcp_eval/packs into .nexus_state/mcp_eval/packs",
+                },
                 "export": {
                     "type": "boolean",
                     "default": True,
@@ -1073,21 +1078,30 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 pack_paths.append(str(pp if pp.is_absolute() else (root / pp)))
             include_builtin = not bool(args.get("no_builtin", False))
             discover = bool(args.get("discover_packs", False))
+            install_samples = bool(args.get("install_samples", False))
             try:
                 if action == "packs":
+                    install_result = None
+                    if install_samples:
+                        install_result = me.ensure_sample_packs(root)
                     found = me.discover_packs(root)
+                    bundled = me.list_bundled_packs(root)
+                    payload: dict[str, Any] = {
+                        "schema": me.SCENARIO_PACK_SCHEMA,
+                        "count": len(found),
+                        "packs": [str(p) for p in found],
+                        "bundled": [str(p) for p in bundled],
+                        "bundled_count": len(bundled),
+                    }
+                    if install_result is not None:
+                        payload["install"] = install_result
                     return _tool_result(
-                        json.dumps(
-                            {
-                                "schema": me.SCENARIO_PACK_SCHEMA,
-                                "count": len(found),
-                                "packs": [str(p) for p in found],
-                            },
-                            indent=2,
-                            default=str,
-                        )
+                        json.dumps(payload, indent=2, default=str)
                     )
                 if action == "list":
+                    if install_samples:
+                        me.ensure_sample_packs(root)
+                        discover = True
                     rows = me.list_scenarios(
                         workdir=root,
                         packs=pack_paths or None,
@@ -1109,6 +1123,9 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                         )
                     )
                 if action in ("run", "smoke", "evaluate"):
+                    if install_samples:
+                        me.ensure_sample_packs(root)
+                        discover = True
                     do_export = bool(args.get("export", True))
                     out_dir = str(
                         args.get("out_dir") or me.DEFAULT_OUT_DIR
