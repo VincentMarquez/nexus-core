@@ -13,7 +13,10 @@ Cycle (opt-in apply/self-approve):
   5. Heartbeat + workspace note
   6. Record token estimates
 
-Autonomy defaults remain **off** for apply; ``self_approve`` is an explicit config flag.
+Autonomy defaults remain **off** for apply/push; ``self_approve`` + ``push_github``
+are explicit config flags. Typical full loop::
+
+  mine → score → improve plan → (apply) → tests → commit → push to GitHub
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import heartbeat as hb
+from . import publish as pub
 from . import repo_mine as rm
 from . import usage as usage_mod
 
@@ -45,6 +49,11 @@ class AliveConfig:
     apply: bool = False
     # if true, apply when make/smoke-like checks pass after plan (still needs apply=True)
     self_approve: bool = False
+    # commit + push allowlisted files to GitHub after a successful cycle
+    push_github: bool = False
+    commit_prefix: str = "chore(alive):"
+    git_remote: str = "origin"
+    git_branch: str = ""  # empty = current branch
     use_ollama: bool = True
     prove: bool = True
     our_repo: str = ""
@@ -57,13 +66,17 @@ class AliveConfig:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AliveConfig":
         return cls(
-            goal=str(d.get("goal") or cls.goal),
+            goal=str(d.get("goal") or "improve this repository using research and high-quality open source"),
             queries=list(d.get("queries") or ["multi agent durable"]),
             arxiv_queries=list(d.get("arxiv_queries") or []),
             min_score=float(d.get("min_score") or 12.0),
             fetch_count=int(d.get("fetch_count") or 6),
             apply=bool(d.get("apply", False)),
             self_approve=bool(d.get("self_approve", False)),
+            push_github=bool(d.get("push_github", False)),
+            commit_prefix=str(d.get("commit_prefix") or "chore(alive):"),
+            git_remote=str(d.get("git_remote") or "origin"),
+            git_branch=str(d.get("git_branch") or ""),
             use_ollama=bool(d.get("use_ollama", True)),
             prove=bool(d.get("prove", True)),
             our_repo=str(d.get("our_repo") or ""),
@@ -263,6 +276,50 @@ def cycle_once(
         report["steps"].append({
             "step": "self_approve_apply",
             "skipped": "tests not green — refusing self-approve",
+        })
+
+    # 4b) always write a commit-friendly log under docs/ (the "both" trail)
+    try:
+        log_path = pub.write_improvements_log(root, report)
+        report["steps"].append({"step": "improvements_log", "path": str(log_path)})
+    except Exception as e:
+        report["steps"].append({"step": "improvements_log", "error": str(e)})
+
+    # 4c) re-check after apply before publish
+    if applied and cfg.push_github:
+        checks2 = _run_checks(root)
+        report["steps"].append({"step": "self_check_after_apply", **checks2})
+        checks = checks2
+
+    # 4d) publish to GitHub (commit + optional push) — needs push_github
+    if cfg.push_github:
+        if not checks.get("ok"):
+            report["steps"].append({
+                "step": "publish_github",
+                "skipped": "tests not green — refusing commit/push",
+            })
+        else:
+            try:
+                msg = f"{cfg.commit_prefix} {cfg.goal[:72]}"
+                pub_res = pub.commit_and_maybe_push(
+                    root,
+                    msg,
+                    push=True,
+                    remote=cfg.git_remote or "origin",
+                    branch=cfg.git_branch or None,
+                )
+                report["steps"].append({"step": "publish_github", **pub_res})
+                # rewrite log with publish line
+                try:
+                    pub.write_improvements_log(root, report)
+                except Exception:
+                    pass
+            except Exception as e:
+                report["steps"].append({"step": "publish_github", "error": str(e)})
+    else:
+        report["steps"].append({
+            "step": "publish_github",
+            "skipped": "push_github=false — enable with: nexus alive init --push-github",
         })
 
     # 5) heartbeat

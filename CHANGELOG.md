@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1 — 2026-07-15
+
+### Added
+- **push_github** on alive: commit + push allowlisted files after green tests
+- `docs/ALIVE_IMPROVEMENTS.md` log appended each cycle (safe to commit)
+- `scripts/alive_both.sh` — setup/once/watch for lab + product → GitHub
+- `nexus.publish` helpers (never force-push)
+
 ## 0.9.0 — 2026-07-15
 
 ### Added

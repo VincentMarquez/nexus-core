@@ -367,15 +367,19 @@ NEXUS can stay **alive**: search/research the ecosystem, **score repos**, plan i
 | **③ Sensors** | GitHub search, arXiv, clones, issues/PRs, heartbeat |
 | **④ Scoring** | idea + skill for **reuse** (Ollama or heuristic) — never follow/star |
 | **⑤ Improve ours** | USE clones → IMPROVE_OURS.md → tests → optional self-approve |
-| **⑥ Control** | `alive watch` / cron — cycle under budget |
+| **⑥ Publish** | `push_github` → commit allowlisted files → `git push` (no force) |
+| **⑦ Control** | `alive watch` / `scripts/alive_both.sh` — lab + product together |
 
 ```bash
 nexus usage set --daily 200000 --monthly 3000000   # throttle
 nexus alive init --goal "improve multi-agent durability" -q "multi agent durable"
 nexus alive once                                   # mine → plan (budget-aware)
 nexus alive watch --interval 3600                  # keep going
-# auto-apply only if you opt in:
-# nexus alive init --apply --self-approve --repo YOU/REPO
+
+# FULL loop: improve + land on GitHub (opt-in)
+nexus alive init --repo YOU/REPO --apply --self-approve --push-github
+nexus alive once    # mine → tests → commit → git push (no force)
+# lab still runs separately:  cd ~/Desktop/research && python3 run.py
 nexus usage status
 ```
 

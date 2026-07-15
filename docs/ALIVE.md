@@ -81,15 +81,51 @@ nexus usage record --tokens 5000 --source manual --label experiment
 nexus usage reset-day
 ```
 
-## Self-approve (careful)
+## Self-approve + push to GitHub (the “both” loop)
+
+You want: **self-improve running** *and* **landing on GitHub**.
+
+```text
+alive once
+  → mine / score / USE clones
+  → IMPROVE_OURS.md + docs/ALIVE_IMPROVEMENTS.md
+  → (optional) apply patterns when tests green
+  → (optional) git commit + git push origin   ← product on GitHub updates
+```
 
 | Flag | Effect |
 |------|--------|
-| `apply=false` (default) | Only research + plans |
-| `apply=true`, `self_approve=false` | Plans; you run `--apply` yourself |
-| `apply=true`, `self_approve=true` | If **project checks pass**, run `improve-ours --apply` |
+| `apply=false` (default) | Research + plans only |
+| `apply=true`, `self_approve=false` | Plans; you apply yourself |
+| `apply=true`, `self_approve=true` | If **tests pass**, run `improve-ours --apply` |
+| `push_github=true` | If **tests pass**, commit allowlisted files + `git push` (no force) |
 
-Self-approve **never** merges PRs or force-pushes. It runs the same jailed `nexus do` path.
+```bash
+# Full autonomous product loop (lab can still run run.py separately)
+cd ~/nexus-core
+nexus usage set --daily 500000
+nexus alive init \
+  --goal "improve multi-agent durability and demos" \
+  -q "multi agent durable" \
+  --repo VincentMarquez/nexus-core \
+  --apply --self-approve --push-github
+
+nexus alive once          # one real cycle → may push
+nexus alive watch         # keep both: improve + publish
+```
+
+**Running both lab + product:**
+
+```bash
+# terminal 1 — lab infrastructure
+cd ~/Desktop/research && python3 run.py
+
+# terminal 2 — product self-improve → GitHub
+cd ~/nexus-core && source .venv/bin/activate
+nexus alive watch --interval 3600
+```
+
+Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `tests/`, …), not `.nexus_state` or secrets.
 
 ## Config file
 

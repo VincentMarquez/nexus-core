@@ -1207,6 +1207,10 @@ def cmd_alive(args: argparse.Namespace) -> int:
             cfg.apply = True
         if getattr(args, "self_approve", False):
             cfg.self_approve = True
+        if getattr(args, "push_github", False):
+            cfg.push_github = True
+        if getattr(args, "no_push_github", False):
+            cfg.push_github = False
         if getattr(args, "repo", None):
             cfg.our_repo = args.repo
         if getattr(args, "interval", None):
@@ -1214,6 +1218,7 @@ def cmd_alive(args: argparse.Namespace) -> int:
         p = al.save_config(cfg, root)
         print(json.dumps({"saved": str(p), "config": cfg.to_dict()}, indent=2))
         print("Run: nexus alive once | nexus alive watch")
+        print("Full loop to GitHub: --apply --self-approve --push-github")
         return 0
     if sub == "status":
         cfg = al.load_config(root)
@@ -1932,8 +1937,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     al_i.add_argument("--goal", default=None)
     al_i.add_argument("--query", "-q", default=None)
     al_i.add_argument("--repo", default=None)
-    al_i.add_argument("--apply", action="store_true")
-    al_i.add_argument("--self-approve", action="store_true")
+    al_i.add_argument("--apply", action="store_true", help="allow code apply step")
+    al_i.add_argument(
+        "--self-approve",
+        action="store_true",
+        help="auto-apply when tests pass (needs --apply)",
+    )
+    al_i.add_argument(
+        "--push-github",
+        action="store_true",
+        help="after green tests, commit + push allowlisted files to origin",
+    )
+    al_i.add_argument("--no-push-github", action="store_true")
     al_i.add_argument("--interval", type=int, default=None)
     al_i.set_defaults(func=cmd_alive)
     al_s = al_sub.add_parser("status")
