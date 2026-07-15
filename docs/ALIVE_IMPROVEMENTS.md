@@ -617,3 +617,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bc3837bb82.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — FTS select + roles + board (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (wshobson 16 / cas / mission-control / routa / Network-AI / zenith / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: anti-collusion **2601.00360**, decision package **2511.15755**, Thucy claims **2512.03278**, AOAD-MAT order **2510.13343**, CEMA **2302.10809** (notes `improve-rx-051972dbae` + priors)
+- apply slice (**First apply slice** — close prior open: FTS→select · role verifier · board CLI):
+  - `src/nexus/apply_select.py` — `select_candidates` (score+FTS rank), `check_roles`/`require_roles` (grader≠implementer≠verifier), `gate_apply` (IndependentVerify + RunBudget), `decision_package` (`nexus.decision_package/v1`), `improve_board` (`nexus.improve_board/v1`)
+  - `src/nexus/cli.py` — `nexus improve select|board|decide`
+  - `src/nexus/mcp_server.py` — tools `apply_select`, `improve_board`
+  - `src/nexus/tool_catalog.py` — privilege map
+  - tests: `tests/test_apply_select.py` (14 cases: collusion, rank, budget, CLI, MCP)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: cas FTS rank; mission-control/Network-AI budgets; routa board; anti-collusion 2601.00360; decision package 2511.15755; zenith independent verify (pattern only, no tree vendor)
+- non-goals kept: no auto-promote without flag; no vendored trees; no live Grok in unit tests
+- next open: wire decision_package into worktree_apply / alive self_approve · board stop/replan signals · preference-pair rubric learning
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 418 passed; `nexus improve board` ranks wshobson/agents first
+
+## Cycle 2026-07-15 22:58:56Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-051972dbae.md`

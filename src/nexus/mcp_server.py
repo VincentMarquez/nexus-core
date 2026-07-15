@@ -475,6 +475,62 @@ TOOLS = [
         },
     },
     {
+        "name": "apply_select",
+        "description": (
+            "Rank apply candidates by Grok grade score + FTS evidence hits, "
+            "optionally emit a role-separated decision package "
+            "(grader ≠ implementer ≠ verifier). Offline fixtures/digests."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Optional FTS query to boost matching repos",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "When set with decide=true, build package for this repo",
+                },
+                "min_score": {"type": "number", "default": 10.0},
+                "limit": {"type": "integer", "default": 5},
+                "decide": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, return decision package (roles+budget+evidence)",
+                },
+                "grader": {"type": "string", "default": "grok:grade"},
+                "implementer": {"type": "string", "default": "worker:apply"},
+                "verifier": {"type": "string", "default": "judge:verify"},
+                "require_evidence": {"type": "boolean", "default": True},
+                "auto_index": {"type": "boolean", "default": True},
+            },
+        },
+    },
+    {
+        "name": "improve_board",
+        "description": (
+            "routa-lite improve board: goal, roles, ranked candidates with "
+            "evidence, decision allow/deny, recent ledger traces."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "default": ""},
+                "min_score": {"type": "number", "default": 10.0},
+                "limit": {"type": "integer", "default": 5},
+                "goal": {
+                    "type": "string",
+                    "default": "self-improve nexus-core from mined repos + arXiv",
+                },
+                "grader": {"type": "string"},
+                "implementer": {"type": "string"},
+                "verifier": {"type": "string"},
+                "auto_index": {"type": "boolean", "default": True},
+            },
+        },
+    },
+    {
         "name": "get_run_checkpoint",
         "description": (
             "Read durable checkpoint for a grade_loop or improve_apply run "
@@ -1112,6 +1168,67 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 kind=kind,
                 auto_index=bool(args.get("auto_index", True)),
             )
+            return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name == "apply_select":
+            from . import apply_select as asel
+
+            root = _root()
+            try:
+                if bool(args.get("decide")):
+                    res = asel.decision_package(
+                        root,
+                        repo=args.get("repo") or None,
+                        query=str(args.get("query") or ""),
+                        min_score=float(args.get("min_score") or 10.0),
+                        grader=str(args.get("grader") or asel.DEFAULT_ROLES["grader"]),
+                        implementer=str(
+                            args.get("implementer") or asel.DEFAULT_ROLES["implementer"]
+                        ),
+                        verifier=str(
+                            args.get("verifier") or asel.DEFAULT_ROLES["verifier"]
+                        ),
+                        require_evidence=bool(args.get("require_evidence", True)),
+                        auto_index=bool(args.get("auto_index", True)),
+                    )
+                else:
+                    res = asel.select_candidates(
+                        root,
+                        query=str(args.get("query") or ""),
+                        min_score=float(args.get("min_score") or 10.0),
+                        limit=int(args.get("limit") or 5),
+                        require_evidence=bool(args.get("require_evidence", True)),
+                        auto_index=bool(args.get("auto_index", True)),
+                    )
+            except Exception as e:
+                return _tool_result(f"apply_select error: {e}", is_error=True)
+            return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name == "improve_board":
+            from . import apply_select as asel
+
+            root = _root()
+            try:
+                res = asel.improve_board(
+                    root,
+                    query=str(args.get("query") or ""),
+                    min_score=float(args.get("min_score") or 10.0),
+                    limit=int(args.get("limit") or 5),
+                    grader=str(args.get("grader") or asel.DEFAULT_ROLES["grader"]),
+                    implementer=str(
+                        args.get("implementer") or asel.DEFAULT_ROLES["implementer"]
+                    ),
+                    verifier=str(
+                        args.get("verifier") or asel.DEFAULT_ROLES["verifier"]
+                    ),
+                    goal=str(
+                        args.get("goal")
+                        or "self-improve nexus-core from mined repos + arXiv"
+                    ),
+                    auto_index=bool(args.get("auto_index", True)),
+                )
+            except Exception as e:
+                return _tool_result(f"improve_board error: {e}", is_error=True)
             return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
 
         if name == "get_run_checkpoint":

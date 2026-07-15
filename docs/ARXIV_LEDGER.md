@@ -24,7 +24,7 @@ _Rows: 109_
 | 2407.00662 | Multi-Agent Training for Pommerman: Curriculum Learning and Population | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2407.20371 | Gender, Race, and Intersectional Bias in Resume Screening via Language | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2409.02645 | Emergent Language: A Survey and Taxonomy | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2507.19543 | Agent WARPP: Workflow Adherence via Runtime Parallel Personalization | 4 | 2026-07-15T22:08:23Z | durable multi agent workflow checkpoint  |
+| 2507.19543 | Agent WARPP: Workflow Adherence via Runtime Parallel Personalization | 5 | 2026-07-15T22:52:39Z | durable multi agent workflow checkpoint  |
 | 2602.09771 | A large scale multi-modal workflow for battery characterization: from  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2606.22213 | Resume Screening, Fast and Slow: (Biased) AI Recommendations' Influenc | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 1007.0803 | Soft Control on Collective Behavior of a Group of Autonomous Agents by | 1 | 2026-07-15T18:53:42Z | tool use multi LLM agent systems |

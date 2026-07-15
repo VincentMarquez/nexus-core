@@ -2665,7 +2665,120 @@ def cmd_improve(args: argparse.Namespace) -> int:
             print(cs.format_demo_report(report))
         return 0 if report.get("ok") else 1
 
-    print("usage: nexus improve smoke|apply|ledger|demo-loop", file=sys.stderr)
+    # P1 next slice: FTS apply selection + role gate + routa-lite board
+    if sub in ("select", "candidates"):
+        from . import apply_select as asel
+
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            preferred = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+            if preferred.is_file():
+                fixture = str(preferred)
+        report = asel.select_candidates(
+            root,
+            query=str(getattr(args, "query", None) or ""),
+            min_score=float(getattr(args, "min_score", None) or 10.0),
+            limit=int(getattr(args, "limit", None) or 5),
+            fixture=fixture,
+            require_evidence=not bool(getattr(args, "allow_no_evidence", False)),
+            auto_index=not bool(getattr(args, "no_index", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(asel.format_selection(report))
+        return 0 if report.get("ok") else 1
+
+    if sub in ("board", "status-board"):
+        from . import apply_select as asel
+
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            preferred = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+            if preferred.is_file():
+                fixture = str(preferred)
+        report = asel.improve_board(
+            root,
+            query=str(getattr(args, "query", None) or ""),
+            min_score=float(getattr(args, "min_score", None) or 10.0),
+            limit=int(getattr(args, "limit", None) or 5),
+            fixture=fixture,
+            grader=str(getattr(args, "grader", None) or asel.DEFAULT_ROLES["grader"]),
+            implementer=str(
+                getattr(args, "implementer", None) or asel.DEFAULT_ROLES["implementer"]
+            ),
+            verifier=str(
+                getattr(args, "verifier", None) or asel.DEFAULT_ROLES["verifier"]
+            ),
+            goal=str(
+                getattr(args, "goal", None)
+                or "self-improve nexus-core from mined repos + arXiv"
+            ),
+            auto_index=not bool(getattr(args, "no_index", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(asel.format_board(report))
+        return 0 if report.get("ok") else 1
+
+    if sub in ("decide", "decision", "package"):
+        from . import apply_select as asel
+
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            preferred = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+            if preferred.is_file():
+                fixture = str(preferred)
+        max_steps = getattr(args, "max_steps", None)
+        max_tokens = getattr(args, "max_tokens", None)
+        report = asel.decision_package(
+            root,
+            repo=getattr(args, "repo", None),
+            query=str(getattr(args, "query", None) or ""),
+            min_score=float(getattr(args, "min_score", None) or 10.0),
+            fixture=fixture,
+            grader=str(getattr(args, "grader", None) or asel.DEFAULT_ROLES["grader"]),
+            implementer=str(
+                getattr(args, "implementer", None) or asel.DEFAULT_ROLES["implementer"]
+            ),
+            verifier=str(
+                getattr(args, "verifier", None) or asel.DEFAULT_ROLES["verifier"]
+            ),
+            require_distinct_roles=not bool(getattr(args, "allow_same_role", False)),
+            require_evidence=not bool(getattr(args, "allow_no_evidence", False)),
+            max_steps=int(max_steps) if max_steps is not None else None,
+            max_tokens=int(max_tokens) if max_tokens is not None else None,
+            auto_index=not bool(getattr(args, "no_index", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            status = "ALLOW" if report.get("ok") else "DENY"
+            print(f"decision: {status}  reason={report.get('reason')}")
+            cand = report.get("candidate") or {}
+            if cand:
+                print(
+                    f"  repo={cand.get('repo')}  score={cand.get('score')}  "
+                    f"rank={cand.get('rank')}"
+                )
+            if report.get("confidence") is not None:
+                print(f"  confidence={report.get('confidence')}")
+            for ref in report.get("evidence_refs") or []:
+                print(f"  evidence: {ref}")
+            roles = report.get("roles") or {}
+            if roles:
+                print(
+                    f"  roles: grader={roles.get('grader')} "
+                    f"implementer={roles.get('implementer')} "
+                    f"verifier={roles.get('verifier')}"
+                )
+        return 0 if report.get("ok") else 1
+
+    print(
+        "usage: nexus improve smoke|apply|promote|ledger|demo-loop|select|board|decide",
+        file=sys.stderr,
+    )
     return 2
 
 
@@ -4143,6 +4256,85 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     imp_dl.add_argument("--json", action="store_true")
     imp_dl.set_defaults(func=cmd_improve, improve_cmd="demo-loop")
+
+    # P1: evidence-FTS select + role-separated decide + routa board
+    imp_sel = imp_sub.add_parser(
+        "select",
+        help="rank apply candidates by grade score + FTS evidence (offline)",
+    )
+    imp_sel.add_argument("--path", default=".", help="project workdir")
+    imp_sel.add_argument("--query", default="", help="optional FTS boost query")
+    imp_sel.add_argument("--min-score", type=float, default=10.0, dest="min_score")
+    imp_sel.add_argument("--limit", type=int, default=5)
+    imp_sel.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: fixtures/mine_eval/grades_with_claims.json)",
+    )
+    imp_sel.add_argument(
+        "--allow-no-evidence",
+        action="store_true",
+        dest="allow_no_evidence",
+        help="include candidates with zero evidence hits",
+    )
+    imp_sel.add_argument(
+        "--no-index",
+        action="store_true",
+        dest="no_index",
+        help="do not reindex FTS before select",
+    )
+    imp_sel.add_argument("--json", action="store_true")
+    imp_sel.set_defaults(func=cmd_improve, improve_cmd="select")
+
+    imp_bd = imp_sub.add_parser(
+        "board",
+        help="routa-lite improve board: goal/roles/candidates/evidence/decision",
+    )
+    imp_bd.add_argument("--path", default=".", help="project workdir")
+    imp_bd.add_argument("--query", default="", help="optional FTS boost query")
+    imp_bd.add_argument("--min-score", type=float, default=10.0, dest="min_score")
+    imp_bd.add_argument("--limit", type=int, default=5)
+    imp_bd.add_argument("--fixture", default=None)
+    imp_bd.add_argument(
+        "--goal",
+        default="self-improve nexus-core from mined repos + arXiv",
+    )
+    imp_bd.add_argument("--grader", default=None, help="grader role id")
+    imp_bd.add_argument("--implementer", default=None, help="implementer role id")
+    imp_bd.add_argument("--verifier", default=None, help="verifier role id")
+    imp_bd.add_argument("--no-index", action="store_true", dest="no_index")
+    imp_bd.add_argument("--json", action="store_true")
+    imp_bd.set_defaults(func=cmd_improve, improve_cmd="board")
+
+    imp_dec = imp_sub.add_parser(
+        "decide",
+        help="decision package: role-separated verify + evidence + optional budget",
+    )
+    imp_dec.add_argument("--path", default=".", help="project workdir")
+    imp_dec.add_argument("--repo", default=None, help="repo id (default: top ranked)")
+    imp_dec.add_argument("--query", default="", help="optional FTS boost query")
+    imp_dec.add_argument("--min-score", type=float, default=10.0, dest="min_score")
+    imp_dec.add_argument("--fixture", default=None)
+    imp_dec.add_argument("--grader", default=None)
+    imp_dec.add_argument("--implementer", default=None)
+    imp_dec.add_argument("--verifier", default=None)
+    imp_dec.add_argument(
+        "--allow-same-role",
+        action="store_true",
+        dest="allow_same_role",
+        help="allow grader/implementer/verifier overlap (not recommended)",
+    )
+    imp_dec.add_argument(
+        "--allow-no-evidence",
+        action="store_true",
+        dest="allow_no_evidence",
+    )
+    imp_dec.add_argument("--max-steps", type=int, default=None, dest="max_steps")
+    imp_dec.add_argument("--max-tokens", type=int, default=None, dest="max_tokens")
+    imp_dec.add_argument("--no-index", action="store_true", dest="no_index")
+    imp_dec.add_argument("--json", action="store_true")
+    imp_dec.set_defaults(func=cmd_improve, improve_cmd="decide")
+
     imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 
     args = ap.parse_args(raw)

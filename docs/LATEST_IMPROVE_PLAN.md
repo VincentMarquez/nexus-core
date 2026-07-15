@@ -7,17 +7,30 @@
 
 ## Landed this session (First apply slice — 2026-07-15)
 
+### Prior slice (claims + FTS) — still green
+
 | Pass criterion | Status |
 |----------------|--------|
 | Invalid grades (missing claims / out-of-range scores) fail validation | ✅ `grade_artifact.validate_grade(require_claims=…, check_ranges=…)` |
 | MCP search returns wshobson “Markdown marketplace” claim | ✅ `evidence_fts.search_evidence` / MCP `search_evidence` |
 | MCP search returns arXiv **2511.15755** “deterministic decision package” | ✅ fixture `fixtures/mine_eval/grades_with_claims.json` |
 | Quality gates offline (no live Grok API) | ✅ `make grade-validate` · `make mcp-smoke` · `make test-quality` |
-| pytest green | ✅ |
 
-**Modules:** `src/nexus/grade_artifact.py` (claims), `src/nexus/evidence_fts.py` (SQLite FTS index), MCP tools `index_workspace` / `search_evidence`, fixture + tests.
+### This session — P1.2/P1.3: FTS apply select + role gate + board
 
-**Next PRs (unchanged):** worktree-isolated apply polish · budget + role-separated verifier · board CLI.
+| Pass criterion | Status |
+|----------------|--------|
+| Rank apply candidates by grade score + FTS evidence | ✅ `apply_select.select_candidates` |
+| Fail closed without evidence when required | ✅ skipped rows + `require_evidence` |
+| Role separation grader ≠ implementer ≠ verifier | ✅ `check_roles` / `RoleCollusionError` (anti-collusion **2601.00360**) |
+| Decision package with confidence + evidence_refs | ✅ `decision_package` / `gate_apply` (**2511.15755**) |
+| Optional RunBudget hard-stop before apply | ✅ `gate_apply(budget=…)` |
+| routa-lite board CLI + MCP | ✅ `nexus improve board` · MCP `improve_board` |
+| pytest green | ✅ 418 passed |
+
+**Modules:** `src/nexus/apply_select.py`, CLI `select|board|decide`, MCP `apply_select` / `improve_board`, `tests/test_apply_select.py`.
+
+**Next PRs:** wire `decision_package` into `worktree_apply` / alive `self_approve` · adaptive stop signals on board · preference pairs for rubric learning.
 
 ---
 
@@ -176,9 +189,23 @@ It binds **mine_eval grades (Grok 4.5)** → **auditable claims (Thucy-style)** 
 ---
 
 ### Suggested next PRs after first slice
-1. Worktree-isolated apply runner + idempotent stage machine (cas + lumen).  
-2. Budget + role-separated verifier before apply (Network-AI + anti-collusion paper).  
-3. Board CLI for goal/task/trace/evidence (routa) + adaptive stop/replan (zenith/MAEBE).
+1. Worktree-isolated apply runner + idempotent stage machine (cas + lumen). ✅ (prior cycles)  
+2. Budget + role-separated verifier before apply (Network-AI + anti-collusion paper). ✅ **this session**  
+3. Board CLI for goal/task/trace/evidence (routa) + adaptive stop/replan (zenith/MAEBE). ✅ board CLI; stop/replan polish still open  
+
+### Landed files (this session — apply select + board)
+- `src/nexus/apply_select.py` — select / gate / decision_package / improve_board
+- `src/nexus/cli.py` — `nexus improve select|board|decide`
+- `src/nexus/mcp_server.py` — tools `apply_select`, `improve_board`
+- `src/nexus/tool_catalog.py` — privilege tags (read)
+- `tests/test_apply_select.py` — 14 offline tests
+
+```bash
+nexus improve select --query "Markdown marketplace" --json
+nexus improve board
+nexus improve decide --repo wshobson/agents --json
+PYTHONPATH=src python3 -m pytest -q
+```
 
 ---
 

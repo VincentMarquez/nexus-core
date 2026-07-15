@@ -1,12 +1,12 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-15 22:43 UTC_
+_Generated 2026-07-15 22:58 UTC_
 
 Model: `grok-4.5` · repos=20 · arXiv=20
 
 ---
 
-I'll read the full offloaded prompt so the plan is based on complete evidence, not the truncated excerpt.I'll look for a file-read capability so I can load the full offloaded prompt.# NEXUS Self-Improvement Plan  
+# NEXUS Self-Improvement Plan  
 **Grok 4.5 hard-apply loop — papers + mined repos → durable multi-agent core**
 
 ---
@@ -17,7 +17,7 @@ I'll read the full offloaded prompt so the plan is based on complete evidence, n
 - **P0 durability substrate** comes from MisterSmith (supervised runtime + durable stores), cas (worktree isolation + MCP SQLite/FTS), rojak-style checkpointing patterns (via tiger_cowork/forge), and papers on interleaved verification + hierarchical control — make long-running agent jobs crash-safe and replayable.
 - **P0 control plane + grading** ports mission-control (spend/runtime governance, OpenAPI parity, quality gates), Network-AI (adapters/guardrails/budgets), wshobson/agents (Markdown single-source plugins + generate/validate), and Thucy/incident-orchestration papers (claim verification, deterministic multi-agent decision support) into mine_eval scoring and alive demos.
 - **P1 MCP + memory + handoffs** reuses soul (cross-session ledger/memory MCP), EDDI (config-driven MCP/A2A middleware), AssetOpsBench (domain MCP + eval harness), swarmclaw (skills/delegation/schedules), and anti-collusion/causal-explanation papers for auditable multi-agent coordination.
-- **First apply slice** is deliberately PR-sized: Markdown skill/plugin manifest + Grok grade schema hardening + one MCP FTS context tool + quality-gate tests — proves the self-improve loop without a monorepo rewrite.
+- **First apply slice (this cycle):** evidence-FTS apply selection + role-separated verifier + decision package + routa-lite improve board — ports the *next* plan items after grade claims/FTS quality gates.
 
 ---
 
