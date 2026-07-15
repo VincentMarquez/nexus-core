@@ -387,6 +387,40 @@ TOOLS = [
             "required": ["run_id"],
         },
     },
+    {
+        "name": "skillpacks",
+        "description": (
+            "P2.1 multi-harness skill packs: list / validate / generate / drift "
+            "from skillpacks/*/SKILL.md + manifest.json (wshobson-style adapters)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list | validate | generate | drift",
+                    "default": "list",
+                },
+                "pack": {
+                    "type": "string",
+                    "description": "Optional pack id for validate/generate",
+                },
+                "harness": {
+                    "type": "string",
+                    "description": "Optional single harness for generate",
+                },
+                "max_privilege": {
+                    "type": "string",
+                    "description": "read|write|ops|admin filter (least-privilege)",
+                },
+                "clean": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "With generate: remove prior artifacts first",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -806,6 +840,87 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             except FileNotFoundError as e:
                 return _tool_result(str(e), is_error=True)
             return _tool_result(json.dumps(st, indent=2, default=str)[:12000])
+
+        if name == "skillpacks":
+            from . import skillpacks as sp
+
+            root = _root()
+            action = str(args.get("action") or "list").lower().strip()
+            pack = str(args.get("pack") or "").strip() or None
+            max_priv = args.get("max_privilege") or None
+            try:
+                if action == "list":
+                    rows = sp.list_packs(root, max_privilege=max_priv)
+                    return _tool_result(
+                        json.dumps(
+                            {
+                                "schema": sp.SCHEMA_VERSION,
+                                "count": len(rows),
+                                "packs": [r.to_dict() for r in rows],
+                            },
+                            indent=2,
+                            default=str,
+                        )
+                    )
+                if action == "validate":
+                    if pack:
+                        pdir = root / sp.DEFAULT_PACKS_DIR / pack
+                        rep = sp.validate_pack(pdir)
+                        data = {
+                            "schema": sp.SCHEMA_VERSION,
+                            "ok": rep.ok,
+                            "count": 1,
+                            "packs": [rep.to_dict()],
+                            "errors": sum(
+                                1 for f in rep.findings if f.severity == "error"
+                            ),
+                            "warnings": sum(
+                                1 for f in rep.findings if f.severity == "warning"
+                            ),
+                        }
+                    else:
+                        data = sp.validate_all(root)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "generate":
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    clean = bool(args.get("clean"))
+                    if pack:
+                        one = sp.generate_pack(
+                            root / sp.DEFAULT_PACKS_DIR / pack,
+                            out_root=sp.generate_root(root),
+                            harnesses=harnesses,
+                            clean=clean,
+                        )
+                        data = {
+                            "schema": sp.SCHEMA_VERSION,
+                            "ok": True,
+                            "out_root": one["out_root"],
+                            "generated": [one],
+                            "errors": [],
+                            "count": 1,
+                        }
+                    else:
+                        data = sp.generate_all(
+                            root,
+                            harnesses=harnesses,
+                            clean=clean,
+                            max_privilege=max_priv,
+                        )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "drift":
+                    data = sp.drift_check(root)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+            except sp.SkillpackError as e:
+                return _tool_result(f"SkillpackError: {e}", is_error=True)
+            except Exception as e:
+                return _tool_result(f"skillpacks error: {e}", is_error=True)
+            return _tool_result(
+                f"unknown skillpacks action: {action} "
+                "(list|validate|generate|drift)",
+                is_error=True,
+            )
 
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError

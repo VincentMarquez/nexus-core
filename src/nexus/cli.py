@@ -2213,6 +2213,108 @@ def cmd_vault(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_skillpacks(args: argparse.Namespace) -> int:
+    """P2.1 multi-harness skillpack list / validate / generate / drift."""
+    from . import skillpacks as sp
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "skillpacks_cmd", None) or "list"
+    as_json = bool(getattr(args, "json", False))
+    packs_dir = str(getattr(args, "packs_dir", None) or sp.DEFAULT_PACKS_DIR)
+    max_priv = getattr(args, "max_privilege", None)
+
+    if sub == "list":
+        rows = sp.list_packs(
+            root, packs_dir=packs_dir, validate=bool(getattr(args, "validate", False)),
+            max_privilege=max_priv,
+        )
+        if as_json:
+            print(json.dumps(
+                {"schema": sp.SCHEMA_VERSION, "packs": [r.to_dict() for r in rows]},
+                indent=2,
+            ))
+        else:
+            print(sp.format_list(rows))
+        return 0
+
+    if sub == "validate":
+        pack = getattr(args, "pack", None)
+        if pack:
+            pack_path = root / packs_dir / str(pack)
+            if not pack_path.is_dir():
+                pack_path = Path(pack)
+            rep = sp.validate_pack(pack_path)
+            data = {"schema": sp.SCHEMA_VERSION, "ok": rep.ok, "count": 1, "packs": [rep.to_dict()],
+                    "errors": sum(1 for f in rep.findings if f.severity == "error"),
+                    "warnings": sum(1 for f in rep.findings if f.severity == "warning")}
+        else:
+            data = sp.validate_all(root, packs_dir=packs_dir)
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(sp.format_validate(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "generate":
+        out_root = getattr(args, "out", None)
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        pack = getattr(args, "pack", None)
+        clean = bool(getattr(args, "clean", False))
+        if pack:
+            pack_path = root / packs_dir / str(pack)
+            if not pack_path.is_dir():
+                pack_path = Path(pack)
+            try:
+                one = sp.generate_pack(
+                    pack_path,
+                    out_root=out_root or sp.generate_root(root),
+                    harnesses=harnesses,
+                    clean=clean,
+                )
+                data = {
+                    "schema": sp.SCHEMA_VERSION,
+                    "ok": True,
+                    "out_root": one["out_root"],
+                    "generated": [one],
+                    "errors": [],
+                    "count": 1,
+                }
+            except sp.SkillpackError as e:
+                print(f"SkillpackError: {e}", file=sys.stderr)
+                return 1
+        else:
+            data = sp.generate_all(
+                root,
+                packs_dir=packs_dir,
+                out_root=out_root,
+                harnesses=harnesses,
+                clean=clean,
+                max_privilege=max_priv,
+            )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(sp.format_generate(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "drift":
+        data = sp.drift_check(
+            root,
+            packs_dir=packs_dir,
+            out_root=getattr(args, "out", None),
+        )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(sp.format_drift(data))
+        return 0 if data.get("ok") else 1
+
+    print("usage: nexus skillpacks list|validate|generate|drift", file=sys.stderr)
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -2233,6 +2335,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "ops",
         "alive",
         "vault",
+        "skillpacks",
         "procure",
         "arxiv",
         "research",
@@ -3318,6 +3421,66 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_resume.add_argument("--json", action="store_true", help="emit task checkpoint JSON")
     tk_resume.add_argument("--state-dir", default=None)
     tk_resume.set_defaults(func=cmd_task)
+
+    sk = sub.add_parser(
+        "skillpacks",
+        help="multi-harness skill packs: list / validate / generate / drift (P2.1)",
+    )
+    sk_sub = sk.add_subparsers(dest="skillpacks_cmd")
+    sk_list = sk_sub.add_parser("list", help="list skill packs under skillpacks/")
+    sk_list.add_argument("--path", default=None, help="project root (default: cwd)")
+    sk_list.add_argument("--packs-dir", default="skillpacks")
+    sk_list.add_argument("--json", action="store_true")
+    sk_list.add_argument("--validate", action="store_true", help="include valid flag")
+    sk_list.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="filter packs above this privilege (least-privilege)",
+    )
+    sk_list.set_defaults(func=cmd_skillpacks)
+    sk_val = sk_sub.add_parser("validate", help="structural validate (source of truth)")
+    sk_val.add_argument("pack", nargs="?", default=None, help="optional pack id")
+    sk_val.add_argument("--path", default=None)
+    sk_val.add_argument("--packs-dir", default="skillpacks")
+    sk_val.add_argument("--json", action="store_true")
+    sk_val.set_defaults(func=cmd_skillpacks)
+    sk_gen = sk_sub.add_parser(
+        "generate",
+        help="emit multi-harness stubs from SKILL.md + manifest",
+    )
+    sk_gen.add_argument("pack", nargs="?", default=None, help="optional pack id")
+    sk_gen.add_argument("--path", default=None)
+    sk_gen.add_argument("--packs-dir", default="skillpacks")
+    sk_gen.add_argument(
+        "--out",
+        default=None,
+        help="output root (default: .nexus_state/generated_skillpacks)",
+    )
+    sk_gen.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=["grok", "cursor", "claude", "codex", "local"],
+        help="limit harnesses (repeatable)",
+    )
+    sk_gen.add_argument("--clean", action="store_true", help="remove prior artifacts first")
+    sk_gen.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+    )
+    sk_gen.add_argument("--json", action="store_true")
+    sk_gen.set_defaults(func=cmd_skillpacks)
+    sk_dr = sk_sub.add_parser(
+        "drift",
+        help="detect missing/stale generated harness artifacts",
+    )
+    sk_dr.add_argument("--path", default=None)
+    sk_dr.add_argument("--packs-dir", default="skillpacks")
+    sk_dr.add_argument("--out", default=None, help="generated root to check")
+    sk_dr.add_argument("--json", action="store_true")
+    sk_dr.set_defaults(func=cmd_skillpacks)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

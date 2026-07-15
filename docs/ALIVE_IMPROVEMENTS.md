@@ -387,3 +387,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f732b12d4d.md`
+
+## Cycle 2026-07-15 hard-apply P2.1 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: wshobson/agents (primary) + IMPROVE_OURS top repos (mission-control / AssetOpsBench / lumen / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-406cb98836.md`; over-privileged tools **2606.20023**, context **2508.08322**, communication **2203.08975**)
+- apply slice (P2.1 skillpack multi-harness generate/validate/drift — **First apply slice** this session):
+  - `src/nexus/skillpacks.py` — list/validate/generate/drift; harness adapters grok/cursor/claude/codex/local; privilege ladder + max_privilege filter; atomic emit to `.nexus_state/generated_skillpacks/`
+  - `src/nexus/cli.py` — `nexus skillpacks list|validate|generate|drift`
+  - `src/nexus/mcp_server.py` — tool `skillpacks`
+  - `skillpacks/durable-operator/manifest.json` — `privilege: ops`
+  - tests: `tests/test_skillpacks.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: wshobson/agents one-source multi-harness; 2389-research plugin layout; arXiv 2606.20023 least-privilege (pattern only, no tree vendor)
+- next open: P2.2 OpenAPI tool catalog · P2.3 AssetOpsBench domain MCP eval smoke
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 289 passed
+
+## Cycle 2026-07-15 20:59:55Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-406cb98836.md`
