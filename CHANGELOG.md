@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — 2026-07-15
+
+### Added
+- **arXiv**: `nexus arxiv search|get`, `nexus research` job (abstracts, brief, report, optional PDF)
+- **Procurement intelligence**: `nexus.procurement` engine (scorecard, TCO, scenarios, policy) + expert lenses (Incoterms / Legal / Engineering)
+- **CLI**: `nexus procure demo|persona`
+- Agent personas: `docs/agents/PROCUREMENT.md`, `docs/agents/RESEARCH_ARXIV.md`
+- Cookbooks 07–08
+
 ## 0.5.1 — 2026-07-15
 
 ### Changed

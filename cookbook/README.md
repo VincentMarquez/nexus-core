@@ -10,6 +10,8 @@ Copy-paste recipes. Each is self-contained.
 | 04 | [Workspace MCP](04_workspace_mcp.md) | Tools for AI clients |
 | 05 | [GLM-5.2 / colibrì](05_glm52_colibri.md) | Heavy MoE as an agent |
 | 06 | [GitHub URL → fix](06_github_do.md) | Clone, run, fix a repo |
+| 07 | [Procurement](07_procurement.md) | Scorecard, TCO, expert panel |
+| 08 | [arXiv research](08_arxiv_research.md) | Search, brief, report |
 
 Prereq for most recipes:
 

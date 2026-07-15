@@ -1,4 +1,4 @@
-"""NEXUS Core — clean multi-agent research workflow architecture."""
+"""NEXUS Core — durable multi-agent orchestration for software + research + procurement."""
 
 from .config import Settings
 from .engine import DurableEngine, Task, TaskStatus
@@ -9,8 +9,10 @@ from .bus_client import BusClient
 from .agents import AgentPanel
 from .circuits import CircuitBreaker
 from .memory_sqlite import SqliteMemory
+from . import arxiv_client
+from . import procurement
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 __all__ = [
     "Settings",
     "DurableEngine",
@@ -23,4 +25,6 @@ __all__ = [
     "BusClient",
     "AgentPanel",
     "CircuitBreaker",
+    "arxiv_client",
+    "procurement",
 ]

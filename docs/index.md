@@ -6,7 +6,7 @@
 
 Take a GitHub repo, run agents across crashes, and only finish when a **rubric judge** confirms success — not when the model says “done.”
 
-Not a general “do anything” agent. A **specialized orchestration engine** for long-running, checkable software tasks.
+Not a general “do anything” agent. A **specialized orchestration engine** for long-running, checkable work in **software**, **arXiv research**, and **procurement**.
 
 ## 60-second start
 
@@ -39,6 +39,8 @@ nexus stop
 | Durable 10-step pipeline | [Pipeline](PIPELINE.md) |
 | Rubric judge | [Architecture](ARCHITECTURE.md) |
 | GitHub `nexus do` | [Cookbook 06](cookbook/06_github_do.md) |
+| arXiv research | [Cookbook 08](cookbook/08_arxiv_research.md) · [Agent](agents/RESEARCH_ARXIV.md) |
+| Procurement agents | [Cookbook 07](cookbook/07_procurement.md) · [Agent](agents/PROCUREMENT.md) |
 | Local LLM + CLI bridges | [Bridges](BRIDGES_AND_BUS.md) |
 | MCP for ChatGPT / Claude / Grok | [Connectors](CONNECTORS.md) |
 | GLM-5.2 / colibrì | [GLM-5.2](GLM52.md) |

@@ -45,6 +45,8 @@ nav:
       - Workspace MCP: cookbook/04_workspace_mcp.md
       - GLM-5.2 / colibrì: cookbook/05_glm52_colibri.md
       - GitHub URL → fix: cookbook/06_github_do.md
+      - Procurement agents: cookbook/07_procurement.md
+      - arXiv research: cookbook/08_arxiv_research.md
       - PyPI publish: PYPI.md
   - Architecture:
       - Overview: ARCHITECTURE.md
@@ -54,6 +56,9 @@ nav:
       - Figures: FIGURES.md
       - Compare: COMPARE.md
       - Roadmap: ROADMAP.md
+  - Domains:
+      - Procurement agent: agents/PROCUREMENT.md
+      - arXiv research agent: agents/RESEARCH_ARXIV.md
   - Connect:
       - Connectors & MCP: CONNECTORS.md
       - MCP setup: MCP_SETUP.md

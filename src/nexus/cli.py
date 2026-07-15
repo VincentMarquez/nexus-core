@@ -409,6 +409,101 @@ def cmd_do(args: argparse.Namespace) -> int:
     return 0 if job.status == "completed" else 1
 
 
+def cmd_procure(args: argparse.Namespace) -> int:
+    """Procurement intelligence engine + expert panel."""
+    from . import procurement as proc
+
+    if args.procure_cmd == "demo":
+        out = Path(args.out) if args.out else Path(".nexus_state") / "procurement_demo"
+        path = proc.run_demo(out)
+        print(f"=== procurement demo ===")
+        print(f"  report: {path}")
+        print(f"  open:   less {path}")
+        # print rank line
+        text = path.read_text(encoding="utf-8")
+        for line in text.splitlines()[:12]:
+            print(" ", line)
+        return 0
+
+    if args.procure_cmd == "persona":
+        root = Path(__file__).resolve().parents[2]
+        persona = root / "docs" / "agents" / "PROCUREMENT.md"
+        print(persona.read_text(encoding="utf-8") if persona.exists() else "(missing persona)")
+        return 0
+
+    print("usage: nexus procure demo | persona")
+    return 2
+
+
+def cmd_arxiv(args: argparse.Namespace) -> int:
+    from . import arxiv_client
+
+    if args.arxiv_cmd == "search":
+        try:
+            papers = arxiv_client.search(args.query, max_results=args.max)
+        except Exception as e:
+            print(f"arXiv search failed: {e}")
+            return 1
+        if not papers:
+            print("(no results)")
+            return 0
+        for p in papers:
+            print(f"{p.arxiv_id}\t{p.published}\t{p.title}")
+            print(f"  {p.abs_url}")
+        return 0
+
+    if args.arxiv_cmd == "get":
+        try:
+            p = arxiv_client.get_paper(args.arxiv_id)
+        except Exception as e:
+            print(f"arXiv get failed: {e}")
+            return 1
+        if not p:
+            print("not found")
+            return 1
+        print(p.title)
+        print("authors:", ", ".join(p.authors))
+        print("abs:", p.abs_url)
+        print("pdf:", p.pdf_url)
+        print()
+        print(p.summary[:2000])
+        out = Path(args.out) if args.out else Path(".nexus_workspaces") / "research" / "manual"
+        out.mkdir(parents=True, exist_ok=True)
+        arxiv_client.save_abstract_md(p, out)
+        arxiv_client.save_paper_json(p, out)
+        if args.pdf:
+            try:
+                path = arxiv_client.download_pdf(p, out / "pdfs")
+                print(f"pdf saved: {path}")
+            except Exception as e:
+                print(f"pdf download failed: {e}")
+                return 1
+        return 0
+
+    print("usage: nexus arxiv search <query> | get <id> [--pdf]")
+    return 2
+
+
+def cmd_research(args: argparse.Namespace) -> int:
+    from .github_job import ensure_panel_for_job
+    from .research_job import ResearchJobRunner
+
+    panel = None
+    if not args.heuristic_only:
+        try:
+            panel = ensure_panel_for_job()
+        except Exception:
+            panel = None
+    runner = ResearchJobRunner(panel=panel)
+    job = runner.run(
+        args.query,
+        max_results=args.max,
+        download_pdf=args.pdf,
+        with_brief=not args.no_brief,
+    )
+    return 0 if job.status == "completed" else 1
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -421,6 +516,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         "mcp",
         "do",
         "github",
+        "procure",
+        "arxiv",
+        "research",
         "-h",
         "--help",
     }
@@ -537,6 +635,49 @@ def main(argv: Optional[list[str]] = None) -> int:
         "github",
         "alias for: nexus do <github-url>",
     )
+
+    # --- procurement domain ---
+    pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")
+    pr_sub = pr.add_subparsers(dest="procure_cmd", required=True)
+    pr_demo = pr_sub.add_parser("demo", help="run synthetic 3-supplier demo report")
+    pr_demo.add_argument(
+        "--out",
+        default=None,
+        help="output directory (default .nexus_state/procurement_demo)",
+    )
+    pr_demo.set_defaults(func=cmd_procure)
+    pr_sub.add_parser("persona", help="print procurement agent system prompt").set_defaults(
+        func=cmd_procure
+    )
+
+    # --- arxiv ---
+    ax = sub.add_parser("arxiv", help="search / fetch arXiv papers (public API)")
+    ax_sub = ax.add_subparsers(dest="arxiv_cmd", required=True)
+    ax_s = ax_sub.add_parser("search", help="search arXiv")
+    ax_s.add_argument("query", help='query (e.g. "multi agent orchestration" or all:transformer)')
+    ax_s.add_argument("--max", type=int, default=8)
+    ax_s.set_defaults(func=cmd_arxiv)
+    ax_g = ax_sub.add_parser("get", help="fetch one paper by id")
+    ax_g.add_argument("arxiv_id", help="e.g. 1706.03762 or arXiv:1706.03762")
+    ax_g.add_argument("--pdf", action="store_true", help="also download PDF")
+    ax_g.add_argument("--out", default=None, help="output directory")
+    ax_g.set_defaults(func=cmd_arxiv)
+
+    # --- research job ---
+    rs = sub.add_parser(
+        "research",
+        help="arXiv research job: search → abstracts → brief → report",
+    )
+    rs.add_argument("query", help="topic or arXiv query string")
+    rs.add_argument("--max", type=int, default=8)
+    rs.add_argument("--pdf", action="store_true", help="download PDFs")
+    rs.add_argument("--no-brief", action="store_true")
+    rs.add_argument(
+        "--heuristic-only",
+        action="store_true",
+        help="skip LLM brief (structured summary only)",
+    )
+    rs.set_defaults(func=cmd_research)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

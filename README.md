@@ -36,7 +36,13 @@ Two pillars:
 1. **Reliability & verifiability** — checkpoints + resume, rubric judge, adversarial pipeline  
 2. **Practical engineering workflows** — `nexus do owner/repo`, local LLMs/CLIs, observable bus  
 
-It is **not** “an AI that does anything.” It is a **specialized orchestration engine** for long-running, checkable software jobs (install, test, fix, validate, report).
+It is **not** “an AI that does anything.” It is a **specialized orchestration engine** for long-running, checkable jobs across three domains:
+
+| Domain | Entry | What you get |
+|--------|-------|----------------|
+| **Software** | `nexus do owner/repo` | Clone → install → test → fix loop |
+| **Research** | `nexus research "…"` / `nexus arxiv` | arXiv search, abstracts, brief, report |
+| **Procurement** | `nexus procure demo` | Deterministic scorecard, TCO, expert lenses |
 
 ---
 
@@ -49,6 +55,8 @@ It is **not** “an AI that does anything.” It is a **specialized orchestratio
 | **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review → meta-review | Built-in pushback before shipping |
 | **Hybrid / LLM-optional** | Heuristic-only mode **or** Ollama / Claude / Codex / Gemini | Cost control + runs when models are down |
 | **GitHub-native jobs** | `nexus do owner/repo --goal "fix failing tests"` | URL → clone → install → check → fix loop |
+| **arXiv research** | `nexus research "topic"` / `nexus arxiv search` | Public API → abstracts → brief (no key) |
+| **Procurement agents** | Engine + Incoterms/Legal/Engineering lenses | **Numbers from code, not the model** |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
 | **Workspace MCP** | Project-jail tools for desktop/phone AI clients | Safe external control of the workspace |
 
@@ -89,9 +97,49 @@ nexus do owner/repo -g "run checks and repair failures"
 nexus do owner/repo --heuristic-only --no-start
 # proof of durability
 make demo && make demo-judge
+
+# domains
+nexus research "multi agent orchestration" --heuristic-only
+nexus arxiv get 1706.03762
+nexus procure demo
 ```
 
 > If this saves a failed overnight agent run, a star helps others find it.
+
+---
+
+## Domains
+
+### Software (GitHub)
+
+See [Quick start](#quick-start) and [cookbook 06](cookbook/06_github_do.md).
+
+### Research (arXiv)
+
+```bash
+nexus arxiv search "retrieval augmented generation"
+nexus research "durable multi-agent systems" --max 8
+# optional PDFs:  nexus research "…" --pdf
+```
+
+Persona: [docs/agents/RESEARCH_ARXIV.md](docs/agents/RESEARCH_ARXIV.md) · cookbook [08](cookbook/08_arxiv_research.md)
+
+### Procurement
+
+Deterministic **scorecard / TCO / policy / expert panel**. The LLM extracts quotes; the engine owns every number.
+
+```bash
+nexus procure demo          # synthetic 3-supplier report
+nexus procure persona       # system prompt for bus / Claude / local LLM
+```
+
+```python
+from nexus.procurement import Supplier, CostLine, ProcurementAnalysis, ExpertPanel
+```
+
+Persona: [docs/agents/PROCUREMENT.md](docs/agents/PROCUREMENT.md) · cookbook [07](cookbook/07_procurement.md)
+
+Optional charts: `pip install matplotlib` (or `pip install "nexus-multi-agent[charts]"` when published).
 
 ---
 
@@ -148,6 +196,9 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `./run` | Install + auto start + agents |
 | `./run https://github.com/…` | Start **and** GitHub job |
 | `nexus do owner/repo` | Clone → install → check → fix |
+| `nexus research "…"` | arXiv job → brief + report |
+| `nexus arxiv search` / `get` | arXiv API helpers |
+| `nexus procure demo` | Procurement engine + experts |
 | `nexus start` / `stop` / `status` | Stack control |
 | `nexus doctor` | Hardware + tools |
 | `nexus demo` | Crash → resume proof |
@@ -220,6 +271,8 @@ Ollama / CLIs   ──event bus──►  nexus start
 4. [Workspace MCP](cookbook/04_workspace_mcp.md)  
 5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)  
 6. [GitHub URL → fix](cookbook/06_github_do.md)  
+7. [Procurement agents](cookbook/07_procurement.md)  
+8. [arXiv research](cookbook/08_arxiv_research.md)  
 
 Docs: **https://vincentmarquez.github.io/nexus-core/**
 
@@ -233,6 +286,8 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 | Rubric-style judge | ✅ |
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
+| arXiv search / research jobs | ✅ |
+| Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |
 | Mock agents (zero setup) | ✅ |
 | SQLite FTS memory | ✅ |

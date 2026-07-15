@@ -5,17 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 # PyPI name: nexus-core is already taken (unrelated ETL package).
 name = "nexus-multi-agent"
-version = "0.5.1"
-description = "Durable multi-agent engine for real software tasks: resume after crash, rubric judge, GitHub fix jobs"
+version = "0.6.0"
+description = "Durable multi-agent engine: software jobs, arXiv research, procurement intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Vincent Marquez" }]
-keywords = ["multi-agent", "orchestration", "research", "workflow", "memory", "ollama", "agents", "mcp"]
+keywords = [
+    "multi-agent",
+    "orchestration",
+    "research",
+    "arxiv",
+    "procurement",
+    "workflow",
+    "ollama",
+    "agents",
+    "mcp",
+]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "mkdocs-material>=9.0"]
+charts = ["matplotlib>=3.7"]
+procurement = ["matplotlib>=3.7"]
+all = ["matplotlib>=3.7", "pytest>=7.0"]
 
 [project.scripts]
 nexus = "nexus.cli:main"

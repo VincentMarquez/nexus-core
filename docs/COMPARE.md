@@ -72,10 +72,10 @@ They are **complementary**, not competitors:
 
 ## What NEXUS is not (yet)
 
-- **Not** a general research AGI or paper-reading platform (no built-in arXiv pipeline today).  
+- **Not** a general AGI or unbounded “does anything” autonomy.  
 - **Not** a replacement for o1-style single-model reasoning — it **structures** models (or heuristics) in a process.  
 - **Not** a full IDE.  
-- **Not** claiming unbounded “does anything” autonomy.
+- **Does** include **arXiv** search/jobs and **procurement** intelligence (deterministic engine + expert lenses) as first-class domains — still specialized, not universal.
 
 ---
 
