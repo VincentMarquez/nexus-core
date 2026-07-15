@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — 2026-07-15
+
+### Added
+- **Community response loop**: on human replies / PR commits → run install + pytest + smoke → post results → repeat
+- CLI: `nexus github loop <n> [--dry-run] [--force] [--workdir PATH]`
+- Actions job `response_loop` (issue comments, PR synchronize, opens)
+- Loop marker `<!-- nexus-community-loop sha=… -->` (dedupe per commit); `/skip-loop` opt-out
+- README + docs updated for the continuous test/share loop
+
 ## 0.7.0 — 2026-07-15
 
 ### Added

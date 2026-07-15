@@ -1,10 +1,21 @@
-# Automatic first replies on issues & PRs (NEXUS community one-stop shop).
-# Marker <!-- nexus-community-bot --> prevents double-posts.
+# NEXUS community one-stop shop on VincentMarquez/nexus-core
 #
-# Local mirror (same drafts, your gh token):
+# Loop:
+#   human response (or new PR commits)
+#     → pick up thread
+#     → run install + pytest + smoke
+#     → post results on the issue/PR
+#     → wait for next response → repeat
+#
+# First reply still greets on open / @nexus / /triage.
+# Markers:
+#   <!-- nexus-community-bot -->
+#   <!-- nexus-community-loop sha=… -->
+#
+# Local:
 #   nexus github inbox
+#   nexus github loop 12
 #   nexus github auto --dry-run
-#   nexus github reply 12
 #
 # Docs: docs/GITHUB_COMMUNITY.md
 
@@ -14,33 +25,52 @@ on:
   issues:
     types: [opened, reopened]
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
   workflow_dispatch:
     inputs:
       number:
-        description: "Issue/PR number to reply to (optional; empty = skip)"
+        description: "Issue/PR number (first-reply and/or loop)"
         required: false
         default: ""
+      mode:
+        description: "first | loop | both"
+        required: false
+        default: "both"
 
 permissions:
   issues: write
   pull-requests: write
   contents: read
 
+concurrency:
+  group: community-bot-${{ github.event.issue.number || github.event.pull_request.number || github.event.inputs.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
-  reply:
+  first_reply:
+    name: First reply
     runs-on: ubuntu-latest
-    # Skip bot-authored events to avoid loops
     if: >
       github.event.sender.type != 'Bot' &&
       (
-        github.event_name != 'issue_comment' ||
-        contains(github.event.comment.body, '@nexus') ||
-        contains(github.event.comment.body, '/nexus') ||
-        contains(github.event.comment.body, '/triage') ||
-        contains(github.event.comment.body, 'nexus-bot')
+        (github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened')) ||
+        (github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened')) ||
+        (github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          (
+            contains(github.event.comment.body, '@nexus') ||
+            contains(github.event.comment.body, '/nexus') ||
+            contains(github.event.comment.body, '/triage') ||
+            contains(github.event.comment.body, 'nexus-bot')
+          ) &&
+          !contains(github.event.comment.body, 'nexus-community-bot') &&
+          !contains(github.event.comment.body, 'nexus-community-loop')
+        ) ||
+        (github.event_name == 'workflow_dispatch' &&
+          inputs.number != '' &&
+          (inputs.mode == 'first' || inputs.mode == 'both'))
       )
     steps:
       - name: Checkout
@@ -54,14 +84,9 @@ jobs:
       - name: Install package
         run: |
           python -m pip install -U pip
-          pip install -e .
+          pip install -e ".[dev]"
 
-      - name: Install gh
-        run: |
-          # gh is preinstalled on ubuntu-latest; ensure present
-          gh --version
-
-      - name: Auto-reply from event
+      - name: Post first reply (event)
         if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,14 +94,99 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
-        run: |
-          python -m nexus.github_community --event "$GITHUB_EVENT_PATH"
+        run: python -m nexus.github_community --event "$GITHUB_EVENT_PATH"
 
-      - name: Manual reply (workflow_dispatch)
+      - name: Post first reply (manual)
         if: github.event_name == 'workflow_dispatch' && inputs.number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+        run: nexus github reply "${{ inputs.number }}" --repo "$GITHUB_REPOSITORY"
+
+  response_loop:
+    name: Response loop (test + share)
+    runs-on: ubuntu-latest
+    # Any human comment, new PR commits, or new issue/PR → run checks and post
+    if: >
+      github.event.sender.type != 'Bot' &&
+      (
+        (github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          !contains(github.event.comment.body, 'nexus-community-bot') &&
+          !contains(github.event.comment.body, 'nexus-community-loop') &&
+          !contains(github.event.comment.body, '/skip-loop') &&
+          !contains(github.event.comment.body, '/noloop')
+        ) ||
+        (github.event_name == 'pull_request' &&
+          (github.event.action == 'opened' ||
+           github.event.action == 'reopened' ||
+           github.event.action == 'synchronize' ||
+           github.event.action == 'ready_for_review')
+        ) ||
+        (github.event_name == 'issues' &&
+          (github.event.action == 'opened' || github.event.action == 'reopened')
+        ) ||
+        (github.event_name == 'workflow_dispatch' &&
+          inputs.number != '' &&
+          (inputs.mode == 'loop' || inputs.mode == 'both'))
+      )
+    steps:
+      - name: Resolve ref (PR head or default)
+        id: ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          IS_PR_THREAD: ${{ github.event.issue.pull_request != null }}
+          FALLBACK_SHA: ${{ github.sha }}
         run: |
-          nexus github reply "${{ inputs.number }}" --repo "$GITHUB_REPOSITORY"
+          set -e
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_SHA" ]; then
+            echo "ref=$PR_SHA" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "issue_comment" ] && [ "$IS_PR_THREAD" = "true" ] && [ -n "$ISSUE_NUM" ]; then
+            SHA=$(gh api "repos/${{ github.repository }}/pulls/${ISSUE_NUM}" --jq .head.sha)
+            echo "ref=$SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$FALLBACK_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout code under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+
+      - name: Run loop from event
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python -m nexus.github_community --loop --event "$GITHUB_EVENT_PATH" --workdir "$GITHUB_WORKSPACE"
+
+      - name: Run loop manual
+        if: github.event_name == 'workflow_dispatch' && inputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python -m nexus.github_community --loop --number "${{ inputs.number }}" \
+            --repo "$GITHUB_REPOSITORY" --workdir "$GITHUB_WORKSPACE" --force

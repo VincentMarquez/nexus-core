@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -518,7 +519,7 @@ def cmd_github(args: argparse.Namespace) -> int:
         if not getattr(args, "repo", None):
             print(
                 "usage:\n"
-                "  nexus github inbox|reply|draft|auto|status   # community one-stop\n"
+                "  nexus github inbox|reply|draft|auto|loop|status\n"
                 "  nexus github do <owner/repo>                 # repair job\n"
                 "  nexus do <owner/repo>                        # same job"
             )
@@ -552,6 +553,7 @@ def cmd_github(args: argparse.Namespace) -> int:
         print()
         print("reply:  nexus github reply <n> --body '…'")
         print("draft:  nexus github draft <n>")
+        print("loop:   nexus github loop <n>     # run tests + post results")
         print("auto:   nexus github auto --dry-run")
         return 0
 
@@ -646,6 +648,35 @@ def cmd_github(args: argparse.Namespace) -> int:
             )
         return 0
 
+    if sub == "loop":
+        # response → run tests → post results (same as Actions response_loop)
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        try:
+            if getattr(args, "number", None) is not None:
+                item = None
+                try:
+                    item = gc.fetch_thread(repo, int(args.number))
+                except Exception:
+                    item = None
+                res = gc.run_and_post_loop(
+                    repo,
+                    int(args.number),
+                    workdir=workdir,
+                    kind=(item.kind if item else "issue"),
+                    triggered_by=os.environ.get("USER", "local"),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    force=bool(getattr(args, "force", False)),
+                )
+                print(json.dumps(res, indent=2))
+                if res.get("skipped"):
+                    return 0
+                return 0 if res.get("ok_checks", True) or res.get("dry_run") else 1
+            print("usage: nexus github loop <number> [--dry-run] [--force] [--workdir PATH]")
+            return 2
+        except gc.GhError as e:
+            print(f"error: {e}")
+            return 1
+
     print(f"unknown github subcommand: {sub}")
     return 2
 
@@ -677,7 +708,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         len(raw) >= 2
         and raw[0] == "github"
         and _looks_like_github(raw[1])
-        and raw[1] not in {"inbox", "reply", "draft", "auto", "status", "do"}
+        and raw[1]
+        not in {"inbox", "reply", "draft", "auto", "loop", "status", "do"}
     ):
         raw = ["github", "do", *raw[1:]]
     elif not raw or raw[0] not in known:
@@ -850,6 +882,25 @@ def main(argv: Optional[list[str]] = None) -> int:
     gh_auto.add_argument("--dry-run", action="store_true")
     gh_auto.add_argument("--llm", action="store_true")
     gh_auto.set_defaults(func=cmd_github)
+
+    gh_loop = gh_sub.add_parser(
+        "loop",
+        help="pick up thread → run tests → post results (response loop)",
+    )
+    gh_loop.add_argument("number", type=int, help="issue or PR number")
+    gh_loop.add_argument("--repo", dest="repo_flag", default=None)
+    gh_loop.add_argument(
+        "--workdir",
+        default=None,
+        help="repo root to test (default: cwd)",
+    )
+    gh_loop.add_argument("--dry-run", action="store_true")
+    gh_loop.add_argument(
+        "--force",
+        action="store_true",
+        help="post even if this commit sha was already reported",
+    )
+    gh_loop.set_defaults(func=cmd_github)
 
     gh_st = gh_sub.add_parser("status", help="show gh auth + target repo")
     gh_st.add_argument("--repo", dest="repo_flag", default=None)

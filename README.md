@@ -169,9 +169,12 @@ See [Quick start](#quick-start) and [cookbook 06](cookbook/06_github_do.md).
 
 Reply to **anyone** on issues and pull requests from one desk — automatically on GitHub, interactively on your machine (same idea as an always-on assistant).
 
+**Response loop:** whenever someone replies (or pushes PR commits), the bot **picks it up → runs tests → posts the results → waits for the next reply** and does it again.
+
 | Mode | Command / path | What happens |
 |------|----------------|--------------|
-| **Automatic** | `.github/workflows/community-bot.yml` | First reply when an issue/PR opens; also on `@nexus` / `/triage` comments |
+| **Automatic** | `.github/workflows/community-bot.yml` | First reply on issue/PR open; also on `@nexus` / `/triage` |
+| **Loop** | same workflow + `nexus github loop 12` | On every human response / PR `synchronize`: install → pytest → smoke → **share results** on the thread |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
 | **Reply** | `nexus github reply 12` | Post auto-draft (or `--body "…"`) |
@@ -182,12 +185,29 @@ gh auth login                 # one-time on your machine
 nexus github status
 nexus github inbox
 nexus github reply 12         # or: --body "Thanks — fixed on main."
-nexus github auto --dry-run   # safe preview before bulk post
+nexus github loop 12          # run tests now and post results on #12
+nexus github auto --dry-run   # safe preview before bulk first-replies
 ```
 
-- **No extra secrets** for default replies (docs links + triage checklists).  
-- Marker `<!-- nexus-community-bot -->` prevents double-posts.  
-- Optional: `--llm` uses the NEXUS bus when the stack is up.  
+```text
+you / contributor replies on issue or PR
+        │
+        ▼
+  community bot picks it up
+        │
+        ▼
+  install + pytest + smoke
+        │
+        ▼
+  posts PASS/FAIL + logs on the thread
+        │
+        └──► next reply / new commits → loop again
+```
+
+- **No extra secrets** for default replies and the test loop (`GITHUB_TOKEN` only).  
+- Markers: `<!-- nexus-community-bot -->` (greetings) and `<!-- nexus-community-loop sha=… -->` (results; deduped per commit).  
+- Opt out of one loop run: comment `/skip-loop` or `/noloop`.  
+- Optional: `--llm` on drafts uses the NEXUS bus when the stack is up.  
 - Full setup: **[docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md)** · cookbook **[09](cookbook/09_github_community.md)**
 
 ### Research (arXiv)
@@ -272,7 +292,7 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `./run` | Install + auto start + agents |
 | `./run https://github.com/…` | Start **and** GitHub job |
 | `nexus do owner/repo` | Clone → install → check → fix |
-| `nexus github inbox` / `reply` / `auto` | Community one-stop (issues & PRs) |
+| `nexus github inbox` / `reply` / `loop` / `auto` | Community one-stop + test loop |
 | `nexus research "…"` | arXiv job → brief + report |
 | `nexus arxiv search` / `get` | arXiv API helpers |
 | `nexus procure demo` | Procurement engine + experts |
@@ -368,7 +388,7 @@ Docs: **https://vincentmarquez.github.io/nexus-core/**
 | Rubric-style judge | ✅ |
 | Adversarial 10-step pipeline | ✅ |
 | GitHub `nexus do` repair jobs | ✅ |
-| GitHub community bot + inbox CLI | ✅ |
+| GitHub community bot + inbox + test loop | ✅ |
 | arXiv search / research jobs | ✅ |
 | Procurement engine + expert panel | ✅ |
 | Heuristic-only (no LLM) mode | ✅ |

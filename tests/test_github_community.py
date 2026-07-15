@@ -182,3 +182,70 @@ def test_handle_event_file_dry(tmp_path, monkeypatch):
     res = handle_event_file(path, repo="VincentMarquez/nexus-core", dry_run=True)
     assert res.get("dry_run") is True
     assert res.get("number") == 99
+
+
+from nexus.github_community import (
+    LOOP_MARKER,
+    CheckResult,
+    LoopReport,
+    format_loop_report,
+    event_wants_loop,
+    event_wants_first_reply,
+    is_bot_comment_body,
+    run_project_checks,
+    comment_requests_skip,
+)
+
+
+def test_format_loop_report_pass():
+    report = LoopReport(
+        sha="abc123def456",
+        workdir="/tmp/x",
+        checks=[
+            CheckResult("pytest", ["pytest"], True, 0, 1.2, stdout="10 passed"),
+        ],
+        triggered_by="alice",
+        kind="pr",
+        number=7,
+    )
+    text = format_loop_report(report)
+    assert "PASS" in text
+    assert "alice" in text
+    assert LOOP_MARKER in text
+    assert "sha=abc123def456" in text
+
+
+def test_event_wants_loop_on_human_comment(monkeypatch):
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "issue_comment")
+    event = {
+        "action": "created",
+        "issue": {"number": 1, "user": {"login": "a"}},
+        "comment": {"body": "I tried make demo and it failed", "user": {"login": "bob"}},
+    }
+    assert event_wants_loop(event, "issue_comment") is True
+    assert event_wants_first_reply(event, "issue_comment") is False
+
+
+def test_event_skips_bot_comment():
+    event = {
+        "action": "created",
+        "issue": {"number": 1, "user": {"login": "a"}},
+        "comment": {"body": "x\n<!-- nexus-community-loop -->\n", "user": {"login": "bot"}},
+    }
+    assert event_wants_loop(event, "issue_comment") is False
+    assert is_bot_comment_body(event["comment"]["body"]) is True
+
+
+def test_skip_loop_command():
+    assert comment_requests_skip("please /skip-loop this time")
+    assert not comment_requests_skip("please run tests")
+
+
+def test_run_project_checks_smoke(tmp_path):
+    # minimal tree with a passing pytest
+    (tmp_path / "test_ok.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    # no pyproject → skip install
+    checks = run_project_checks(tmp_path, timeout_each=60)
+    names = [c.name for c in checks]
+    assert "pytest" in names
+    assert any(c.name == "pytest" and c.ok for c in checks)
