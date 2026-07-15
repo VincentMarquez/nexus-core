@@ -7,7 +7,7 @@ git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-# after publish: pip install nexus-core
+# after publish: pip install nexus-multi-agent
 ```
 
 ## One-command stack

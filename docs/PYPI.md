@@ -1,7 +1,17 @@
 # Publishing to PyPI
 
-Package name: **`nexus-core`**  
-Entry point: **`nexus`**
+**Distribution name:** `nexus-multi-agent`  
+*(PyPI already has an unrelated package named `nexus-core` — do not use that name.)*
+
+**Import / CLI:**
+
+```bash
+pip install nexus-multi-agent
+nexus doctor
+nexus start -y
+```
+
+Python import path remains `import nexus` (package under `src/nexus`).
 
 ## Build (any machine)
 
@@ -12,9 +22,24 @@ python -m build
 twine check dist/*
 ```
 
-## Upload
+## Option A — Trusted publishing (recommended)
 
-Needs a PyPI API token (never commit it):
+One-time setup on [pypi.org](https://pypi.org):
+
+1. Create project **`nexus-multi-agent`** (or let the first upload create it).
+2. **Publishing → Add a new pending publisher** with:
+   - Owner: `VincentMarquez`
+   - Repository: `nexus-core`
+   - Workflow: `publish.yml`
+   - Environment name: `pypi`
+3. On GitHub: create Environment **`pypi`** under repo Settings → Environments (optional protection rules).
+4. Publish a GitHub Release (or re-run the **Publish to PyPI** workflow).
+
+The workflow is `.github/workflows/publish.yml` (OIDC, no long-lived token in the repo).
+
+## Option B — API token
+
+Never commit the token.
 
 ```bash
 export TWINE_USERNAME=__token__
@@ -26,15 +51,19 @@ Test PyPI first:
 
 ```bash
 twine upload --repository testpypi dist/*
-pip install -i https://test.pypi.org/simple/ nexus-core
+pip install -i https://test.pypi.org/simple/ nexus-multi-agent
 ```
 
 ## After publish
 
 ```bash
-pip install nexus-core
+pip install nexus-multi-agent
 nexus doctor
 nexus start -y
+nexus mcp --http
 ```
 
-GitHub Actions can automate this on tag push once `PYPI_API_TOKEN` is set in repo secrets.
+## Version policy
+
+Tag releases as `vMAJOR.MINOR.PATCH` matching `pyproject.toml` version.
+Current target: **0.4.1**.

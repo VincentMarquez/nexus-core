@@ -1,3 +1,16 @@
+# Changelog
+
+## 0.4.1 — 2026-07-15
+
+### Fixed
+- MkDocs `--strict` build (Pages deploy): externalize links outside `docs/`
+- Stop tracking MkDocs `site/` build artifact; ignore in git
+- PyPI distribution name: **`nexus-multi-agent`** (`nexus-core` is taken by an unrelated package)
+
+### Added
+- Full cookbooks on the docs site under `docs/cookbook/`
+- Clear trusted-publisher setup for PyPI in `docs/PYPI.md`
+
 ## 0.4.0 — 2026-07-15
 
 ### Added
@@ -6,8 +19,6 @@
 - Five cookbooks under `cookbook/`
 - PyPI packaging docs + trusted-publish workflow
 - `pip`-oriented install path
-
-# Changelog
 
 ## 0.3.4 — 2026-07-14
 

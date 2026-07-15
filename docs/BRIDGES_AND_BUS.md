@@ -2,7 +2,7 @@
 
 This document describes how to wire a **multi-agent event bus** and **CLI / local-LLM workers**.
 
-Reference implementation: [`bridge/`](../bridge/).  
+Reference implementation: [`bridge/`](https://github.com/VincentMarquez/nexus-core/tree/main/bridge).  
 The Python durable engine (`nexus.engine`) runs with mock agents on its own; the bus is how you attach real CLIs and local models.
 
 ---

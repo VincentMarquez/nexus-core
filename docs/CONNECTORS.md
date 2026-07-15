@@ -116,7 +116,7 @@ export NEXUS_MCP_URL="https://<your-host-or-tunnel>/mcp"
 export NEXUS_PROJECT_ROOT="/path/to/your/project"
 ```
 
-Template: [`connectors/examples/workspace-mcp.client.json`](../connectors/examples/workspace-mcp.client.json)
+Template: [`connectors/examples/workspace-mcp.client.json`](https://github.com/VincentMarquez/nexus-core/blob/main/connectors/examples/workspace-mcp.client.json)
 
 ---
 
@@ -164,7 +164,7 @@ MCP tool run_command
 }
 ```
 
-Template: [`connectors/examples/claude-desktop.mcp.json`](../connectors/examples/claude-desktop.mcp.json)
+Template: [`connectors/examples/claude-desktop.mcp.json`](https://github.com/VincentMarquez/nexus-core/blob/main/connectors/examples/claude-desktop.mcp.json)
 
 ---
 
@@ -220,7 +220,7 @@ They should:
 - stay **optional** so core NEXUS runs without them  
 - register as additional connectors in ChatGPT/Claude/Grok  
 
-Template: [`connectors/examples/science-mcp.client.json`](../connectors/examples/science-mcp.client.json)
+Template: [`connectors/examples/science-mcp.client.json`](https://github.com/VincentMarquez/nexus-core/blob/main/connectors/examples/science-mcp.client.json)
 
 ---
 

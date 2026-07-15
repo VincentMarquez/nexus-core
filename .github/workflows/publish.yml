@@ -1,5 +1,9 @@
 name: Publish to PyPI
 
+# Requires one-time Trusted Publisher on pypi.org for project nexus-multi-agent:
+#   owner=VincentMarquez  repo=nexus-core  workflow=publish.yml  environment=pypi
+# See docs/PYPI.md
+
 on:
   release:
     types: [published]
@@ -10,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      id-token: write  # trusted publishing
+      id-token: write  # trusted publishing (OIDC)
       contents: read
     steps:
       - uses: actions/checkout@v4
@@ -19,8 +23,8 @@ jobs:
           python-version: "3.12"
       - name: Build
         run: |
-          pip install -U build
+          pip install -U build twine
           python -m build
+          twine check dist/*
       - name: Publish (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
-        continue-on-error: true

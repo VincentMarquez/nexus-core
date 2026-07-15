@@ -3,18 +3,19 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nexus-core"
-version = "0.4.0"
+# PyPI name: nexus-core is already taken (unrelated ETL package).
+name = "nexus-multi-agent"
+version = "0.4.1"
 description = "Multi-agent tasks that resume after a crash — judge, local LLM, bus, MCP, one-command start"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Vincent Marquez" }]
-keywords = ["multi-agent", "orchestration", "research", "workflow", "memory", "ollama", "agents"]
+keywords = ["multi-agent", "orchestration", "research", "workflow", "memory", "ollama", "agents", "mcp"]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "mkdocs-material>=9.0"]
 
 [project.scripts]
 nexus = "nexus.cli:main"
@@ -24,6 +25,7 @@ Homepage = "https://vincentmarquez.github.io/nexus-core/"
 Documentation = "https://vincentmarquez.github.io/nexus-core/"
 Repository = "https://github.com/VincentMarquez/nexus-core"
 Issues = "https://github.com/VincentMarquez/nexus-core/issues"
+Changelog = "https://github.com/VincentMarquez/nexus-core/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
