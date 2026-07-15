@@ -171,6 +171,23 @@ Reply to **anyone** on issues and pull requests from one desk — automatically 
 
 **Response loop:** whenever someone replies (or pushes PR commits), the bot **picks it up → runs tests → posts the results → waits for the next reply** and does it again.
 
+#### ML architecture
+
+<p align="center">
+  <img src="docs/assets/arch-github-community.svg" alt="NEXUS GitHub community ML architecture — sensors, router, multi-LLM panel, evidence loop, write-back" width="100%">
+</p>
+
+| Layer | Role in the system | What runs |
+|-------|--------------------|-----------|
+| **① Sensors** | Observe the world | GitHub events: issues, PRs, human comments (Actions + `gh`) |
+| **② Router / policy** | Decide *what* to do | `github_community.py` — first-reply vs loop vs skip; label-based draft policy; bot/sha markers |
+| **③ Model layer** | Optional language generation | Multi-LLM panel on the NEXUS bus (`--llm`); **heuristic drafts by default** (no model required) |
+| **④ Actuators** | Change the world safely | Post comments only (greetings + PASS/FAIL reports) — **never auto-merge** |
+| **⑤ Evidence loop** | Ground truth for ML claims | Checkout → install → **pytest** → **smoke** → score + publish (presence ≠ success) |
+| **⑥ Control loop** | Continuous operation | Human reply / new commits → ingest → reason → measure → actuate → wait → **repeat** |
+
+Design bet: **tests are the reward signal**, not “the model said OK.” Drafts may use LLMs; **loop results only come from real checks**.
+
 | Mode | Command / path | What happens |
 |------|----------------|--------------|
 | **Automatic** | `.github/workflows/community-bot.yml` | First reply on issue/PR open; also on `@nexus` / `/triage` |
@@ -208,7 +225,7 @@ you / contributor replies on issue or PR
 - Markers: `<!-- nexus-community-bot -->` (greetings) and `<!-- nexus-community-loop sha=… -->` (results; deduped per commit).  
 - Opt out of one loop run: comment `/skip-loop` or `/noloop`.  
 - Optional: `--llm` on drafts uses the NEXUS bus when the stack is up.  
-- Full setup: **[docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md)** · cookbook **[09](cookbook/09_github_community.md)**
+- Full setup: **[docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md)** · cookbook **[09](cookbook/09_github_community.md)** · figure `docs/assets/arch-github-community.svg`
 
 ### Research (arXiv)
 

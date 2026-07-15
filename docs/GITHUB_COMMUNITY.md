@@ -2,6 +2,21 @@
 
 Reply to **issues**, **pull requests**, and comments from one place — automatically on GitHub, and interactively from your laptop.
 
+## ML architecture
+
+![GitHub community ML architecture](assets/arch-github-community.svg)
+
+| Layer | Role |
+|-------|------|
+| Sensors | GitHub issues / PRs / comments |
+| Router / policy | first-reply vs loop vs skip; label drafts; sha markers |
+| Model layer (optional) | multi-LLM panel via NEXUS bus (`--llm`); heuristic default |
+| Actuators | comments only (no auto-merge) |
+| Evidence loop | install → pytest → smoke → PASS/FAIL |
+| Control loop | next human reply restarts the cycle |
+
+**Tests are the reward signal** — language models may draft text; loop outcomes only come from real checks.
+
 ## Response loop (the main automation)
 
 ```text
