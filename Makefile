@@ -1,4 +1,4 @@
-.PHONY: all install test smoke demo demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
+.PHONY: all install test smoke demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
 
 # Default: zero-config bootstrap + automatic start with agents
 all: run
@@ -16,8 +16,16 @@ test:
 smoke:
 	. .venv/bin/activate && python evals/smoke.py
 
+# Classic: crash → resume only
 demo:
 	. .venv/bin/activate && bash scripts/demo.sh
+
+# Full product showcase (use this for videos / visitors)
+demo-all:
+	. .venv/bin/activate && bash scripts/demo_showcase.sh
+
+demo-all-quick:
+	. .venv/bin/activate && bash scripts/demo_showcase.sh --quick
 
 demo-resume:
 	. .venv/bin/activate && bash scripts/demo.sh --resume-only

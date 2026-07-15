@@ -356,10 +356,16 @@ def cmd_start(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_demo(_: argparse.Namespace) -> int:
+def cmd_demo(args: argparse.Namespace) -> int:
     import subprocess
 
     root = Path(__file__).resolve().parents[2]
+    if getattr(args, "all", False) or getattr(args, "showcase", False):
+        script = root / "scripts" / "demo_showcase.sh"
+        cmd = ["bash", str(script)]
+        if getattr(args, "quick", False):
+            cmd.append("--quick")
+        return subprocess.call(cmd, cwd=str(root))
     return subprocess.call(["bash", str(root / "scripts" / "demo.sh")], cwd=str(root))
 
 
@@ -1157,7 +1163,23 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("stop", help="stop bus and bridges").set_defaults(func=cmd_stop)
     sub.add_parser("status", help="show process status").set_defaults(func=cmd_status)
     sub.add_parser("doctor", help="detect hardware and tools").set_defaults(func=cmd_doctor)
-    sub.add_parser("demo", help="crash→resume demo").set_defaults(func=cmd_demo)
+    p_demo = sub.add_parser(
+        "demo",
+        help="crash→resume demo (or --all for full product showcase)",
+    )
+    p_demo.add_argument(
+        "--all",
+        "--showcase",
+        dest="all",
+        action="store_true",
+        help="full showcase: resume + judge + smoke + platforms + resilience",
+    )
+    p_demo.add_argument(
+        "--quick",
+        action="store_true",
+        help="with --all, skip slower optional sections",
+    )
+    p_demo.set_defaults(func=cmd_demo)
 
     pm = sub.add_parser("mcp", help="run Workspace MCP server (stdio or --http)")
     pm.add_argument("--http", action="store_true", help="HTTP tools API instead of stdio")

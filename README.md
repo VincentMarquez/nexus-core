@@ -123,6 +123,19 @@ cd nexus-core
 
 Creates a venv, installs the package, starts bus + dashboard, wires **Ollama and installed CLIs automatically** (mocks if missing).
 
+### Run the demo (no API keys)
+
+```bash
+make install
+make demo-all          # full product showcase
+# or:  make demo-all-quick
+# or:  make demo           # crash→resume only
+# or:  nexus demo --all
+```
+
+Proves crash→resume, rubric judge vs presence, smoke evals, platforms mesh, and resilience probes.  
+Guide: **[docs/DEMO.md](docs/DEMO.md)**
+
 ### Paste a GitHub repo — autonomous repair loop
 
 ```bash

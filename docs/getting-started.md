@@ -44,6 +44,17 @@ nexus status
 nexus stop
 ```
 
+## Product demo
+
+```bash
+make install
+make demo-all          # full showcase (or demo-all-quick)
+make demo              # crash → resume only
+make demo-judge        # presence ≠ success
+```
+
+Details: [DEMO.md](DEMO.md)
+
 ## Paste a GitHub repo
 
 ```bash

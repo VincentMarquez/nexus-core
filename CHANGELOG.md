@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 — 2026-07-15
+
+### Added
+- **Product showcase demo**: `make demo-all` / `nexus demo --all` (`scripts/demo_showcase.sh`)
+- CI runs showcase quick mode after smoke
+- Docs: `docs/DEMO.md`
+
 ## 0.8.0 — 2026-07-15
 
 ### Added

@@ -43,6 +43,7 @@ nav:
   - Start: index.md
   - Get started:
       - Install & demo: getting-started.md
+      - Demo guide: DEMO.md
       - Cookbooks: cookbooks.md
       - Crash → resume: cookbook/01_crash_resume.md
       - Judge vs presence: cookbook/02_judge_vs_presence.md

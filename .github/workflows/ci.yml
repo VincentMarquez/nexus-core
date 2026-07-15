@@ -25,3 +25,5 @@ jobs:
         run: pytest -q
       - name: Smoke evals
         run: python evals/smoke.py
+      - name: Product showcase demo (quick)
+        run: bash scripts/demo_showcase.sh --quick
