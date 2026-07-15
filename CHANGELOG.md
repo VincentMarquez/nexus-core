@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 — 2026-07-15
+
+### Added
+- **Repo mine (use, don’t follow)**: `nexus github mine fetch|evaluate|use|list|run`
+- SQLite library of graded external repos; clone/prove winners for *your* code
+- Docs: `docs/REPO_MINE.md` — alternative to social followme-style bots
+
 ## 0.8.1 — 2026-07-15
 
 ### Added

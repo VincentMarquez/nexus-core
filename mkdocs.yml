@@ -74,6 +74,7 @@ nav:
       - MCP setup: MCP_SETUP.md
       - Platforms + local LLM: PLATFORMS.md
       - Resilience (power/WiFi): RESILIENCE.md
+      - Repo mine (use, not follow): REPO_MINE.md
       - Bridges: BRIDGES_AND_BUS.md
       - GLM-5.2: GLM52.md
   - Launch:

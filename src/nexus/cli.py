@@ -880,6 +880,68 @@ def cmd_github(args: argparse.Namespace) -> int:
         ok = (res.get("connect") or {}).get("ok")
         return 0 if ok else 1
 
+
+    if sub == "mine":
+        from . import repo_mine as rm
+
+        msub = getattr(args, "mine_cmd", None) or "run"
+        workdir = Path(getattr(args, "workdir", None) or Path.cwd())
+        try:
+            if msub == "fetch":
+                res = rm.step_fetch(
+                    workdir,
+                    query=getattr(args, "query", None) or "multi agent",
+                    count=int(getattr(args, "count", 8) or 8),
+                    language=getattr(args, "language", None),
+                    max_stars=getattr(args, "max_stars", 500),
+                )
+            elif msub == "evaluate":
+                res = rm.step_evaluate(
+                    workdir,
+                    limit=getattr(args, "limit", 10),
+                    use_ollama=not bool(getattr(args, "heuristic_only", False)),
+                    ollama_model=getattr(args, "model", None),
+                )
+            elif msub == "use":
+                res = rm.step_use(
+                    workdir,
+                    min_score=float(getattr(args, "min_score", 12) or 12),
+                    limit=int(getattr(args, "limit", 5) or 5),
+                    prove=not bool(getattr(args, "no_prove", False)),
+                    structure_only=bool(getattr(args, "structure_only", False)),
+                )
+            elif msub == "list":
+                conn = rm.connect(workdir)
+                rows = rm.list_entries(
+                    conn,
+                    min_score=float(getattr(args, "min_score", 0) or 0),
+                    only_used=bool(getattr(args, "used", False)),
+                    limit=int(getattr(args, "limit", 30) or 30),
+                )
+                conn.close()
+                res = {"step": "list", "count": len(rows), "entries": rows}
+            elif msub == "run":
+                res = rm.run_pipeline(
+                    workdir,
+                    query=getattr(args, "query", None) or "multi agent durable",
+                    fetch_count=int(getattr(args, "count", 6) or 6),
+                    language=getattr(args, "language", None) or "Python",
+                    max_stars=getattr(args, "max_stars", 500),
+                    eval_limit=int(getattr(args, "limit", 6) or 6),
+                    min_score=float(getattr(args, "min_score", 12) or 12),
+                    use_limit=int(getattr(args, "use_limit", 4) or 4),
+                    use_ollama=not bool(getattr(args, "heuristic_only", False)),
+                    prove=not bool(getattr(args, "no_prove", False)),
+                )
+            else:
+                print("usage: nexus github mine fetch|evaluate|use|list|run")
+                return 2
+        except Exception as e:
+            print(f"error: {e}")
+            return 1
+        print(json.dumps(res, indent=2, default=str))
+        return 0
+
     print(f"unknown github subcommand: {sub}")
     return 2
 
@@ -1099,6 +1161,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             "search",
             "scout",
             "connect",
+            "mine",
             "improve",
             "status",
             "do",
@@ -1501,6 +1564,52 @@ def main(argv: Optional[list[str]] = None) -> int:
     gh_imp.add_argument("--shallow", action="store_true")
     gh_imp.add_argument("--dry-run", action="store_true")
     gh_imp.set_defaults(func=cmd_github)
+
+
+    gh_mine = gh_sub.add_parser(
+        "mine",
+        help="discover+grade+USE other repos (clone/prove) — never follow/star",
+    )
+    gh_mine_sub = gh_mine.add_subparsers(dest="mine_cmd")
+    mf = gh_mine_sub.add_parser("fetch", help="search GitHub → SQLite (no social actions)")
+    mf.add_argument("--query", "-q", default="multi agent orchestration")
+    mf.add_argument("--count", "-n", type=int, default=8)
+    mf.add_argument("--language", default="Python")
+    mf.add_argument("--max-stars", type=int, default=500)
+    mf.add_argument("--workdir", default=None)
+    mf.set_defaults(func=cmd_github)
+    me = gh_mine_sub.add_parser("evaluate", help="clone + grade (Ollama or heuristic)")
+    me.add_argument("--limit", "-l", type=int, default=10)
+    me.add_argument("--workdir", default=None)
+    me.add_argument("--heuristic-only", action="store_true")
+    me.add_argument("--model", default=None, help="Ollama model")
+    me.set_defaults(func=cmd_github)
+    mu = gh_mine_sub.add_parser("use", help="keep high scores: connect+prove+notes for YOUR code")
+    mu.add_argument("--min-score", type=float, default=12.0)
+    mu.add_argument("--limit", type=int, default=5)
+    mu.add_argument("--workdir", default=None)
+    mu.add_argument("--no-prove", action="store_true")
+    mu.add_argument("--structure-only", action="store_true")
+    mu.set_defaults(func=cmd_github)
+    ml = gh_mine_sub.add_parser("list", help="list graded / used repos")
+    ml.add_argument("--min-score", type=float, default=0.0)
+    ml.add_argument("--used", action="store_true")
+    ml.add_argument("--limit", type=int, default=30)
+    ml.add_argument("--workdir", default=None)
+    ml.set_defaults(func=cmd_github)
+    mr = gh_mine_sub.add_parser("run", help="fetch → evaluate → use (full pipeline)")
+    mr.add_argument("--query", "-q", default="multi agent durable resume")
+    mr.add_argument("--count", "-n", type=int, default=6)
+    mr.add_argument("--limit", "-l", type=int, default=6)
+    mr.add_argument("--use-limit", type=int, default=4)
+    mr.add_argument("--min-score", type=float, default=12.0)
+    mr.add_argument("--language", default="Python")
+    mr.add_argument("--max-stars", type=int, default=500)
+    mr.add_argument("--workdir", default=None)
+    mr.add_argument("--heuristic-only", action="store_true")
+    mr.add_argument("--no-prove", action="store_true")
+    mr.set_defaults(func=cmd_github)
+    gh_mine.set_defaults(func=cmd_github, mine_cmd="run")
 
     gh_st = gh_sub.add_parser("status", help="show gh auth + target repo")
     gh_st.add_argument("--repo", dest="repo_flag", default=None)

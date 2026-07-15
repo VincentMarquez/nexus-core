@@ -210,6 +210,7 @@ Design bet: **tests are the reward signal**, not “the model said OK.” Drafts
 | **Search other repos** | `nexus github search "topic"` | Find public repos to learn from (continuous improvement fuel) |
 | **Scout (connect + prove)** | `nexus github scout "topic"` | Search → **clone/pull** → **prove** (detect + allowlisted install/test) → notes |
 | **Connect one repo** | `nexus github connect owner/repo` | Shallow clone or `git pull` into `.nexus_workspaces/scout_repos/` + prove |
+| **Mine (use, don’t follow)** | `nexus github mine run -q "topic"` | Like followme: discover → grade (Ollama) → **clone/prove for your code** — never follow/star |
 | **Improve (arXiv + scout)** | `nexus github improve --arxiv "…" --scout "…"` | Papers **and** other repos → notes → optional `--apply` fix job |
 | **Inbox** | `nexus github inbox` | List open threads that still need a first bot reply |
 | **Draft** | `nexus github draft 12` | Print a reply (no post) |
@@ -236,6 +237,11 @@ nexus github search "multi agent durable resume" --limit 10
 nexus github scout "multi agent durable" --workdir . --connect --prove
 # clones land in .nexus_workspaces/scout_repos/  ·  evidence notes in .nexus_state/repo_scout/
 nexus github connect langchain-ai/langgraph --workdir . --prove   # one repo
+
+# Discover + grade + USE other repos (not follow/star people)
+nexus github mine run -q "multi agent durable" -n 8 --min-score 12
+# SQLite: .nexus_state/repo_mine.sqlite  ·  notes: .nexus_state/repo_mine/USE_LATEST.md
+# clones kept under .nexus_workspaces/scout_repos/ for you to port patterns from
 
 # Research loop: arXiv papers + other repos → improve this codebase
 nexus github improve --arxiv "multi agent orchestration" --with-scout --max 6
