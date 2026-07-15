@@ -2594,11 +2594,33 @@ def cmd_improve(args: argparse.Namespace) -> int:
             mode=getattr(args, "mode", None) or "auto",
             cleanup=not bool(getattr(args, "keep", False)),
             require_path_exists=bool(getattr(args, "require_path_exists", False)),
+            promote=bool(getattr(args, "promote", False)),
+            promote_force=bool(getattr(args, "promote_force", False)),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
         else:
             print(wta.format_report(report))
+        return 0 if report.get("ok") else 1
+
+    if sub == "promote":
+        from . import worktree_apply as wta
+
+        job_id = getattr(args, "job_id", None) or getattr(args, "run_id", None)
+        if not job_id:
+            print("error: improve promote requires --job-id", file=sys.stderr)
+            return 2
+        report = wta.run_promote(
+            root,
+            job_id=str(job_id),
+            pattern_id=getattr(args, "pattern", None) or wta.DEFAULT_PATTERN,
+            force=bool(getattr(args, "promote_force", False) or getattr(args, "force", False)),
+            cleanup=not bool(getattr(args, "keep", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(wta.format_report({**report, "stages": ["promote"]}))
         return 0 if report.get("ok") else 1
 
     if sub == "ledger":
@@ -4035,6 +4057,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="keep worktree after apply (no cleanup)",
     )
     imp_ap.add_argument(
+        "--promote",
+        action="store_true",
+        help="after worktree verify, promote allowlisted pack onto main",
+    )
+    imp_ap.add_argument(
+        "--promote-force",
+        action="store_true",
+        dest="promote_force",
+        help="overwrite differing main files during promote",
+    )
+    imp_ap.add_argument(
         "--list-patterns",
         action="store_true",
         help="list available apply patterns",
@@ -4046,6 +4079,35 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     imp_ap.add_argument("--json", action="store_true")
     imp_ap.set_defaults(func=cmd_improve, improve_cmd="apply")
+    imp_pr = imp_sub.add_parser(
+        "promote",
+        help="promote a kept worktree pack onto main (verify-before-promote)",
+    )
+    imp_pr.add_argument("--path", default=".", help="project workdir")
+    imp_pr.add_argument(
+        "--job-id",
+        required=True,
+        dest="job_id",
+        help="apply worktree job id (under .nexus_workspaces/apply_worktrees/)",
+    )
+    imp_pr.add_argument(
+        "--pattern",
+        default="markdown-skill-sot-validator",
+        help="pattern id from catalog",
+    )
+    imp_pr.add_argument(
+        "--force",
+        action="store_true",
+        dest="force",
+        help="overwrite differing main files",
+    )
+    imp_pr.add_argument(
+        "--keep",
+        action="store_true",
+        help="keep worktree after promote (default: cleanup)",
+    )
+    imp_pr.add_argument("--json", action="store_true")
+    imp_pr.set_defaults(func=cmd_improve, improve_cmd="promote")
     imp_led = imp_sub.add_parser("ledger", help="show decision ledger tail")
     imp_led.add_argument("--path", default=".")
     imp_led.add_argument("--run-id", default=None, dest="run_id")

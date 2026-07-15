@@ -7,6 +7,7 @@ import pytest
 from nexus.stages import (
     APPLY_STAGES,
     DEFAULT_STAGES,
+    PROMOTE_STAGES,
     SMOKE_STAGES,
     StageOrderError,
     StageRunner,
@@ -36,6 +37,19 @@ def test_apply_slice_runner():
     assert r.next() == "mine"
     for s in APPLY_STAGES:
         r.mark_complete(s)
+    assert r.is_done()
+
+
+def test_promote_stages_and_runner():
+    assert PROMOTE_STAGES[-1] == "promote"
+    assert APPLY_STAGES == PROMOTE_STAGES[:-1]
+    r = StageRunner.promote_slice()
+    with pytest.raises(StageOrderError):
+        r.mark_complete("promote")
+    for s in APPLY_STAGES:
+        r.mark_complete(s)
+    assert r.next() == "promote"
+    r.mark_complete("promote")
     assert r.is_done()
 
 

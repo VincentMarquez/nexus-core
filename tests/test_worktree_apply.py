@@ -197,3 +197,174 @@ def test_format_report_contains_pass(tmp_path: Path):
     text = wta.format_report(report)
     assert "pass:" in text.lower() or "YES" in text
     assert "worktree" in text.lower()
+
+
+def test_promote_to_main_after_apply(tmp_path: Path):
+    """P0.1: verified worktree pack lands on main only at promote."""
+    (tmp_path / "MAIN_MARKER").write_text("do-not-touch\n", encoding="utf-8")
+
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="prom-e2e-1",
+        mode="sandbox",
+        cleanup=True,
+        promote=True,
+    )
+    assert report["ok"] is True, report.get("error")
+    assert report["completed"] == [
+        "mine",
+        "grade",
+        "claim_verify",
+        "plan_apply",
+        "apply",
+        "promote",
+    ]
+    assert report["main_untouched"]["ok"] is True  # isolation during apply
+    prom = report["promote"]
+    assert prom["ok"] is True
+    assert prom["verify_main"]["ok"] is True
+    # Pack now on main
+    pack = tmp_path / "skillpacks" / "markdown-sot-demo"
+    assert (pack / "SKILL.md").is_file()
+    assert (pack / "manifest.json").is_file()
+    assert (pack / "APPLY_META.json").is_file()
+    assert (pack / "PROMOTE_META.json").is_file()
+    assert (tmp_path / "MAIN_MARKER").read_text(encoding="utf-8") == "do-not-touch\n"
+
+    with DecisionLedger.open(tmp_path) as led:
+        rows = led.list_run("prom-e2e-1")
+        agents = [r["agent"] for r in rows]
+        assert agents[-1] == "promote"
+        assert "promote" in agents
+        assert led.count(run_id="prom-e2e-1") == 6
+
+
+def test_promote_idempotent_same_content(tmp_path: Path):
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="prom-idemp-1",
+        mode="sandbox",
+        cleanup=False,
+        promote=True,
+    )
+    assert report["ok"] is True, report.get("error")
+    # Second promote of same kept worktree (force not needed — identical)
+    again = wta.run_promote(
+        tmp_path,
+        job_id="prom-idemp-1",
+        force=False,
+        cleanup=True,
+    )
+    assert again["ok"] is True, again.get("error")
+    skipped = again["promote"]["skipped_same"]
+    assert any("SKILL.md" in p for p in skipped) or not again["promote"]["copied"]
+
+
+def test_promote_refuses_dirty_main_without_force(tmp_path: Path):
+    # Pre-seed conflicting content on main
+    dest = tmp_path / "skillpacks" / "markdown-sot-demo"
+    dest.mkdir(parents=True)
+    (dest / "SKILL.md").write_text("conflicting local skill\n", encoding="utf-8")
+    (dest / "manifest.json").write_text("{}", encoding="utf-8")
+    (dest / "APPLY_META.json").write_text("{}\n", encoding="utf-8")
+
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="prom-conflict-1",
+        mode="sandbox",
+        cleanup=True,
+        promote=True,
+        promote_force=False,
+    )
+    assert report["ok"] is False
+    assert report["error"]
+    assert "promote refused" in report["error"] or "different" in report["error"]
+
+
+def test_promote_force_overwrites(tmp_path: Path):
+    dest = tmp_path / "skillpacks" / "markdown-sot-demo"
+    dest.mkdir(parents=True)
+    (dest / "SKILL.md").write_text("old\n", encoding="utf-8")
+    (dest / "manifest.json").write_text("{}", encoding="utf-8")
+    (dest / "APPLY_META.json").write_text("{}\n", encoding="utf-8")
+
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="prom-force-1",
+        mode="sandbox",
+        cleanup=True,
+        promote=True,
+        promote_force=True,
+    )
+    assert report["ok"] is True, report.get("error")
+    skill = (dest / "SKILL.md").read_text(encoding="utf-8")
+    assert "old" not in skill or "Markdown skill SoT" in skill
+    assert "Markdown skill SoT" in skill
+
+
+def test_promote_refuses_path_outside_worktrees(tmp_path: Path):
+    outsider = tmp_path / "not_a_worktree"
+    outsider.mkdir()
+    (outsider / "skillpacks" / "markdown-sot-demo").mkdir(parents=True)
+    with pytest.raises(wta.WorktreeApplyError, match="not under"):
+        wta.promote_to_main(tmp_path, outsider, require_verify=False)
+
+
+def test_cli_promote_flag(tmp_path: Path, capsys):
+    from nexus.cli import main as cli_main
+
+    code = cli_main(
+        [
+            "improve",
+            "apply",
+            "--path",
+            str(tmp_path),
+            "--fixture",
+            str(FIXTURE),
+            "--mode",
+            "sandbox",
+            "--promote",
+            "--json",
+        ]
+    )
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["ok"] is True
+    assert data["promote"]["ok"] is True
+    assert (tmp_path / "skillpacks" / "markdown-sot-demo" / "SKILL.md").is_file()
+
+
+def test_cli_promote_subcommand(tmp_path: Path, capsys):
+    from nexus.cli import main as cli_main
+
+    # Keep worktree, then promote via subcommand
+    r = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        run_id="prom-cli-job",
+        mode="sandbox",
+        cleanup=False,
+        promote=False,
+    )
+    assert r["ok"] is True, r.get("error")
+    assert not (tmp_path / "skillpacks" / "markdown-sot-demo" / "SKILL.md").exists()
+
+    code = cli_main(
+        [
+            "improve",
+            "promote",
+            "--path",
+            str(tmp_path),
+            "--job-id",
+            "prom-cli-job",
+            "--json",
+        ]
+    )
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["ok"] is True
+    assert (tmp_path / "skillpacks" / "markdown-sot-demo" / "SKILL.md").is_file()

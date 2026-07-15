@@ -573,3 +573,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-aa3fa1d262.md`
+
+## Cycle 2026-07-15 hard-apply P0.1 promote-to-main (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: cas / forge / zenith / wshobson / lumen / tiger_cowork + IMPROVE_OURS top repos; plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT order **2510.13343**, Thucy claims **2512.03278**, deterministic audit **2511.15755**, checkpoint **2310.12670**, CEMA **2302.10809** (notes `improve-rx-f79aa74b58` + priors)
+- apply slice (**First apply slice** this session — close prior open: promote worktree → main):
+  - `src/nexus/worktree_apply.py` — `promote_to_main` (allowlist + path jail + idempotent same + force overwrite + main re-verify); `run_promote`; `run_apply(promote=True)`; CLI `--promote` / `--promote-only`
+  - `src/nexus/stages.py` — `PROMOTE_STAGES` + `StageRunner.promote_slice()`
+  - `src/nexus/cli.py` — `nexus improve apply --promote`; `nexus improve promote --job-id`
+  - tests: `tests/test_worktree_apply.py` (e2e promote, idempotent, refuse conflict, force, path jail, CLI), `tests/test_stage_order.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: cas/forge worktree boundary; zenith/cycgraph verify-before-promote; wshobson SoT pack; tiger_cowork path safety (pattern only, no tree vendor)
+- non-goals kept: no vendored trees; no auto-promote without flag; no force-push
+- next open: wire improve apply/promote into alive self_approve · more pattern catalog · Grok re-grade after promote
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 395 passed
+
+## Cycle 2026-07-15 22:35:43Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f79aa74b58.md`

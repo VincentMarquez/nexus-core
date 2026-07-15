@@ -47,6 +47,16 @@ APPLY_STAGES: tuple[str, ...] = (
     "apply",
 )
 
+# P0.1 next: verified pack promote from worktree → main (fail-closed).
+PROMOTE_STAGES: tuple[str, ...] = (
+    "mine",
+    "grade",
+    "claim_verify",
+    "plan_apply",
+    "apply",
+    "promote",
+)
+
 
 class StageOrderError(RuntimeError):
     """Stage requested out of order or unknown."""
@@ -159,6 +169,11 @@ class StageRunner:
     def apply_slice(cls) -> "StageRunner":
         """Runner for P0.5: mine→grade→claim_verify→plan_apply→apply."""
         return cls(stages=APPLY_STAGES)
+
+    @classmethod
+    def promote_slice(cls) -> "StageRunner":
+        """Runner for apply + promote-to-main (P0.1 deepen worktree)."""
+        return cls(stages=PROMOTE_STAGES)
 
     def can_run(self, name: str) -> bool:
         return can_run(self.stages, name, self.completed)

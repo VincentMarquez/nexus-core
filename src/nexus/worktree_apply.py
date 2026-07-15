@@ -1,12 +1,13 @@
-"""Worktree-isolated apply worker (P0.5 — cas + forge + wshobson patterns).
+"""Worktree-isolated apply + promote-to-main (P0.5 / P0.1 — cas + forge + wshobson).
 
-First apply slice next PR after mine→grade→claim_verify smoke:
+Pipeline:
 
   claim-verified grade
-    → create isolated worktree (never dirty main)
+    → create isolated worktree (never dirty main mid-apply)
     → apply one Markdown skill SoT pattern (wshobson/agents shape)
-    → validate skillpack structure
-    → ledger plan_apply + apply decisions
+    → validate skillpack structure inside worktree
+    → optional **promote**: copy allowlisted files to main after re-verify
+    → ledger plan_apply + apply + promote decisions
     → cleanup optional
 
 Isolation modes:
@@ -19,10 +20,13 @@ Patterns (shape only, not vendored trees):
 - wshobson/agents — Markdown skill source-of-truth + structural validate
 - lumen — content-hash ledger / idempotent apply keys
 - tiger_cowork / improve_apply — path safety jail
+- zenith / cycgraph — verify-before-promote (fail-closed)
 
 CLI::
 
   nexus improve apply [--fixture PATH] [--pattern markdown-skill-sot-validator]
+  nexus improve apply --promote   # after verify, copy pack onto main
+  nexus improve promote --job-id <id>  # promote a kept worktree
   python -m nexus.worktree_apply --fixture tests/fixtures/mine_eval_sample.json
 """
 
@@ -44,11 +48,13 @@ from .decision_ledger import DecisionLedger
 from .improve_apply import PathSafetyError, safe_path
 from .load_mine_eval import load_one
 from .persist import atomic_write_json, atomic_write_text
-from .stages import APPLY_STAGES, StageOrderError, StageRunner
+from .stages import APPLY_STAGES, PROMOTE_STAGES, StageOrderError, StageRunner
 
 SCHEMA = "nexus.worktree_apply/v1"
 DEFAULT_PATTERN = "markdown-skill-sot-validator"
 WORKTREE_ROOT = ".nexus_workspaces/apply_worktrees"
+# Marker written on main after a successful promote (operator audit).
+PROMOTE_META_NAME = "PROMOTE_META.json"
 
 # ---------------------------------------------------------------------------
 # Ported pattern catalog (content only — not whole upstream trees)
@@ -443,6 +449,272 @@ def verify_in_worktree(
     return {"ok": False, "verify": verify, "error": f"unknown verify mode {verify}"}
 
 
+def pattern_rel_paths(pattern_id: str = DEFAULT_PATTERN) -> list[str]:
+    """Allowlisted relative paths a pattern may write (excluding dynamic None)."""
+    pattern = get_pattern(pattern_id)
+    out: list[str] = []
+    for rel, content in (pattern.get("files") or {}).items():
+        if content is None:
+            # Dynamic files filled at apply time — still allowlisted by key.
+            out.append(str(rel))
+            continue
+        out.append(str(rel))
+    return out
+
+
+def promote_to_main(
+    workdir: Path | str,
+    worktree_path: Path | str,
+    pattern_id: str = DEFAULT_PATTERN,
+    *,
+    force: bool = False,
+    job_id: str = "",
+    grade: Optional[dict[str, Any]] = None,
+    require_verify: bool = True,
+) -> dict[str, Any]:
+    """Copy verified pattern files from *worktree_path* onto main *workdir*.
+
+    Fail-closed (zenith / cycgraph promote discipline):
+    - worktree must pass ``verify_in_worktree`` when *require_verify*
+    - only allowlisted pattern relative paths are copied
+    - refuses overwrite of differing content unless *force*
+    - identical content is treated as idempotent success
+    - re-verifies the pack under main after copy
+
+    Never vendors whole trees — only the small pattern file set.
+    """
+    root = Path(workdir).resolve()
+    wt = Path(worktree_path).resolve()
+    pid = pattern_id or DEFAULT_PATTERN
+    if not wt.is_dir():
+        raise WorktreeApplyError(f"worktree path missing: {wt}")
+    # Refuse promoting from outside the designated worktree root (path safety).
+    wt_root = worktrees_dir(root)
+    try:
+        wt.relative_to(wt_root)
+    except ValueError as e:
+        raise WorktreeApplyError(
+            f"promote refused: worktree not under {wt_root} (got {wt})"
+        ) from e
+
+    verify_wt: dict[str, Any] = {"ok": True, "skipped": True}
+    if require_verify:
+        verify_wt = verify_in_worktree(wt, pid)
+        if not verify_wt.get("ok"):
+            raise WorktreeApplyError(
+                f"promote refused: worktree verify failed: "
+                f"{verify_wt.get('error') or verify_wt}"
+            )
+
+    rels = pattern_rel_paths(pid)
+    if not rels:
+        raise WorktreeApplyError(f"promote refused: pattern {pid!r} has no files")
+
+    copied: list[str] = []
+    skipped_same: list[str] = []
+    overwritten: list[str] = []
+    for rel in rels:
+        try:
+            src = safe_path(wt, rel)
+            dest = safe_path(root, rel)
+        except PathSafetyError as e:
+            raise WorktreeApplyError(str(e)) from e
+        if not src.is_file():
+            raise WorktreeApplyError(
+                f"promote refused: source missing in worktree: {rel}"
+            )
+        data = src.read_bytes()
+        if dest.is_file():
+            existing = dest.read_bytes()
+            if existing == data:
+                skipped_same.append(rel)
+                continue
+            if not force:
+                raise WorktreeApplyError(
+                    f"promote refused: main already has different {rel} "
+                    f"(pass force=True to overwrite)"
+                )
+            overwritten.append(rel)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        # Atomic-ish: write temp then rename within dest parent
+        tmp = dest.with_name(dest.name + f".promotetmp-{uuid.uuid4().hex[:8]}")
+        try:
+            tmp.write_bytes(data)
+            tmp.replace(dest)
+        except OSError:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)  # type: ignore[arg-type]
+            raise
+        copied.append(rel)
+
+    # Operator audit marker next to pack (not in pattern catalog on purpose —
+    # written only on main after promote).
+    pattern = get_pattern(pid)
+    pack_id = str(pattern.get("pack_id") or "pack")
+    try:
+        meta_dest = safe_path(root, f"skillpacks/{pack_id}/{PROMOTE_META_NAME}")
+    except PathSafetyError as e:
+        raise WorktreeApplyError(str(e)) from e
+    promote_meta = {
+        "schema": SCHEMA,
+        "action": "promote_to_main",
+        "pattern": pid,
+        "pack_id": pack_id,
+        "job_id": job_id,
+        "worktree": str(wt),
+        "promoted_at": time.time(),
+        "copied": copied,
+        "skipped_same": skipped_same,
+        "overwritten": overwritten,
+        "force": bool(force),
+        "grade": {
+            "repo": (grade or {}).get("repo"),
+            "score": (grade or {}).get("score"),
+            "idea": (grade or {}).get("idea"),
+            "skill": (grade or {}).get("skill"),
+            "path": (grade or {}).get("path"),
+            "method": (grade or {}).get("method"),
+        },
+        "verify_worktree": {
+            "ok": verify_wt.get("ok"),
+            "verify": verify_wt.get("verify"),
+        },
+    }
+    atomic_write_json(meta_dest, promote_meta)
+
+    # Independent re-verify on main (implementer=worktree apply, verifier=main).
+    verify_main = verify_in_worktree(root, pid)
+    if not verify_main.get("ok"):
+        raise WorktreeApplyError(
+            f"promote refused: main re-verify failed after copy: "
+            f"{verify_main.get('error') or verify_main}"
+        )
+
+    return {
+        "ok": True,
+        "schema": SCHEMA,
+        "action": "promote_to_main",
+        "pattern": pid,
+        "pack_id": pack_id,
+        "job_id": job_id,
+        "worktree": str(wt),
+        "main": str(root),
+        "copied": copied,
+        "skipped_same": skipped_same,
+        "overwritten": overwritten,
+        "files": copied + skipped_same,
+        "promote_meta": str(meta_dest.relative_to(root)),
+        "verify_worktree": verify_wt,
+        "verify_main": verify_main,
+        "force": bool(force),
+    }
+
+
+def resolve_worktree(
+    workdir: Path | str,
+    job_id: str,
+) -> dict[str, Any]:
+    """Load meta for an existing apply worktree by *job_id*."""
+    source = Path(workdir).resolve()
+    jid = str(job_id or "").strip()
+    if not jid:
+        raise WorktreeApplyError("job_id required")
+    target = worktrees_dir(source) / jid
+    if not target.is_dir():
+        raise WorktreeApplyError(f"worktree not found: {target}")
+    meta: dict[str, Any] = {
+        "job_id": jid,
+        "path": str(target),
+        "source": str(source),
+        "mode": "sandbox",
+    }
+    mpath = target / ".nexus_apply_meta.json"
+    if mpath.is_file():
+        try:
+            loaded = json.loads(mpath.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                meta.update(loaded)
+                meta["path"] = str(target)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return meta
+
+
+def run_promote(
+    workdir: Path | str,
+    *,
+    job_id: str,
+    pattern_id: str = DEFAULT_PATTERN,
+    force: bool = False,
+    grade: Optional[dict[str, Any]] = None,
+    ledger: Optional[DecisionLedger] = None,
+    cleanup: bool = False,
+) -> dict[str, Any]:
+    """Promote a kept worktree pack onto main (standalone promote stage)."""
+    workdir = Path(workdir).resolve()
+    jid = str(job_id or "").strip()
+    pid = pattern_id or DEFAULT_PATTERN
+    own_ledger = ledger is None
+    store = ledger or DecisionLedger.open(workdir)
+    report: dict[str, Any] = {
+        "schema": SCHEMA,
+        "ok": False,
+        "run_id": jid,
+        "action": "promote",
+        "pattern": pid,
+        "promote": None,
+        "cleanup": None,
+        "error": None,
+        "ledger_tail": [],
+    }
+    try:
+        meta = resolve_worktree(workdir, jid)
+        result = promote_to_main(
+            workdir,
+            meta["path"],
+            pid,
+            force=force,
+            job_id=jid,
+            grade=grade,
+            require_verify=True,
+        )
+        report["promote"] = result
+        report["worktree"] = meta
+        store.append(
+            run_id=jid,
+            agent="promote",
+            claim=(
+                f"promoted {pid} to main copied={len(result.get('copied') or [])} "
+                f"same={len(result.get('skipped_same') or [])} "
+                f"verify_main=ok"
+            ),
+            evidence_refs=list(result.get("files") or [])
+            + [str(result.get("promote_meta") or "")],
+            grade={
+                "repo": (grade or {}).get("repo"),
+                "score": (grade or {}).get("score"),
+                "path": (grade or {}).get("path"),
+                "pattern": pid,
+            },
+            action="promote_to_main",
+        )
+        report["ok"] = bool(result.get("ok"))
+        report["ledger_tail"] = store.tail(limit=8, run_id=jid)
+        if cleanup:
+            report["cleanup"] = cleanup_worktree(workdir, jid, meta=meta)
+        return report
+    except (WorktreeApplyError, PathSafetyError, FileNotFoundError, ValueError) as e:
+        report["error"] = f"{type(e).__name__}: {e}"
+        try:
+            report["ledger_tail"] = store.tail(limit=8, run_id=jid)
+        except Exception:
+            report["ledger_tail"] = []
+        return report
+    finally:
+        if own_ledger:
+            store.close()
+
+
 def run_apply(
     workdir: Path | str,
     *,
@@ -456,22 +728,33 @@ def run_apply(
     ledger: Optional[DecisionLedger] = None,
     skip_smoke_prefix: bool = False,
     grade: Optional[dict[str, Any]] = None,
+    promote: bool = False,
+    promote_force: bool = False,
 ) -> dict[str, Any]:
-    """Full ordered apply: mine→grade→claim_verify→plan_apply→apply (isolated).
+    """Full ordered apply: mine→grade→claim_verify→plan_apply→apply [(→promote)].
 
     When *skip_smoke_prefix* is True and *grade* is provided, starts at
     plan_apply (assumes prior stages already completed externally).
+
+    When *promote* is True, after worktree verify the allowlisted pack is
+    copied onto main and re-verified (PROMOTE_STAGES). Isolation still holds
+    during apply; main only changes at the explicit promote step.
     """
     workdir = Path(workdir).resolve()
     rid = run_id or f"apply-{uuid.uuid4().hex[:10]}"
     pid = pattern_id or DEFAULT_PATTERN
-    runner = StageRunner.apply_slice()
+    do_promote = bool(promote)
+    runner = (
+        StageRunner.promote_slice() if do_promote else StageRunner.apply_slice()
+    )
+    stages = list(PROMOTE_STAGES if do_promote else APPLY_STAGES)
     timeline: list[dict[str, Any]] = []
     own_ledger = ledger is None
     store = ledger or DecisionLedger.open(workdir)
     wt_meta: Optional[dict[str, Any]] = None
     main_before: dict[str, str] = {}
-    # Paths that must remain untouched on main (isolation proof)
+    # Paths that must remain untouched on main *during apply* (isolation proof).
+    # When promote=True these may change only after the promote stage.
     watch_paths = [
         "skillpacks/markdown-sot-demo/manifest.json",
         "skillpacks/markdown-sot-demo/SKILL.md",
@@ -494,13 +777,15 @@ def run_apply(
         "run_id": rid,
         "workdir": str(workdir),
         "pattern": pid,
-        "stages": list(APPLY_STAGES),
+        "stages": stages,
+        "promote_requested": do_promote,
         "completed": [],
         "grade": None,
         "claim": None,
         "worktree": None,
         "apply": None,
         "verify": None,
+        "promote": None,
         "main_untouched": None,
         "cleanup": None,
         "ledger_tail": [],
@@ -686,8 +971,54 @@ def run_apply(
         runner.mark_complete("apply")
         _log("apply", f"files={applied.get('files_written')}")
 
+        # --- promote: copy allowlisted files onto main (optional) ---
+        if do_promote:
+            runner.assert_can_run("promote")
+            prom = promote_to_main(
+                workdir,
+                wt_meta["path"],
+                pid,
+                force=promote_force,
+                job_id=rid,
+                grade=g,
+                require_verify=True,
+            )
+            report["promote"] = prom
+            if not prom.get("ok"):
+                raise WorktreeApplyError(
+                    f"promote failed: {prom.get('error') or prom}"
+                )
+            store.append(
+                run_id=rid,
+                agent="promote",
+                claim=(
+                    f"promoted {pid} to main copied={len(prom.get('copied') or [])} "
+                    f"same={len(prom.get('skipped_same') or [])} "
+                    f"verify_main=ok"
+                ),
+                evidence_refs=list(prom.get("files") or [])
+                + [str(prom.get("promote_meta") or "")],
+                grade={
+                    "repo": g.get("repo"),
+                    "score": g.get("score"),
+                    "path": g.get("path"),
+                    "pattern": pid,
+                },
+                action="promote_to_main",
+            )
+            runner.mark_complete("promote")
+            _log(
+                "promote",
+                f"copied={prom.get('copied')} meta={prom.get('promote_meta')}",
+            )
+
         report["completed"] = list(runner.completed)
-        report["ok"] = runner.is_done() and bool(verify.get("ok")) and untouched
+        report["ok"] = (
+            runner.is_done()
+            and bool(verify.get("ok"))
+            and untouched
+            and (bool((report.get("promote") or {}).get("ok")) if do_promote else True)
+        )
         report["stage_status"] = runner.status()
         report["ledger_tail"] = store.tail(limit=12, run_id=rid)
         return report
@@ -745,6 +1076,14 @@ def format_report(report: dict[str, Any]) -> str:
     mu = report.get("main_untouched") or {}
     if mu:
         lines.append(f"main clean:{mu.get('ok')}")
+    prom = report.get("promote") or {}
+    if prom:
+        lines.append(
+            f"promote:   ok={prom.get('ok')} "
+            f"copied={len(prom.get('copied') or [])} "
+            f"same={len(prom.get('skipped_same') or [])} "
+            f"meta={prom.get('promote_meta')}"
+        )
     if report.get("cleanup"):
         c = report["cleanup"]
         lines.append(f"cleanup:   removed={c.get('removed')} via={c.get('method')}")
@@ -785,6 +1124,29 @@ def main(argv: Optional[list[str]] = None) -> int:
         action="store_true",
         help="do not cleanup worktree after apply",
     )
+    ap.add_argument(
+        "--promote",
+        action="store_true",
+        help="after verify, promote allowlisted pack files onto main",
+    )
+    ap.add_argument(
+        "--promote-force",
+        action="store_true",
+        dest="promote_force",
+        help="overwrite differing main files during promote",
+    )
+    ap.add_argument(
+        "--job-id",
+        default=None,
+        dest="job_id",
+        help="with --promote-only: promote an existing kept worktree",
+    )
+    ap.add_argument(
+        "--promote-only",
+        action="store_true",
+        dest="promote_only",
+        help="promote existing worktree by --job-id (no re-apply)",
+    )
     ap.add_argument("--require-path-exists", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument(
@@ -804,6 +1166,24 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     workdir = Path(args.path).resolve()
+
+    if args.promote_only:
+        if not args.job_id:
+            print("error: --promote-only requires --job-id", file=sys.stderr)
+            return 2
+        report = run_promote(
+            workdir,
+            job_id=args.job_id,
+            pattern_id=args.pattern,
+            force=bool(args.promote_force),
+            cleanup=not args.keep,
+        )
+        if args.json:
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(format_report({**report, "stages": ["promote"]}))
+        return 0 if report.get("ok") else 1
+
     fixture = args.fixture
     if fixture is None:
         candidate = workdir / "tests" / "fixtures" / "mine_eval_sample.json"
@@ -819,6 +1199,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         mode=args.mode,
         cleanup=not args.keep,
         require_path_exists=bool(args.require_path_exists),
+        promote=bool(args.promote),
+        promote_force=bool(args.promote_force),
     )
     if args.json:
         print(json.dumps(report, indent=2, default=str))
