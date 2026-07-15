@@ -325,6 +325,23 @@ nexus start -y                 # bus local agent + tools
 
 Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md)
 
+
+### Resilience (power / WiFi / cloud poke)
+
+If the **machine loses power or WiFi**, local NEXUS cannot phone home. A **cloud dead-man** can still poke you:
+
+```bash
+export NEXUS_HEARTBEAT_URL='https://hc-ping.com/YOUR-UUID'
+nexus heartbeat init --url "$NEXUS_HEARTBEAT_URL"
+nexus heartbeat once
+nexus heartbeat install-cron    # add to crontab
+nexus recovery network          # diagnose
+nexus recovery wifi --allow-reconnect   # opt-in soft fix
+```
+
+GitHub Actions: `.github/workflows/deadman.yml` + secrets `HEALTHCHECK_STATUS_URL`, `NOTIFY_WEBHOOK`.  
+Full docs: **[docs/RESILIENCE.md](docs/RESILIENCE.md)** · cookbook **[11](cookbook/11_heartbeat_resilience.md)**
+
 ### Research (arXiv)
 
 ```bash
@@ -409,6 +426,7 @@ Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs
 | `nexus do owner/repo` | Clone → install → check → fix |
 | `nexus github inbox` / `loop` / `watch` / `init` / `improve` | Community loop on any personal repo + arXiv improve |
 | `nexus platforms status` / `connect` | Grok CLI · Cursor · Claude · local LLM — one tool mesh |
+| `nexus heartbeat` / `recovery` | Cloud dead-man poke · opt-in WiFi recover |
 | `nexus research "…"` | arXiv job → brief + report |
 | `nexus arxiv search` / `get` | arXiv API helpers |
 | `nexus procure demo` | Procurement engine + experts |
@@ -491,7 +509,8 @@ Ollama / CLIs   ──event bus──►  nexus start
 7. [Procurement agents](cookbook/07_procurement.md)  
 8. [arXiv research](cookbook/08_arxiv_research.md)  
 9. [GitHub community auto-reply](cookbook/09_github_community.md)
-10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)  
+10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)
+11. [Heartbeat + resilience](cookbook/11_heartbeat_resilience.md)  
 
 Docs: **https://vincentmarquez.github.io/nexus-core/**
 

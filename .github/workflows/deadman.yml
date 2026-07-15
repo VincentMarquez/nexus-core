@@ -1,0 +1,164 @@
+# Cloud dead-man companion for nexus heartbeat.
+#
+# When your machine loses power/WiFi, local pings stop. Healthchecks.io (or
+# similar) marks the check down. This workflow *also* runs on a schedule and:
+#   1) queries the check status URL (secret)
+#   2) if down → opens/updates a GitHub issue + optional webhook poke
+#   3) optional: posts a short "cloud AI style" downtime message
+#
+# Secrets (repo Settings → Secrets → Actions):
+#   HEALTHCHECK_STATUS_URL  — Healthchecks status API or badge JSON URL
+#                             e.g. https://healthchecks.io/api/v3/checks/<uuid>
+#                             with header via HEALTHCHECK_API_KEY (optional)
+#   HEALTHCHECK_API_KEY     — optional X-Api-Key for Healthchecks API
+#   NOTIFY_WEBHOOK          — optional Discord/Slack incoming webhook
+#
+# Local side (on the machine that must stay up):
+#   export NEXUS_HEARTBEAT_URL=https://hc-ping.com/<uuid>
+#   nexus heartbeat install-cron
+#   # or: nexus heartbeat watch --interval 300
+
+name: Dead-man (host down poke)
+
+on:
+  schedule:
+    # every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_notify:
+        description: "Notify even if status cannot be read"
+        required: false
+        default: "false"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for scripts/docs only)
+        uses: actions/checkout@v4
+
+      - name: Probe Healthchecks status
+        id: hc
+        env:
+          HEALTHCHECK_STATUS_URL: ${{ secrets.HEALTHCHECK_STATUS_URL }}
+          HEALTHCHECK_API_KEY: ${{ secrets.HEALTHCHECK_API_KEY }}
+          FORCE: ${{ github.event.inputs.force_notify || 'false' }}
+        run: |
+          set -e
+          if [ -z "$HEALTHCHECK_STATUS_URL" ]; then
+            echo "status=unknown" >> "$GITHUB_OUTPUT"
+            echo "detail=HEALTHCHECK_STATUS_URL secret not set — configure Healthchecks + secret" >> "$GITHUB_OUTPUT"
+            if [ "$FORCE" = "true" ]; then
+              echo "down=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "down=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          HDR=()
+          if [ -n "$HEALTHCHECK_API_KEY" ]; then
+            HDR=(-H "X-Api-Key: $HEALTHCHECK_API_KEY")
+          fi
+          CODE=$(curl -sS -o /tmp/hc.json -w "%{http_code}" "${HDR[@]}" "$HEALTHCHECK_STATUS_URL" || true)
+          echo "http_code=$CODE"
+          cat /tmp/hc.json | head -c 2000 || true
+          # Healthchecks API: status field is "up" | "down" | "grace" | ...
+          STATUS=$(python3 - <<'PY'
+          import json
+          try:
+              d=json.load(open("/tmp/hc.json"))
+          except Exception:
+              print("unknown"); raise SystemExit
+          # list or single check
+          if isinstance(d, list) and d:
+              d=d[0]
+          if isinstance(d, dict) and "checks" in d and d["checks"]:
+              d=d["checks"][0]
+          print((d.get("status") or d.get("state") or "unknown")).lower()
+          PY
+          ) || STATUS=unknown
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "detail=healthchecks status=$STATUS http=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" = "down" ] || [ "$FORCE" = "true" ]; then
+            echo "down=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "down=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open / update downtime issue
+        if: steps.hc.outputs.down == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DETAIL: ${{ steps.hc.outputs.detail }}
+          STATUS: ${{ steps.hc.outputs.status }}
+        run: |
+          TITLE="[dead-man] host heartbeat DOWN"
+          BODY=$(cat <<EOF
+          ## Cloud dead-man poke
+
+          The NEXUS host **missed heartbeats** (or status is \`$STATUS\`).
+
+          **Detail:** $DETAIL  
+          **When (UTC):** $(date -u +%Y-%m-%dT%H:%M:%SZ)  
+          **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ### What this means
+          - Machine may have **lost power** or **WiFi**
+          - Local \`nexus heartbeat\` / cron stopped pinging Healthchecks
+          - Cloud side (this workflow) is notifying you because the host cannot
+
+          ### When the machine is back
+          \`\`\`bash
+          nexus start -y
+          nexus heartbeat once
+          nexus recovery network
+          # if WiFi still bad (opt-in):
+          nexus recovery wifi --allow-reconnect
+          \`\`\`
+
+          <!-- nexus-deadman -->
+          EOF
+          )
+          # find open issue with marker
+          EXISTING=$(gh issue list --state open --search "dead-man heartbeat in:title" --json number,title --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "commented on #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label "bug" || \
+              gh issue create --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: Webhook poke (Discord/Slack)
+        if: steps.hc.outputs.down == 'true'
+        env:
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+          DETAIL: ${{ steps.hc.outputs.detail }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$NOTIFY_WEBHOOK" ]; then
+            echo "NOTIFY_WEBHOOK not set — skip webhook"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json, os, urllib.request
+          msg = (
+              "NEXUS dead-man: host heartbeat DOWN — "
+              + os.environ.get("DETAIL", "")
+              + f" — https://github.com/{os.environ.get('REPO','')}/issues"
+          )
+          data = json.dumps({"content": msg, "text": msg}).encode()
+          req = urllib.request.Request(
+              os.environ["NOTIFY_WEBHOOK"],
+              data=data,
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+          urllib.request.urlopen(req, timeout=15).read()
+          print("webhook ok")
+          PY

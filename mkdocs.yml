@@ -54,6 +54,7 @@ nav:
       - arXiv research: cookbook/08_arxiv_research.md
       - GitHub community auto-reply: cookbook/09_github_community.md
       - Platforms + local LLM: cookbook/10_platforms_local_llm.md
+      - Heartbeat + resilience: cookbook/11_heartbeat_resilience.md
       - GitHub community (full): GITHUB_COMMUNITY.md
       - PyPI publish: PYPI.md
   - Architecture:
@@ -71,6 +72,7 @@ nav:
       - Connectors & MCP: CONNECTORS.md
       - MCP setup: MCP_SETUP.md
       - Platforms + local LLM: PLATFORMS.md
+      - Resilience (power/WiFi): RESILIENCE.md
       - Bridges: BRIDGES_AND_BUS.md
       - GLM-5.2: GLM52.md
   - Launch:

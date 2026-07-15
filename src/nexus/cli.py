@@ -941,6 +941,116 @@ def cmd_platforms(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_heartbeat(args: argparse.Namespace) -> int:
+    """Cloud dead-man switch: ping Healthchecks / custom URL; cron-friendly."""
+    from . import heartbeat as hb
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "heartbeat_cmd", None) or "once"
+
+    if sub == "init":
+        url = getattr(args, "url", None) or ""
+        if not url:
+            print("usage: nexus heartbeat init --url https://hc-ping.com/UUID")
+            return 2
+        p = hb.init_config(
+            url,
+            root,
+            interval_s=int(getattr(args, "interval", 300) or 300),
+            host_id=getattr(args, "host_id", "") or "",
+            status_url=getattr(args, "status_url", "") or "",
+            notify_webhook=getattr(args, "webhook", "") or "",
+        )
+        print(f"wrote {p}")
+        print(hb.install_instructions(root))
+        return 0
+
+    if sub == "once":
+        res = hb.beat_once(root, dry_run=bool(getattr(args, "dry_run", False)))
+        print(json.dumps(res, indent=2))
+        ping_ok = (res.get("ping") or {}).get("ok")
+        # offline with no URL is not a hard fail for local probe-only
+        if (res.get("ping") or {}).get("skipped"):
+            return 0 if (res.get("network") or {}).get("online") else 1
+        return 0 if ping_ok else 1
+
+    if sub == "watch":
+        return hb.watch(
+            root,
+            interval_s=float(getattr(args, "interval", 0) or 0) or None,
+            max_beats=int(getattr(args, "max_beats", 0) or 0),
+        )
+
+    if sub == "status":
+        cfg = hb.load_config(root)
+        st = hb.read_local_state(root)
+        print(json.dumps({
+            "config": {
+                "ping_url_set": bool(cfg.ping_url),
+                "host_id": cfg.host_id,
+                "interval_s": cfg.interval_s,
+                "status_url_set": bool(cfg.status_url),
+                "webhook_set": bool(cfg.notify_webhook),
+            },
+            "last": st,
+            "network": hb.probe_network(),
+        }, indent=2))
+        return 0
+
+    if sub == "install-cron":
+        print(hb.install_instructions(root))
+        print()
+        print("# crontab line:")
+        print(hb.cron_line(
+            project_root=root,
+            interval_min=int(getattr(args, "every", 5) or 5),
+        ))
+        return 0
+
+    print("usage: nexus heartbeat init|once|watch|status|install-cron")
+    return 2
+
+
+def cmd_recovery(args: argparse.Namespace) -> int:
+    """Opt-in network/WiFi recovery; reboot only with double gate."""
+    from . import recovery as rec
+
+    sub = getattr(args, "recovery_cmd", None) or "status"
+
+    if sub == "status":
+        print(json.dumps(rec.status(), indent=2))
+        return 0
+
+    if sub == "network":
+        r = rec.network_diagnose()
+        print(json.dumps(r.to_dict(), indent=2))
+        return 0 if r.ok else 1
+
+    if sub == "wifi":
+        r = rec.wifi_recover(
+            allow_reconnect=bool(getattr(args, "allow_reconnect", False)),
+            connection=getattr(args, "connection", None) or None,
+        )
+        print(json.dumps(r.to_dict(), indent=2))
+        return 0 if r.ok else 1
+
+    if sub == "reboot":
+        r = rec.reboot_machine(allow_reboot=bool(getattr(args, "allow_reboot", False)))
+        print(json.dumps(r.to_dict(), indent=2))
+        return 0 if r.ok else 1
+
+    if sub == "auto":
+        r = rec.auto_recover(
+            allow_reconnect=bool(getattr(args, "allow_reconnect", False)),
+            allow_reboot=bool(getattr(args, "allow_reboot", False)),
+        )
+        print(json.dumps(r.to_dict(), indent=2))
+        return 0 if r.ok else 1
+
+    print("usage: nexus recovery status|network|wifi|reboot|auto")
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -954,6 +1064,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "do",
         "github",
         "platforms",
+        "heartbeat",
+        "recovery",
         "procure",
         "arxiv",
         "research",
@@ -1438,6 +1550,66 @@ def main(argv: Optional[list[str]] = None) -> int:
     pl_doc.add_argument("--fix", action="store_true")
     pl_doc.set_defaults(func=cmd_platforms)
     pl.set_defaults(func=cmd_platforms, platforms_cmd="status")
+
+    # --- heartbeat / dead-man + recovery ---
+    hb = sub.add_parser(
+        "heartbeat",
+        help="ping cloud dead-man URL (Healthchecks) so you're poked when the host dies",
+    )
+    hb_sub = hb.add_subparsers(dest="heartbeat_cmd")
+    hb_init = hb_sub.add_parser("init", help="save ping URL to .nexus_state/heartbeat.json")
+    hb_init.add_argument("--url", required=True, help="Healthchecks ping URL or webhook")
+    hb_init.add_argument("--status-url", default="", help="optional status URL for Actions")
+    hb_init.add_argument("--webhook", default="", help="Discord/Slack webhook for local alerts")
+    hb_init.add_argument("--host-id", default="")
+    hb_init.add_argument("--interval", type=int, default=300)
+    hb_init.add_argument("--path", default=".")
+    hb_init.set_defaults(func=cmd_heartbeat)
+    hb_once = hb_sub.add_parser("once", help="single beat (cron-friendly)")
+    hb_once.add_argument("--path", default=".")
+    hb_once.add_argument("--dry-run", action="store_true")
+    hb_once.set_defaults(func=cmd_heartbeat)
+    hb_w = hb_sub.add_parser("watch", help="loop beats until Ctrl-C")
+    hb_w.add_argument("--path", default=".")
+    hb_w.add_argument("--interval", type=float, default=0, help="seconds (default from config)")
+    hb_w.add_argument("--max-beats", type=int, default=0)
+    hb_w.set_defaults(func=cmd_heartbeat)
+    hb_st = hb_sub.add_parser("status", help="last beat + network probe")
+    hb_st.add_argument("--path", default=".")
+    hb_st.set_defaults(func=cmd_heartbeat)
+    hb_cron = hb_sub.add_parser("install-cron", help="print crontab + setup instructions")
+    hb_cron.add_argument("--path", default=".")
+    hb_cron.add_argument("--every", type=int, default=5, help="minutes between pings")
+    hb_cron.set_defaults(func=cmd_heartbeat)
+    hb.set_defaults(func=cmd_heartbeat, heartbeat_cmd="once")
+
+    rc = sub.add_parser(
+        "recovery",
+        help="diagnose network; opt-in WiFi reconnect; reboot only with double gate",
+    )
+    rc_sub = rc.add_subparsers(dest="recovery_cmd")
+    rc_sub.add_parser("status", help="tools + network + last heartbeat").set_defaults(
+        func=cmd_recovery
+    )
+    rc_sub.add_parser("network", help="diagnose connectivity only").set_defaults(
+        func=cmd_recovery
+    )
+    rc_wifi = rc_sub.add_parser("wifi", help="WiFi diagnose / optional nmcli reconnect")
+    rc_wifi.add_argument(
+        "--allow-reconnect",
+        action="store_true",
+        help="actually try nmcli reconnect (default is diagnose-only)",
+    )
+    rc_wifi.add_argument("--connection", default=None, help="nmcli connection name")
+    rc_wifi.set_defaults(func=cmd_recovery)
+    rc_rb = rc_sub.add_parser("reboot", help="reboot host (DANGEROUS — double gate)")
+    rc_rb.add_argument("--allow-reboot", action="store_true")
+    rc_rb.set_defaults(func=cmd_recovery)
+    rc_auto = rc_sub.add_parser("auto", help="diagnose → optional wifi → optional reboot")
+    rc_auto.add_argument("--allow-reconnect", action="store_true")
+    rc_auto.add_argument("--allow-reboot", action="store_true")
+    rc_auto.set_defaults(func=cmd_recovery)
+    rc.set_defaults(func=cmd_recovery, recovery_cmd="status")
 
     # --- procurement domain ---
     pr = sub.add_parser("procure", help="procurement intelligence engine + expert panel")

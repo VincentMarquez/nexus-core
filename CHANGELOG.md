@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-07-15
+
+### Added
+- **Cloud dead-man heartbeat**: `nexus heartbeat init|once|watch|status|install-cron`
+- **Local recovery**: `nexus recovery status|network|wifi|reboot|auto` (reconnect/reboot opt-in only)
+- GitHub Actions: `.github/workflows/deadman.yml` — issue + webhook when host check is down
+- Docs: `docs/RESILIENCE.md`, cookbook 11
+
 ## 0.7.6 — 2026-07-15
 
 ### Added
