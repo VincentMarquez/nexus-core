@@ -47,26 +47,27 @@
   <text x="140" y="104" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" fill="#94a3b8" letter-spacing="0.18em">MULTI-AGENT · DURABLE · LOCAL-FIRST</text>
 
   <!-- main tagline -->
-  <text x="64" y="180" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="700" fill="#f1f5f9">Multi-agent tasks that</text>
-  <text x="64" y="224" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="700" fill="url(#accent)">resume after a crash</text>
-  <text x="64" y="268" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" fill="#cbd5e1">with a rubric judge that checks real success criteria — not “the model said OK.”</text>
+  <text x="64" y="180" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="#f1f5f9">Durable multi-agent work</text>
+  <text x="64" y="218" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" fill="url(#accent)">on real software repos</text>
+  <text x="64" y="258" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#cbd5e1">Resume after crashes · rubric judge · GitHub URL → fix loop</text>
+  <text x="64" y="284" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" fill="#94a3b8">Not “the model said OK.” Evidence + criteria only.</text>
 
   <!-- feature pills -->
   <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600">
-    <rect x="64" y="304" width="148" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
-    <text x="138" y="327" text-anchor="middle" fill="#22d3ee">crash → resume</text>
+    <rect x="64" y="308" width="148" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
+    <text x="138" y="331" text-anchor="middle" fill="#22d3ee">crash → resume</text>
 
-    <rect x="228" y="304" width="140" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
-    <text x="298" y="327" text-anchor="middle" fill="#a78bfa">rubric judge</text>
+    <rect x="228" y="308" width="140" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
+    <text x="298" y="331" text-anchor="middle" fill="#a78bfa">rubric judge</text>
 
-    <rect x="384" y="304" width="118" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
-    <text x="443" y="327" text-anchor="middle" fill="#67e8f9">MCP tools</text>
+    <rect x="384" y="308" width="132" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
+    <text x="450" y="331" text-anchor="middle" fill="#67e8f9">nexus do</text>
 
-    <rect x="518" y="304" width="150" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
-    <text x="593" y="327" text-anchor="middle" fill="#86efac">local LLM / CLI</text>
+    <rect x="532" y="308" width="150" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
+    <text x="607" y="331" text-anchor="middle" fill="#86efac">local LLM / CLI</text>
 
-    <rect x="684" y="304" width="132" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
-    <text x="750" y="327" text-anchor="middle" fill="#fcd34d">one-command</text>
+    <rect x="698" y="308" width="118" height="36" rx="18" fill="#0f172a" stroke="#334155"/>
+    <text x="757" y="331" text-anchor="middle" fill="#fcd34d">verifiable</text>
   </g>
 
   <!-- right-side mini flow -->

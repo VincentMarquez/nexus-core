@@ -2,9 +2,9 @@
 
 **Title options** (pick one):
 
-1. `Show HN: NEXUS Core – multi-agent tasks that resume after a crash`  
-2. `Show HN: Crash-safe multi-agent runner with a real success-criteria judge`  
-3. `Show HN: Agent pipelines that don’t lose work when you kill -9`
+1. `Show HN: Durable multi-agent jobs for real repos (resume + rubric judge)`  
+2. `Show HN: nexus-core – agents that finish software work after kill -9`  
+3. `Show HN: Paste a GitHub URL; agents fix/test with verifiable success`
 
 ---
 
@@ -12,52 +12,38 @@
 
 Hi HN —
 
-I open-sourced **NEXUS Core**, a small Python (+ optional Node bus) system for multi-agent research/dev workflows.
+**nexus-core** is a specialized multi-agent **orchestration engine** for long-running software tasks — not a chat toy and not “an AI that does anything.”
 
-**Pain:** multi-agent pipelines die mid-run, and “validators” often only check that *someone replied*, not that the work met the goal.
+**Pain:** agent workflows die mid-run and lose progress; “validators” often only check that a model replied, not that the work met the goal.
 
-**What it does:**
+**Bet:**
 
-1. **Durable 10-step pipeline** — checkpoint after each step; resume after interrupt  
-2. **Rubric-style judge** — scores success criteria using artifact evidence  
-3. **Cascade index** — shallow map before deep file thrash  
-4. **Event bus + bridges** — wire CLI agents and **local LLMs** (Ollama) without baking keys into the repo  
-5. **Autonomy default off** — no unattended token burn  
+1. **Durable execution** — checkpoint after each step; resume after `kill -9`  
+2. **Rubric judge** — success = explicit criteria + artifacts, not vibes  
+3. **Adversarial pipeline** — plan is challenged before implement  
+4. **GitHub-native jobs** — `nexus do owner/repo --goal "fix failing tests"`  
+5. **Hybrid** — Ollama/CLIs when present; heuristic-only when not  
+6. **Autonomy default off** — no unattended token burn  
+
+**Complementary to Cursor:** Cursor helps *you* edit. NEXUS *runs* overnight/repair loops on whole repos.
 
 **60-second proof:**
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
-cd nexus-core && make install && make demo
+cd nexus-core && ./run && make demo
 ```
 
-You’ll see: run 3 steps → simulated crash → resume → completed 10/10.
-
-Judge vs presence trap:
+Crash → resume → completed. Judge vs presence:
 
 ```bash
 make demo-judge
 ```
 
-Dashboard (optional):
+GitHub job:
 
 ```bash
-make bus
-# http://127.0.0.1:3099/dashboard
+./run owner/repo --goal "make tests pass"
 ```
 
-Repo: https://github.com/VincentMarquez/nexus-core  
-Demo assets: crash→resume GIF in the README; optional screen recording welcome.
-
-MIT. Feedback welcome — especially on the judge/resume design.
-
----
-
-Launch discussion: https://github.com/VincentMarquez/nexus-core/discussions/4
-
-## Posting checklist
-
-- [ ] `make release-check` green on a clean clone  
-- [ ] Demo GIF or 30s video linked (optional but huge)  
-- [ ] You’re available for 2–4 hours after posting to reply  
-- [ ] Don’t post the same text to 10 subreddits the same hour (looks like spam)  
+MIT. Happy to take critique on the judge design and the `nexus do` allowlist.

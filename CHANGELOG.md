@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — 2026-07-15
+
+### Changed
+- Positioning: specialized durable software orchestration (not “does anything”)
+- README + COMPARE: Cursor complementarity; LangGraph / CrewAI / AutoGen table
+- Elevator pitch: reliability & verifiability + GitHub-native workflows
+- Banner + Show HN draft aligned to the same message
+
 ## 0.5.0 — 2026-07-15
 
 ### Added

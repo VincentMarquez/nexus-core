@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="NEXUS Core — multi-agent tasks that resume after a crash" width="100%">
+  <img src="docs/assets/banner.svg" alt="NEXUS Core — durable multi-agent software tasks" width="100%">
 </p>
 
 <p align="center">
@@ -13,20 +13,48 @@
 </p>
 
 <p align="center">
-  <b>Multi-agent tasks that resume after a crash</b> — with a judge that checks real success criteria, not “the model said OK.”
+  <b>Durable multi-agent execution for real software work.</b><br>
+  Take a GitHub repo, run agents across crashes, and only finish when a <b>rubric judge</b> confirms success — not when the model says “done.”
 </p>
 
 <p align="center">
   <a href="https://vincentmarquez.github.io/nexus-core/"><b>Docs</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/getting-started/"><b>Get started</b></a> ·
+  <a href="https://vincentmarquez.github.io/nexus-core/COMPARE/"><b>vs other tools</b></a> ·
   <a href="https://vincentmarquez.github.io/nexus-core/cookbooks/"><b>Cookbooks</b></a> ·
-  <a href="#architecture"><b>Architecture</b></a> ·
-  <a href="https://github.com/VincentMarquez/nexus-core/releases"><b>Releases</b></a>
+  <a href="#what-this-is-not">What this is not</a>
 </p>
 
 ---
 
-## Quick start (zero config)
+## Elevator pitch
+
+> **nexus-core** is a durable multi-agent system for real software tasks. It can take a GitHub repo, work on it across process crashes, and only deliver when a rubric judge confirms it *actually* succeeded — not just when the model claims it did.
+
+Two pillars:
+
+1. **Reliability & verifiability** — checkpoints + resume, rubric judge, adversarial pipeline  
+2. **Practical engineering workflows** — `nexus do owner/repo`, local LLMs/CLIs, observable bus  
+
+It is **not** “an AI that does anything.” It is a **specialized orchestration engine** for long-running, checkable software jobs (install, test, fix, validate, report).
+
+---
+
+## What makes it different
+
+| Capability | What it does | Why it matters |
+|------------|--------------|----------------|
+| **Durable execution** | Checkpoints after each step; resume after `kill -9` | Overnight agent runs usually die and lose everything |
+| **Rubric judge** | Scores **your** success criteria + artifacts | Most stacks treat “model replied” as success |
+| **Adversarial pipeline** | Goal → plan → **challenge** → implement → test → review → meta-review | Built-in pushback before shipping |
+| **Hybrid / LLM-optional** | Heuristic-only mode **or** Ollama / Claude / Codex / Gemini | Cost control + runs when models are down |
+| **GitHub-native jobs** | `nexus do owner/repo --goal "fix failing tests"` | URL → clone → install → check → fix loop |
+| **Event bus + dashboard** | Live multi-agent status | Not a black box |
+| **Workspace MCP** | Project-jail tools for desktop/phone AI clients | Safe external control of the workspace |
+
+---
+
+## Quick start
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
@@ -34,71 +62,47 @@ cd nexus-core
 ./run
 ```
 
-That’s it. **`./run` installs the package if needed and starts everything automatically.**
+Creates a venv, installs the package, starts bus + dashboard, wires **Ollama and installed CLIs automatically** (mocks if missing).
 
-### Paste a GitHub repo — NEXUS does the rest
+### Paste a GitHub repo — autonomous repair loop
 
 ```bash
 ./run https://github.com/owner/repo
 ./run owner/repo --goal "make the tests pass and fix whatever is broken"
-# same after install:
-nexus do https://github.com/owner/repo
 nexus do owner/repo -g "run checks and repair failures"
 ```
 
-| Step | What NEXUS does |
-|------|-----------------|
-| Start | Brings up bus + agents if needed |
-| Clone | Shallow clone into `.nexus_workspaces/` |
-| Detect | Python / Node / Go / Rust (install + test commands) |
-| Install | pip / npm / yarn / pnpm / go / cargo / make (allowlisted) |
+| Step | Action |
+|------|--------|
+| Start | Bring up bus + agents if needed |
+| Clone | Shallow clone → `.nexus_workspaces/` |
+| Detect | Python / Node / Go / Rust |
+| Install | Allowlisted pip / npm / yarn / pnpm / go / cargo / make |
 | Check | pytest, npm test, go test, cargo test, … |
-| Fix | Up to 3 rounds of agent/heuristic patches + re-run |
-| Report | `NEXUS_REPORT.md` in the workdir (resumable job state) |
-
-| What `./run` alone does | Detail |
-|-------------------------|--------|
-| Python venv | Created at `.venv` if missing |
-| Package install | `pip install -e .` |
-| Hardware detect | CPU / RAM / GPU / tools |
-| Ollama | Starts if installed; **auto-pulls** a safe small model |
-| Event bus + dashboard | Opens in your browser |
-| Agents | **Uses real CLIs when installed** (claude / codex / gemini); mocks otherwise |
-| First contact | Short smoke message so you see an agent reply |
-
-Same stack start: `make` · `make start` · `nexus` · `nexus start`
+| Fix | Up to 3 agent/heuristic rounds + re-run |
+| Report | `NEXUS_REPORT.md` (job state is resumable) |
 
 ```bash
-# after PyPI publish:
-pip install nexus-multi-agent && nexus start
-
-# opt-outs:
+# stack only
 ./run --no-cli
-./run --no-pull
-nexus do owner/repo --heuristic-only   # no LLM, rules only
-nexus do owner/repo --no-start         # use existing stack
+# rules only (no LLM)
+nexus do owner/repo --heuristic-only --no-start
+# proof of durability
+make demo && make demo-judge
 ```
 
-Then:
-
-```bash
-make demo          # crash → resume proof
-nexus status
-nexus stop
-```
-
-> If this saves you a failed overnight agent run, a star helps others find it.
+> If this saves a failed overnight agent run, a star helps others find it.
 
 ---
 
 ## Crash → resume (the point)
 
 <p align="center">
-  <img src="docs/assets/demo-flow.svg" alt="Crash → resume flow: steps, kill -9, state on disk, resume completed" width="100%">
+  <img src="docs/assets/demo-flow.svg" alt="Crash → resume flow" width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Crash → resume demo animation" width="100%">
+  <img src="docs/assets/demo.gif" alt="Crash → resume demo" width="100%">
 </p>
 
 ```bash
@@ -107,15 +111,33 @@ make install && make start && make demo && make demo-judge && make smoke
 
 ---
 
+## What this is not
+
+| Not this | Actually this |
+|----------|----------------|
+| A Cursor / VS Code replacement | Complementary: Cursor helps **you** edit; NEXUS **runs** long jobs on repos |
+| A general “do anything” AGI | Specialized in **software tasks** with evidence |
+| An o1-style reasoning model | An **orchestrator** that structures models (or heuristics) |
+| LangGraph / CrewAI / AutoGen clone | Same multi-agent space, different bet: **durability + rubric success** over chat graphs |
+
+**Cursor** is excellent daily coding assistance.  
+**nexus-core** is for *agents that must finish real work on repositories reliably over time*.
+
+Use both.
+
+---
+
 ## Why it exists
 
-| Failure mode | NEXUS Core response |
-|--------------|---------------------|
+| Failure mode | NEXUS response |
+|--------------|----------------|
 | Process dies mid-task | **Durable checkpoints** + resume |
-| “Validator” only checks that someone replied | **Rubric judge** on criteria + artifacts |
-| Agents thrash context opening random files | **Cascade index** (shallow map first) |
+| “Done” = model said OK | **Rubric judge** on criteria + artifacts |
+| Agents thrash random files | **Cascade index** (shallow map first) |
 | Background loops burn tokens | **Autonomy default OFF** |
-| Cloud-only agent wiring | **Event bus + CLI / Ollama bridges** |
+| Cloud-only glue | **Bus + CLI / Ollama bridges** |
+
+Deeper comparison (Cursor, LangGraph, CrewAI, AutoGen): **[docs/COMPARE.md](docs/COMPARE.md)**
 
 ---
 
@@ -123,17 +145,13 @@ make install && make start && make demo && make demo-judge && make smoke
 
 | Command | Does |
 |---------|------|
-| `./run` | **Preferred** — install + auto start + agents |
-| `./run https://github.com/…` | Start stack **and** clone/install/fix that repo |
-| `nexus do owner/repo` | GitHub → workdir → checks → fix loop |
-| `nexus` / `nexus start` | Stack only (after install) |
-| `nexus doctor` | Hardware + tool detection |
-| `nexus start --no-cli` | Stack without real CLI agents |
-| `nexus status` / `nexus stop` | Status / tear down |
-| `nexus demo` | Crash → resume demo |
-| `nexus mcp` / `nexus mcp --http` | Workspace MCP |
-
-Dashboard URL is printed after start (auto port if 3099 is busy).
+| `./run` | Install + auto start + agents |
+| `./run https://github.com/…` | Start **and** GitHub job |
+| `nexus do owner/repo` | Clone → install → check → fix |
+| `nexus start` / `stop` / `status` | Stack control |
+| `nexus doctor` | Hardware + tools |
+| `nexus demo` | Crash → resume proof |
+| `nexus mcp` / `--http` | Workspace MCP |
 
 ---
 
@@ -141,48 +159,41 @@ Dashboard URL is printed after start (auto port if 3099 is busy).
 
 | Doc | Contents |
 |-----|----------|
-| [docs/CONNECTORS.md](docs/CONNECTORS.md) | Remote MCP · machine MCP · phone · bus |
+| [docs/CONNECTORS.md](docs/CONNECTORS.md) | Remote / machine / phone MCP |
 | [docs/MCP_SETUP.md](docs/MCP_SETUP.md) | ChatGPT / Claude / Grok recipes |
-| [connectors/](connectors/) | JSON/env **templates** (placeholders only) |
+| [connectors/](connectors/) | Templates only (no secrets) |
 
 ```text
 ChatGPT / Grok  ──HTTPS MCP──►  tunnel  ──►  workspace tools
 Claude Desktop  ──stdio MCP──►  nexus mcp ──►  files (project jail)
-Phone (optional)──HTTPS MCP──►  tunnel  ──►  personal memory
 Ollama / CLIs   ──event bus──►  nexus start
-GLM-5.2 colibrì ──event bus──►  colibri-glm bridge
 ```
-
-**GLM-5.2:** [docs/GLM52.md](docs/GLM52.md) · [examples/glm52_nexus.md](examples/glm52_nexus.md)
 
 ---
 
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/arch-overview.svg" alt="NEXUS Core system overview" width="100%">
+  <img src="docs/assets/arch-overview.svg" alt="System overview" width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/assets/arch-cli-judge-resume.svg" alt="CLI multi-agent + crash resume + rubric judge" width="100%">
+  <img src="docs/assets/arch-cli-judge-resume.svg" alt="CLI + resume + judge" width="100%">
 </p>
 
 <details>
-<summary><b>More diagrams</b> (multi-agent panel, MCP mesh, GLM-5.2, 10-step pipeline)</summary>
+<summary><b>More diagrams</b></summary>
 
 <br>
 
-![Multi-agent research panel](docs/assets/arch-multi-agent.svg)
-
-![MCP connector mesh](docs/assets/arch-mcp-mesh.svg)
-
-![GLM-5.2 / colibrì with NEXUS](docs/assets/arch-glm-pipeline.svg)
-
-![10-step adversarial pipeline](docs/assets/arch-pipeline-10.svg)
+![Multi-agent panel](docs/assets/arch-multi-agent.svg)
+![MCP mesh](docs/assets/arch-mcp-mesh.svg)
+![GLM-5.2](docs/assets/arch-glm-pipeline.svg)
+![10-step pipeline](docs/assets/arch-pipeline-10.svg)
 
 </details>
 
-Full catalog: [docs/FIGURES.md](docs/FIGURES.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md)
+[FIGURES](docs/FIGURES.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [BRIDGES](docs/BRIDGES_AND_BUS.md)
 
 ### 10-step pipeline
 
@@ -203,13 +214,14 @@ Full catalog: [docs/FIGURES.md](docs/FIGURES.md) · [ARCHITECTURE](docs/ARCHITEC
 
 ## Cookbooks
 
-1. [Crash → resume](cookbook/01_crash_resume.md)
-2. [Judge vs presence](cookbook/02_judge_vs_presence.md)
-3. [Local LLM (Ollama)](cookbook/03_local_llm_ollama.md)
-4. [Workspace MCP](cookbook/04_workspace_mcp.md)
-5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)
+1. [Crash → resume](cookbook/01_crash_resume.md)  
+2. [Judge vs presence](cookbook/02_judge_vs_presence.md)  
+3. [Local LLM (Ollama)](cookbook/03_local_llm_ollama.md)  
+4. [Workspace MCP](cookbook/04_workspace_mcp.md)  
+5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)  
+6. [GitHub URL → fix](cookbook/06_github_do.md)  
 
-Docs site: **https://vincentmarquez.github.io/nexus-core/**
+Docs: **https://vincentmarquez.github.io/nexus-core/**
 
 ---
 
@@ -219,17 +231,17 @@ Docs site: **https://vincentmarquez.github.io/nexus-core/**
 |--|--|
 | Durable engine + resume | ✅ |
 | Rubric-style judge | ✅ |
+| Adversarial 10-step pipeline | ✅ |
+| GitHub `nexus do` repair jobs | ✅ |
+| Heuristic-only (no LLM) mode | ✅ |
 | Mock agents (zero setup) | ✅ |
 | SQLite FTS memory | ✅ |
 | Circuit breakers | ✅ |
-| Event bus + SSE + task API | ✅ |
-| Minimal dashboard | ✅ |
+| Event bus + SSE + dashboard | ✅ |
 | Ollama + CLI bridges | ✅ |
-| Workspace MCP (`nexus mcp`) | ✅ |
-| **GitHub URL → clone / run / fix** (`nexus do`) | ✅ |
-| Human approve CLI | ✅ |
+| Workspace MCP | ✅ |
+| Human approve gate | ✅ |
 | Smoke evals + scoreboard | ✅ |
-| Docker Compose bus | ✅ |
 | GitHub Actions CI + Pages | ✅ |
 
 ---
@@ -239,26 +251,25 @@ Docs site: **https://vincentmarquez.github.io/nexus-core/**
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core
-make install    # python venv + editable install
-make test
+make install && make test
+# after PyPI trusted publish:
+# pip install nexus-multi-agent && nexus start
 ```
 
-**Python 3.10+**. Node 18+ optional (bus/dashboard). Ollama optional (local models).
+**Python 3.10+**. Node 18+ for bus/dashboard. Ollama / CLIs optional.
 
 ```
-src/nexus/     engine, judge, memory, bus client, MCP, circuits
+src/nexus/     engine, judge, github jobs, MCP, bus client
 bridge/        event bus, bridges, dashboard
-examples/      demos
-evals/         smoke suite + scoreboard
 cookbook/      copy-paste recipes
-docs/          architecture + launch notes
+docs/          architecture + positioning
 ```
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Design principles: **presence ≠ success**, **resume over hope**, **autonomy opt-in**.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Design laws: **presence ≠ success**, **resume over hope**, **autonomy opt-in**.
 
 ```bash
 make test && make smoke
@@ -270,11 +281,9 @@ make test && make smoke
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/COMPARE.md](docs/COMPARE.md) | vs DIY / chat agents / graph runners |
-| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Ready-to-post Show HN |
-| [docs/SOCIAL_POSTS.md](docs/SOCIAL_POSTS.md) | X / LinkedIn / Reddit copy |
-| [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) | Launch day checklist |
-| [docs/GROWTH.md](docs/GROWTH.md) | How high-star repos grow |
+| [docs/COMPARE.md](docs/COMPARE.md) | vs Cursor / LangGraph / CrewAI / AutoGen |
+| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Show HN draft |
+| [docs/GROWTH.md](docs/GROWTH.md) | Distribution research |
 | [docs/PYPI.md](docs/PYPI.md) | Publish `nexus-multi-agent` |
 
 ## Citation

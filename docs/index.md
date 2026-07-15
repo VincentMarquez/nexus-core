@@ -2,7 +2,11 @@
 
 ![NEXUS Core banner](assets/banner.svg)
 
-**Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
+**Durable multi-agent execution for real software work.**
+
+Take a GitHub repo, run agents across crashes, and only finish when a **rubric judge** confirms success — not when the model says “done.”
+
+Not a general “do anything” agent. A **specialized orchestration engine** for long-running, checkable software tasks.
 
 ## 60-second start
 
@@ -14,14 +18,19 @@ nexus demo              # crash → resume
 nexus stop
 ```
 
-Agents (Claude / Codex / Gemini / Ollama) turn on automatically when installed; otherwise safe mocks run so nothing is blocked.
-
-### Or paste any GitHub repo
+### Paste any GitHub repo
 
 ```bash
 ./run https://github.com/owner/repo
 # clone → install → test → fix loop → NEXUS_REPORT.md
 ```
+
+## Two pillars
+
+1. **Reliability & verifiability** — durable checkpoints, rubric judge, adversarial pipeline  
+2. **Practical engineering** — GitHub-native jobs, local LLMs/CLIs, dashboard  
+
+[How we compare](COMPARE.md) to Cursor, LangGraph, CrewAI, AutoGen.
 
 ## What you get
 
@@ -29,14 +38,16 @@ Agents (Claude / Codex / Gemini / Ollama) turn on automatically when installed; 
 |------------|------|
 | Durable 10-step pipeline | [Pipeline](PIPELINE.md) |
 | Rubric judge | [Architecture](ARCHITECTURE.md) |
+| GitHub `nexus do` | [Cookbook 06](cookbook/06_github_do.md) |
 | Local LLM + CLI bridges | [Bridges](BRIDGES_AND_BUS.md) |
-| MCP for ChatGPT / Claude / Grok / phone | [Connectors](CONNECTORS.md) |
+| MCP for ChatGPT / Claude / Grok | [Connectors](CONNECTORS.md) |
 | GLM-5.2 / colibrì | [GLM-5.2](GLM52.md) |
-| Cookbooks | [Cookbooks](cookbooks.md) |
+| Positioning vs other tools | [Compare](COMPARE.md) |
+| All cookbooks | [Cookbooks](cookbooks.md) |
 
 ## Figures
 
-See [FIGURES.md](FIGURES.md) for all architecture diagrams.
+See [FIGURES.md](FIGURES.md).
 
 ## License
 
