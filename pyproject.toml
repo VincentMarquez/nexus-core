@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-core"
-version = "0.3.0"
-description = "Multi-agent tasks that resume after a crash — local LLM, bus, dashboard, one-command start"
+version = "0.4.0"
+description = "Multi-agent tasks that resume after a crash — judge, local LLM, bus, MCP, one-command start"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -20,7 +20,8 @@ dev = ["pytest>=7.0"]
 nexus = "nexus.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/VincentMarquez/nexus-core"
+Homepage = "https://vincentmarquez.github.io/nexus-core/"
+Documentation = "https://vincentmarquez.github.io/nexus-core/"
 Repository = "https://github.com/VincentMarquez/nexus-core"
 Issues = "https://github.com/VincentMarquez/nexus-core/issues"
 

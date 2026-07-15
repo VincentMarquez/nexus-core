@@ -252,6 +252,18 @@ def cmd_demo(_: argparse.Namespace) -> int:
     return subprocess.call(["bash", str(root / "scripts" / "demo.sh")], cwd=str(root))
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from . import mcp_server
+
+    argv = []
+    if args.http:
+        argv.append("--http")
+        argv.extend(["--host", args.host, "--port", str(args.port)])
+    if args.project_root:
+        argv.extend(["--project-root", args.project_root])
+    return mcp_server.main(argv)
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         prog="nexus",
@@ -270,6 +282,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("status", help="show process status").set_defaults(func=cmd_status)
     sub.add_parser("doctor", help="detect hardware and tools").set_defaults(func=cmd_doctor)
     sub.add_parser("demo", help="crash→resume demo").set_defaults(func=cmd_demo)
+
+    pm = sub.add_parser("mcp", help="run Workspace MCP server (stdio or --http)")
+    pm.add_argument("--http", action="store_true", help="HTTP tools API instead of stdio")
+    pm.add_argument("--host", default="127.0.0.1")
+    pm.add_argument("--port", type=int, default=8765)
+    pm.add_argument("--project-root", default=None)
+    pm.set_defaults(func=cmd_mcp)
 
     args = ap.parse_args(argv)
     return int(args.func(args))

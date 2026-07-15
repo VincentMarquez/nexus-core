@@ -1,0 +1,65 @@
+site_name: NEXUS Core
+site_description: Multi-agent tasks that resume after a crash — with a real success-criteria judge
+site_url: https://vincentmarquez.github.io/nexus-core/
+repo_url: https://github.com/VincentMarquez/nexus-core
+repo_name: VincentMarquez/nexus-core
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Install & demo: getting-started.md
+      - Cookbooks: cookbooks.md
+  - Architecture:
+      - Overview: ARCHITECTURE.md
+      - Pipeline: PIPELINE.md
+      - Memory: MEMORY.md
+      - Figures: FIGURES.md
+      - Compare: COMPARE.md
+  - Connect:
+      - Connectors & MCP: CONNECTORS.md
+      - MCP setup: MCP_SETUP.md
+      - Bridges: BRIDGES_AND_BUS.md
+      - GLM-5.2: GLM52.md
+  - Launch:
+      - Show HN: SHOW_HN.md
+      - Social posts: SOCIAL_POSTS.md
+      - Growth research: GROWTH.md
+      - Video script: VIDEO_SCRIPT.md
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/VincentMarquez/nexus-core

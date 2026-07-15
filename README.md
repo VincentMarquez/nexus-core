@@ -3,6 +3,8 @@
 [![CI](https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml/badge.svg)](https://github.com/VincentMarquez/nexus-core/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://vincentmarquez.github.io/nexus-core/)
+[![PyPI](https://img.shields.io/badge/PyPI-nexus--core-blue)](https://pypi.org/project/nexus-core/)
 
 **Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
 
@@ -15,8 +17,11 @@
 ![Crash → resume flow](docs/assets/demo-flow.svg)
 
 ```bash
+# from source
 git clone https://github.com/VincentMarquez/nexus-core
 cd nexus-core && make install && make start
+
+# or (when published): pip install nexus-core && nexus start -y
 ```
 
 **What `make start` / `nexus start` does automatically:**
@@ -76,6 +81,8 @@ nexus stop
 | `nexus status` | PIDs + bus health |
 | `nexus stop` | Stop bus + bridges |
 | `nexus demo` | Crash/resume demo |
+| `nexus mcp --http` | Workspace MCP tools API |
+| `nexus mcp` | Stdio MCP (Claude Desktop) |
 
 Dashboard URL after start: printed in the terminal (auto port if 3099 is busy).
 
@@ -146,6 +153,16 @@ Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [PIPELINE](docs/PIPELINE.md) · [C
 | 10 | deliver | handoff |
 
 ---
+
+## Cookbooks
+
+1. [Crash → resume](cookbook/01_crash_resume.md)
+2. [Judge vs presence](cookbook/02_judge_vs_presence.md)
+3. [Local LLM (Ollama)](cookbook/03_local_llm_ollama.md)
+4. [Workspace MCP](cookbook/04_workspace_mcp.md)
+5. [GLM-5.2 / colibrì](cookbook/05_glm52_colibri.md)
+
+Docs site: https://vincentmarquez.github.io/nexus-core/
 
 ## Features
 

@@ -1,3 +1,12 @@
+## 0.4.0 — 2026-07-15
+
+### Added
+- Workspace MCP server (`nexus mcp` / `--http`) with project jail
+- MkDocs Material docs site + GitHub Pages workflow
+- Five cookbooks under `cookbook/`
+- PyPI packaging docs + trusted-publish workflow
+- `pip`-oriented install path
+
 # Changelog
 
 ## 0.3.4 — 2026-07-14

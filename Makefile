@@ -45,6 +45,15 @@ dashboard:
 	@echo "Run: make start   (opens dashboard automatically)"
 	@echo "Or:  http://127.0.0.1:3099/dashboard"
 
+mcp-http:
+	. .venv/bin/activate && nexus mcp --http --port 8765
+
+docs-serve:
+	. .venv/bin/activate && pip install -q mkdocs-material && mkdocs serve
+
+docs-build:
+	. .venv/bin/activate && pip install -q mkdocs-material && mkdocs build --strict
+
 release-check: install test smoke
 	@echo "OK — ready to tag a release"
 
