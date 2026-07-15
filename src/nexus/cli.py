@@ -2543,6 +2543,59 @@ def cmd_eval(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_improve(args: argparse.Namespace) -> int:
+    """Self-improve smoke / ledger helpers (First apply slice P0)."""
+    from . import improve_smoke as ism
+
+    sub = getattr(args, "improve_cmd", None) or "smoke"
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+
+    if sub == "smoke":
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        report = ism.run_smoke(
+            root,
+            fixture=fixture,
+            repo=getattr(args, "repo", None),
+            run_id=getattr(args, "run_id", None),
+            require_path_exists=bool(getattr(args, "require_path_exists", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(ism.format_report(report))
+        return 0 if report.get("ok") else 1
+
+    if sub == "ledger":
+        from .decision_ledger import DecisionLedger
+
+        limit = int(getattr(args, "limit", 20) or 20)
+        run_id = getattr(args, "run_id", None)
+        with DecisionLedger.open(root) as led:
+            rows = led.tail(limit=limit, run_id=run_id)
+            if getattr(args, "json", False):
+                print(json.dumps(rows, indent=2, default=str))
+                return 0
+            if not rows:
+                print(f"(no decisions in {root / '.nexus_state' / 'ledger'})")
+                return 0
+            print(f"{'AGENT':<14} {'ACTION':<14} {'RUN_ID':<18} CLAIM")
+            for r in rows:
+                claim = (r.get("claim") or "")[:60]
+                print(
+                    f"{str(r.get('agent') or ''):<14} "
+                    f"{str(r.get('action') or ''):<14} "
+                    f"{str(r.get('run_id') or ''):<18} {claim}"
+                )
+        return 0
+
+    print("usage: nexus improve smoke|ledger", file=sys.stderr)
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -2566,6 +2619,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "skillpacks",
         "tools",
         "eval",
+        "improve",
         "procure",
         "arxiv",
         "research",
@@ -3874,6 +3928,40 @@ def main(argv: Optional[list[str]] = None) -> int:
         )
         ep.set_defaults(func=cmd_eval)
     ev.set_defaults(func=cmd_eval, eval_cmd="smoke")
+
+    # First apply slice: mine → grade → claim_verify smoke + ledger tail
+    imp = sub.add_parser(
+        "improve",
+        help="self-improve smoke (mine→grade→claim_verify) + decision ledger",
+    )
+    imp.add_argument("--path", default=".", help="project workdir")
+    imp_sub = imp.add_subparsers(dest="improve_cmd")
+    imp_sm = imp_sub.add_parser(
+        "smoke",
+        help="offline mine→grade→claim_verify with immutable ledger (no network)",
+    )
+    imp_sm.add_argument("--path", default=".", help="project workdir")
+    imp_sm.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    imp_sm.add_argument("--repo", default=None, help="select repo from digests/fixture")
+    imp_sm.add_argument("--run-id", default=None, dest="run_id")
+    imp_sm.add_argument(
+        "--require-path-exists",
+        action="store_true",
+        help="fail if grade.path is not on disk",
+    )
+    imp_sm.add_argument("--json", action="store_true")
+    imp_sm.set_defaults(func=cmd_improve, improve_cmd="smoke")
+    imp_led = imp_sub.add_parser("ledger", help="show decision ledger tail")
+    imp_led.add_argument("--path", default=".")
+    imp_led.add_argument("--run-id", default=None, dest="run_id")
+    imp_led.add_argument("--limit", type=int, default=20)
+    imp_led.add_argument("--json", action="store_true")
+    imp_led.set_defaults(func=cmd_improve, improve_cmd="ledger")
+    imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 
     args = ap.parse_args(raw)
     return int(args.func(args))

@@ -508,3 +508,27 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ae18c1bce0.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice P0.1–P0.4+P0.6 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: wshobson/agents (16.0 primary fixture) + cas/lumen/soul patterns; plan=`docs/LATEST_IMPROVE_PLAN.md` §5 + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT action order **2510.13343**, Thucy claim-verify **2512.03278**, value/preference grades **2602.04518**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN §5 — prove mine→grade→claim_verify loop):
+  - `src/nexus/decision_ledger.py` — append-only SQLite `agent_decisions` (`nexus.decision_ledger/v1`), content_hash idempotent append, `tail`/`list_run`
+  - `src/nexus/stages.py` — fixed order `DEFAULT_STAGES` + smoke `mine→grade→claim_verify`; out-of-order refused
+  - `src/nexus/load_mine_eval.py` — offline loader for fixtures / IMPROVE_OURS digests
+  - `src/nexus/claim_verify.py` — require score/idea/skill/path; soft `verify_or_report`
+  - `src/nexus/improve_smoke.py` — end-to-end smoke + ledger writes
+  - `src/nexus/cli.py` — `nexus improve smoke|ledger`
+  - tests: `tests/test_ledger.py`, `test_stage_order.py`, `test_claim_verify.py`, `test_improve_smoke.py`
+  - fixture: `tests/fixtures/mine_eval_sample.json` (wshobson/agents 16.0, codingagentsystem/cas 15.0)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` (landed table + §5 checked); this log
+- patterns: soul/lumen immutable ledger + content_hash idempotency; AOAD-MAT ordered stages; Thucy grounded claims (pattern only, no tree vendor)
+- non-goals kept: no worktree apply (P0.5 next), no MCP server, no consensus multi-reviewer, no vendored trees
+- next open: P0.5 worktree-isolated apply of one Markdown skill SoT validator from wshobson/agents
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 363 passed; `nexus improve smoke` → pass YES for wshobson/agents
+
+## Cycle 2026-07-15 22:02:51Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-3b40f6266f.md`
