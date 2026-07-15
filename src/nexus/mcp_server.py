@@ -446,6 +446,41 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "mcp_eval",
+        "description": (
+            "P2.3 domain MCP eval smoke (AssetOpsBench-shaped): list scenarios or "
+            "run offline code-based scorers against live MCP tools; optional export "
+            "under .nexus_state/mcp_eval/."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list | run | smoke (default: smoke)",
+                    "default": "smoke",
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Filter domain (workspace|status|catalog|…); comma-separated ok",
+                },
+                "max_privilege": {
+                    "type": "string",
+                    "description": "read|write|ops|admin — skip higher-priv scenarios",
+                },
+                "export": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Write report under .nexus_state/mcp_eval",
+                },
+                "out_dir": {
+                    "type": "string",
+                    "description": "Relative export dir (default .nexus_state/mcp_eval)",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -999,6 +1034,69 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             return _tool_result(
                 f"unknown tool_catalog action: {action} "
                 "(list|validate|export|openapi|catalog)",
+                is_error=True,
+            )
+
+        if name == "mcp_eval":
+            from . import mcp_eval as me
+
+            action = str(args.get("action") or "smoke").lower()
+            max_priv = args.get("max_privilege") or None
+            domain_raw = str(args.get("domain") or "").strip()
+            domains = (
+                [d.strip() for d in domain_raw.split(",") if d.strip()]
+                if domain_raw
+                else None
+            )
+            try:
+                if action == "list":
+                    rows = me.list_scenarios(
+                        domains=domains, max_privilege=max_priv
+                    )
+                    return _tool_result(
+                        json.dumps(
+                            {
+                                "schema": me.SCHEMA_VERSION,
+                                "count": len(rows),
+                                "scenarios": rows,
+                            },
+                            indent=2,
+                            default=str,
+                        )
+                    )
+                if action in ("run", "smoke", "evaluate"):
+                    do_export = bool(args.get("export", True))
+                    out_dir = str(
+                        args.get("out_dir") or me.DEFAULT_OUT_DIR
+                    ).lstrip("/\\")
+                    if ".." in Path(out_dir).parts:
+                        return _tool_result(
+                            "out_dir escapes project root", is_error=True
+                        )
+                    report = me.run_and_export(
+                        _root(),
+                        domains=domains,
+                        max_privilege=max_priv,
+                        out_dir=out_dir,
+                        export=do_export,
+                    )
+                    # Keep MCP payload bounded (drop full trajectories)
+                    slim = {
+                        k: v
+                        for k, v in report.items()
+                        if k not in {"trajectories"}
+                    }
+                    # trim long previews
+                    for r in slim.get("results") or []:
+                        if isinstance(r, dict) and "answer_preview" in r:
+                            r["answer_preview"] = str(r["answer_preview"])[:120]
+                    return _tool_result(
+                        json.dumps(slim, indent=2, default=str)
+                    )
+            except Exception as e:
+                return _tool_result(f"mcp_eval error: {e}", is_error=True)
+            return _tool_result(
+                f"unknown mcp_eval action: {action} (list|run|smoke)",
                 is_error=True,
             )
 

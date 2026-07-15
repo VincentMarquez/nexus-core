@@ -83,6 +83,13 @@ Context pack stage (P1.4 — arXiv 2508.08322 context engineering):
   + optional research/repo digests) as ``nexus.context_pack/v1``.
 - Step prompts inject ``prompt_block()`` when pack is non-empty (mid-run / resume).
 - CLI: ``nexus task context``; improve_apply phase reuses same builder.
+
+Review → promote (P3 — zenith / cycgraph independent verify):
+- Opt-in ``meta.promote_on_review=true`` after a successful ``review`` step runs
+  ``IndependentVerify`` (cross-agent when implementer ≠ reviewer) and records a
+  ``promote`` / ``promote_denied`` journal event + ``meta.promote`` audit blob.
+- Does not elevate taint/memory unless ``meta.promote_keys`` / memory gate is set
+  and verify passes (fail-closed on deny when ``meta.promote_require=true``).
 """
 
 from __future__ import annotations
@@ -615,6 +622,170 @@ class DurableEngine:
             lines.append("- " + " ".join(parts))
         return "\n".join(lines) + "\n"
 
+    def _maybe_promote_after_review(
+        self,
+        task: "Task",
+        *,
+        step_number: int,
+        reviewer: str,
+        verdict: Any,
+    ) -> None:
+        """P3 opt-in: independent verify gate after a successful review step.
+
+        Enabled when ``meta.promote_on_review`` is truthy. Records
+        ``promote`` / ``promote_denied`` journal events and ``meta.promote``.
+        When ``meta.promote_require`` is true and verify fails, the task is
+        failed closed. Optional ``meta.promote_keys`` stamps taint → trusted.
+        """
+        flag = task.meta.get("promote_on_review")
+        if not flag or str(flag).strip().lower() in {"0", "false", "no", "off"}:
+            return
+        # Do not promote on hard fail / veto (already handled upstream)
+        decision = str(getattr(verdict, "decision", "") or "").strip().lower()
+        if decision in {"fail", "reject", "veto", "deny", "blocked"}:
+            return
+
+        from .durability import (
+            IndependentVerify,
+            TaintSet,
+            promote_taint_verified,
+        )
+
+        implementer = str(
+            task.meta.get("promote_implementer")
+            or task.meta.get("implementer")
+            or task.meta.get("last_implementer")
+            or ""
+        ).strip()
+        # Fall back to last non-review agent from journal handoffs / step_complete
+        if not implementer:
+            for e in reversed(self.events(task.task_id)):
+                if e.get("event") == "step_complete" and e.get("detail") in {
+                    "implement",
+                    "code",
+                    "write",
+                    "build",
+                }:
+                    implementer = str(e.get("agent") or "")
+                    break
+                if e.get("event") == "handoff" and e.get("to_agent") == reviewer:
+                    implementer = str(e.get("from_agent") or "")
+                    break
+        if not implementer:
+            implementer = "implementer"
+
+        score = getattr(verdict, "score", None)
+        try:
+            score_f = None if score is None else float(score)
+        except (TypeError, ValueError):
+            score_f = None
+
+        evidence: list[str] = []
+        art = task.meta.get("_artifact_path")
+        if art:
+            evidence.append(str(art))
+        for item in task.meta.get("promote_evidence") or []:
+            if item:
+                evidence.append(str(item))
+
+        gate = IndependentVerify.from_meta(task.meta)
+        # Review agent is the verifier; allow degraded same-agent unless forced
+        if "verify_require_cross_agent" not in task.meta and "verify" not in task.meta:
+            # default for review path: require cross-agent when implementer known
+            pass
+        result = gate.evaluate(
+            implementer=implementer,
+            verifier=reviewer or "reviewer",
+            score=score_f,
+            decision=decision or "pass",
+            evidence=evidence or None,
+        )
+        blob = result.to_dict()
+        blob["step"] = step_number
+        blob["gate"] = gate.to_dict()
+        task.meta["promote"] = blob
+
+        if result.ok:
+            promoted_keys: list[str] = []
+            raw_keys = task.meta.get("promote_keys") or []
+            if isinstance(raw_keys, str):
+                raw_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+            if raw_keys:
+                taint_raw = task.meta.get("taint")
+                tset = TaintSet()
+                if isinstance(taint_raw, dict):
+                    try:
+                        tset = TaintSet.from_dict(taint_raw)  # type: ignore[attr-defined]
+                    except Exception:
+                        tset = TaintSet()
+                        for k in raw_keys:
+                            try:
+                                tset.stamp(str(k), level="derived", agent_id=implementer)
+                            except Exception:
+                                pass
+                else:
+                    for k in raw_keys:
+                        try:
+                            tset.stamp(str(k), level="derived", agent_id=implementer)
+                        except Exception:
+                            pass
+                for k in raw_keys:
+                    try:
+                        promote_taint_verified(
+                            tset,
+                            str(k),
+                            gate="review",
+                            verify=result,
+                            agent_id=reviewer,
+                            raise_on_deny=False,
+                        )
+                        promoted_keys.append(str(k))
+                    except Exception:
+                        continue
+                try:
+                    task.meta["taint"] = tset.to_dict()  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                blob["promoted_keys"] = promoted_keys
+            task.meta["verified"] = True
+            self.save(task)
+            self.record_event(
+                task.task_id,
+                "promote",
+                step=step_number,
+                agent=reviewer,
+                status=task.status.value,
+                detail="review_verify_pass",
+                extra=blob,
+            )
+            return
+
+        # denied
+        self.save(task)
+        self.record_event(
+            task.task_id,
+            "promote_denied",
+            step=step_number,
+            agent=reviewer,
+            status=task.status.value,
+            detail=result.reason,
+            extra=blob,
+        )
+        if task.meta.get("promote_require") or str(
+            task.meta.get("promote_require", "")
+        ).lower() in {"1", "true", "yes"}:
+            task.status = TaskStatus.failed
+            task.meta["error"] = f"promote denied after review: {result.reason}"
+            self.save(task)
+            self.record_event(
+                task.task_id,
+                "failed",
+                step=step_number,
+                agent=reviewer,
+                status=task.status.value,
+                detail=task.meta["error"],
+            )
+
     def save(self, task: Task) -> None:
         path = self._task_path(task.task_id)
         atomic_write_json(path, task.to_dict())
@@ -1107,6 +1278,17 @@ class DurableEngine:
                 detail=step.name,
                 extra=complete_extra,
             )
+
+            # P3: optional independent verify → promote after review
+            if step.name == "review":
+                self._maybe_promote_after_review(
+                    task,
+                    step_number=step.number,
+                    reviewer=agent_name,
+                    verdict=verdict,
+                )
+                if task.status == TaskStatus.failed:
+                    return task
 
             # Post-step budget hard-stop (open-multi-agent: may overshoot by 1 turn)
             cap = task_max_tokens(task)

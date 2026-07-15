@@ -54,6 +54,7 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "get_run_status": "read",
     "context_pack": "read",
     "tool_catalog": "read",
+    "mcp_eval": "read",
     # side-effecting ops
     "run_project_checks": "ops",
     "github_scout": "ops",

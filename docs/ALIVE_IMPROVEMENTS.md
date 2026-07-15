@@ -426,3 +426,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-36f52aff73.md`
+
+## Cycle 2026-07-15 hard-apply P2.3 + P3 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IBM/AssetOpsBench (primary) + IMPROVE_OURS top repos (mission-control / zenith / MisterSmith / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-b6536eed67.md`; communication **2203.08975**, deterministic audit **2511.15755**, context **2508.08322**)
+- apply slice (P2.3 domain MCP eval smoke + P3 review→promote — **First apply slice** this session):
+  - `src/nexus/mcp_eval.py` — AssetOpsBench-shaped scenarios → MCP trajectories → code scorers → `nexus.mcp_eval/v1` report/export
+  - `src/nexus/cli.py` — `nexus eval list|smoke|run`
+  - `src/nexus/mcp_server.py` — tool `mcp_eval`
+  - `src/nexus/tool_catalog.py` — privilege tag for `mcp_eval`
+  - `src/nexus/engine.py` — opt-in `_maybe_promote_after_review` (`meta.promote_on_review`, journal promote/promote_denied, optional taint keys, `promote_require` fail-closed)
+  - tests: `tests/test_mcp_eval.py`, promote cases in `tests/test_engine.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: IBM/AssetOpsBench eval pipeline; mission-control CLI/MCP parity; zenith/cycgraph independent verify-before-promote (pattern only, no tree vendor)
+- next open: JSON scenario packs · optional LLM-as-judge scorer · improve_apply promote gate wiring
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 313 passed
+
+## Cycle 2026-07-15 21:20:12Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-b6536eed67.md`

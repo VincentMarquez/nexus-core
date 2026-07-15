@@ -16,80 +16,88 @@ Self-improve **nexus-core** from mined multi-agent repos + arXiv papers: small, 
 
 | Repo | Score | Pattern to port |
 |------|------:|-----------------|
-| wshobson/agents | 16 | Single Markdown skill → multi-harness generate/validate/drift (P2.1) |
-| builderz-labs/mission-control | 15 | Ops/CLI/MCP parity, **openapi.json tool catalog (P2.2)** |
-| IBM/AssetOpsBench | 15 | Domain MCP + eval/smoke harness shape |
+| wshobson/agents | 15 | Multi-harness skillpacks (P2.1 done) |
+| builderz-labs/mission-control | 15 | Ops/CLI/MCP parity, OpenAPI tool catalog (P2.2 done) |
+| **IBM/AssetOpsBench** | 15 | **Domain MCP eval smoke — scenario→trajectory→scorer (P2.3)** |
 | phodal/routa | 15 | Board/evidence export |
-| labsai/EDDI | 15 | Config-driven production signals |
-| automagik-dev/forge | 15 | HITL + worktree isolation |
+| labsai/EDDI | 15 | Production config signals |
 | ahmedEid1/lumen | 15 | Phase guards + honest grades |
+| Intelligent-Internet/zenith | 14 | Principled stop + independent verify |
 | MattMagg/MisterSmith | 15 | Supervision / durability OS |
-| Network-AI | 14 | Dual packaging / catalog export hygiene |
+| gossipcat-ai/gossipcat-ai | 15 | Consensus grading (P1.3 done) |
 | (+ more in IMPROVE_OURS) | | |
 
-### arXiv (latest `improve-rx-36f52aff73` + prior)
+### arXiv (latest `improve-rx-b6536eed67` + prior)
 
 | Id | Idea for NEXUS |
 |----|----------------|
+| 2203.08975 | Multi-agent communication survey → tool surface health smoke |
 | 2508.08322 | Context engineering packs (landed P1.4) |
 | 2510.13343 | Ordered action decisions / next_agent (landed) |
 | 2512.03278 | Evidence-linked claims (grade + audit) |
-| 2606.20023 | Over-privileged tools → privilege ladder on packs **and tools** |
-| 2203.08975 | Multi-agent communication survey |
 | 2511.15755 | Deterministic multi-agent decision audit |
 | 2302.10809 | Causal explain (landed operator board) |
+| 2502.07165 | Principle-based multi-agent prompting |
 
 ## 3. Prior slices already landed
 
-P0 durability · P1 operator board (handoff, veto, replay, explain, cost, prov, graph, evidence, DAG, consensus, context pack, vault, gap seed) · improve_apply FSM · grade_artifact · ops_store · **P2.1 skillpacks**.
+P0 durability · P1 operator board (handoff, veto, replay, explain, cost, prov, graph, evidence, DAG, consensus, context pack, vault, gap seed) · improve_apply FSM · grade_artifact · ops_store · **P2.1 skillpacks** · **P2.2 tool_catalog**.
 
 ## 4. Open backlog (priority)
 
 | Pri | Item | Source | Status |
 |-----|------|--------|--------|
-| P2.1 | Skillpack generate/validate/drift + privilege filter | wshobson/agents, 2606.20023 | **done** |
-| **P2.2** | **Lightweight OpenAPI-ish tool catalog export for MCP** | mission-control | **this session** |
-| P2.3 | Domain MCP eval smoke (AssetOpsBench shape) | IBM/AssetOpsBench | open (partial: catalog validate smoke) |
-| P3 | Optional engine review→promote hook | zenith / cycgraph | open |
+| P2.1 | Skillpack generate/validate/drift + privilege filter | wshobson/agents | **done** |
+| P2.2 | OpenAPI-ish tool catalog export for MCP | mission-control | **done** |
+| **P2.3** | **Domain MCP eval smoke (AssetOpsBench shape)** | IBM/AssetOpsBench | **this session** |
+| P3 | Optional engine review→promote hook | zenith / cycgraph | **this session (opt-in)** |
 
-## 5. First apply slice (this session) — P2.2
+## 5. First apply slice (this session) — P2.3 + P3
 
-**Export MCP `TOOLS[]` as a privilege-tagged catalog + OpenAPI 3.1 document (mission-control-shaped).**
+### P2.3 — Domain MCP eval smoke
 
-### Scope
+**AssetOpsBench-shaped offline suite: scenarios → MCP `call_tool` trajectories → code-based scorers → pass-rate report.**
 
-1. `src/nexus/tool_catalog.py`
-   - `build_entries` / `build_catalog` (`nexus.tool_catalog/v1`)
-   - `build_openapi` (OpenAPI 3.1, `POST /tools/{name}`)
-   - `validate_tools` (unique names, required⊆properties, path parity)
-   - `export_catalog` → `.nexus_state/tool_catalog/`
-   - privilege ladder + `--max-privilege` filter
-2. CLI: `nexus tools list|validate|catalog|openapi|export`
-3. MCP tool: `tool_catalog` (`action=list|validate|export|openapi|catalog`)
-4. HTTP: `GET /openapi.json` + `GET /catalog.json`
-5. Tests: `tests/test_tool_catalog.py`
+#### Scope
+
+1. `src/nexus/mcp_eval.py`
+   - Built-in domain scenarios (workspace, status, vault, catalog, grade, skill, ops, context, gap)
+   - Scorers: `tool_ok`, `is_error`, `contains`, `contains_all`, `json_keys`, `json_path_eq`, `no_secret_leak`
+   - `evaluate` / `export_report` / `run_and_export` (`nexus.mcp_eval/v1`)
+2. CLI: `nexus eval list|smoke|run`
+3. MCP tool: `mcp_eval` (`action=list|run|smoke`)
+4. Privilege tag in tool catalog
+5. Tests: `tests/test_mcp_eval.py`
+
+### P3 — Review → promote (opt-in)
+
+1. `src/nexus/engine.py` — `_maybe_promote_after_review` when `meta.promote_on_review`
+2. Journal `promote` / `promote_denied`; optional taint promote via `meta.promote_keys`
+3. Fail-closed when `meta.promote_require` and verify denies
+4. Tests in `tests/test_engine.py`
 
 ### Non-goals
 
-- Do not vendor mission-control monorepo or full REST product API
-- Do not implement auth / multi-tenant OpenAPI servers
-- No secrets in catalog artifacts
+- Do not vendor AssetOpsBench monorepo / IoT fixtures / LLM-as-judge
+- Do not force promote on every review (opt-in only)
+- No secrets in eval reports
 
 ### Acceptance criteria
 
-- [x] Live `mcp_server.TOOLS` validates clean
-- [x] Every tool gets an OpenAPI path + privilege tag
-- [x] least-privilege filter drops write/ops when max=read
-- [x] MCP + CLI + HTTP parity
-- [x] export writes `catalog.json` + `openapi.json` + `summary.md`
+- [x] Built-in suite passes offline against live MCP tools
+- [x] Path jail scenario expects error
+- [x] Catalog validate scenario requires `ok: true`
+- [x] Vault status never secret-leaks
+- [x] CLI + MCP parity (`list` / `smoke`)
+- [x] Export writes `report.json` + `trajectories.jsonl` + `summary.md`
+- [x] Opt-in promote records journal event; require path fail-closes
 - [x] `PYTHONPATH=src python3 -m pytest -q` green
 
 ## 6. Commands
 
 ```bash
-nexus tools list --max-privilege write
-nexus tools validate --json
-nexus tools export
-nexus tools openapi --out .nexus_state/tool_catalog/openapi.json
-PYTHONPATH=src python3 -m pytest -q tests/test_tool_catalog.py
+nexus eval list --json
+nexus eval smoke --domain catalog,status --max-privilege read
+nexus eval smoke --path . --json
+PYTHONPATH=src python3 -m pytest -q tests/test_mcp_eval.py tests/test_engine.py
 ```

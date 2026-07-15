@@ -1,55 +1,52 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-15 · hard-apply worker_
+_Generated 2026-07-15 · hard-apply session_
 
-Model: `grok-4.5` · repos from `.nexus_state/repo_mine/IMPROVE_OURS.md` · arXiv under `.nexus_state/arxiv_improve/`
+Model: `grok-4.5` · repos≥10 · arXiv≥10
 
 ---
 
-## Cycle method
+## Reasoning plan (this cycle)
 
-1. **Mine** — graded repos in IMPROVE_OURS (score ≥ 10); local clones under `.nexus_workspaces/scout_repos/`.
-2. **Research** — arXiv improve notes (`improve-rx-*.md`); map ideas → failing tests / missing modules.
-3. **Plan** — write `docs/LATEST_IMPROVE_PLAN.md` with a **First apply slice** and non-goals.
-4. **Apply** — small modules + tests; patterns only (no vendored trees); no force-push; no secrets.
-5. **Verify** — `PYTHONPATH=src python3 -m pytest -q` green.
-6. **Log** — append `docs/ALIVE_IMPROVEMENTS.md`; keep this file + LATEST plan coherent.
+1. **Mine** — IMPROVE_OURS top clones under `.nexus_workspaces/scout_repos/` (no follow/star; no tree vendor).
+2. **Research** — arXiv improve notes under `.nexus_state/arxiv_improve/` (communication, context, audit).
+3. **Grade** — offline grades via `nexus.grade/v1` / IMPROVE_OURS scores.
+4. **Plan** — `docs/LATEST_IMPROVE_PLAN.md` priority table + First apply slice.
+5. **Apply** — smallest PR-sized change with tests; keep pytest green.
+6. **Log** — append `docs/ALIVE_IMPROVEMENTS.md`.
 
-## This session First apply slice
+## This session (First apply slice)
 
-**P2.2 OpenAPI-ish MCP tool catalog export** (mission-control pattern + privilege ladder from arXiv 2606.20023).
+| Item | Status |
+|------|--------|
+| P2.3 Domain MCP eval smoke (AssetOpsBench shape) | **landed** |
+| P3 Optional review→promote hook (zenith/cycgraph) | **landed (opt-in)** |
 
-| Deliverable | Path |
-|-------------|------|
-| Core | `src/nexus/tool_catalog.py` |
-| CLI | `nexus tools …` in `src/nexus/cli.py` |
-| MCP | tool `tool_catalog` in `src/nexus/mcp_server.py` |
-| HTTP | `GET /openapi.json`, `GET /catalog.json` |
-| Tests | `tests/test_tool_catalog.py` |
-| Docs | this file, `docs/LATEST_IMPROVE_PLAN.md`, `docs/ALIVE_IMPROVEMENTS.md` |
+### Deliverables
 
-## Guardrails
+- `src/nexus/mcp_eval.py` — scenarios → trajectories → code scorers → `nexus.mcp_eval/v1` report
+- `nexus eval list|smoke|run` CLI
+- MCP tool `mcp_eval`
+- `engine._maybe_promote_after_review` (meta.promote_on_review)
+- Tests: `tests/test_mcp_eval.py`, promote cases in `tests/test_engine.py`
 
-- Prefer small, tested changes; keep make test / pytest green.
-- Do **not** force-push; do **not** commit secrets; do **not** vendor whole upstream trees.
-- Port patterns from `.nexus_workspaces/scout_repos/` only.
-- Fail closed on unmapped tools (default privilege `ops`) and invalid schemas.
+### Patterns (shape only)
 
-## Prior this cycle (already landed)
+- **IBM/AssetOpsBench** — scenario / trajectory / scorer / pass-rate
+- **mission-control** — CLI + MCP + export parity
+- **zenith / cycgraph** — independent verify before promote
+- **arXiv 2203.08975 / 2511.15755** — communication surface health + deterministic audit
 
-P0 durability · P1 operator board · improve_apply FSM · grade loop · ops_store · DAG · consensus · context pack · vault/gap seed · **P2.1 skillpacks**.
-
-## Next after P2.2
-
-- P2.3 Domain MCP eval smoke (AssetOpsBench) — extend catalog validate into domain fixtures
-- P3 Optional engine review→promote hook (zenith / cycgraph)
-- Optional: wire OpenAPI export into packaging / docs site
-
-## Quick commands
+### Commands
 
 ```bash
-nexus tools list --max-privilege read
-nexus tools validate
-nexus tools export && ls .nexus_state/tool_catalog/
+nexus eval smoke
+nexus eval list --domain catalog
 PYTHONPATH=src python3 -m pytest -q
 ```
+
+### Next open
+
+- Optional LLM-as-judge scorer family (still offline-default)
+- Domain scenario packs loaded from JSON (AssetOpsBench groundtruth shape)
+- Wire promote into improve_apply audited→done gate when meta requests it

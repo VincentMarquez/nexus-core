@@ -2390,6 +2390,85 @@ def cmd_tools(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_eval(args: argparse.Namespace) -> int:
+    """P2.3 domain MCP eval smoke (AssetOpsBench-shaped)."""
+    from . import mcp_eval as me
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "eval_cmd", None) or "smoke"
+    as_json = bool(getattr(args, "json", False))
+    max_priv = getattr(args, "max_privilege", None)
+    domain_raw = getattr(args, "domain", None) or ""
+    domains = (
+        [d.strip() for d in str(domain_raw).split(",") if d.strip()]
+        if domain_raw
+        else None
+    )
+    tag_raw = getattr(args, "tag", None) or ""
+    tags = (
+        [t.strip() for t in str(tag_raw).split(",") if t.strip()]
+        if tag_raw
+        else None
+    )
+
+    if sub == "list":
+        rows = me.list_scenarios(
+            domains=domains, tags=tags, max_privilege=max_priv
+        )
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "schema": me.SCHEMA_VERSION,
+                        "count": len(rows),
+                        "scenarios": rows,
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+        else:
+            print(f"schema: {me.SCHEMA_VERSION}  count={len(rows)}")
+            print(f"{'ID':28} {'DOMAIN':12} {'TOOL':24} METHOD")
+            for r in rows:
+                print(
+                    f"{r.get('id', ''):28} {r.get('domain', ''):12} "
+                    f"{r.get('tool', ''):24} {r.get('scoring_method', '')}"
+                )
+        return 0
+
+    if sub in ("run", "smoke"):
+        do_export = not bool(getattr(args, "no_export", False))
+        out_dir = getattr(args, "out", None) or me.DEFAULT_OUT_DIR
+        # Ensure project-local tools see the intended root
+        os.environ.setdefault("NEXUS_PROJECT_ROOT", str(root))
+        report = me.run_and_export(
+            root,
+            domains=domains,
+            tags=tags,
+            max_privilege=max_priv,
+            out_dir=str(out_dir),
+            export=do_export,
+        )
+        if as_json:
+            slim = {
+                k: v for k, v in report.items() if k != "trajectories"
+            }
+            print(json.dumps(slim, indent=2, default=str))
+        else:
+            print(me.format_report(report))
+            exp = report.get("export") or {}
+            if exp:
+                print(
+                    f"export: {exp.get('out_dir')}  "
+                    f"report={exp.get('report')}"
+                )
+        return 0 if report.get("ok") else 1
+
+    print("usage: nexus eval list|smoke|run", file=sys.stderr)
+    return 2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
 
@@ -2412,6 +2491,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "vault",
         "skillpacks",
         "tools",
+        "eval",
         "procure",
         "arxiv",
         "research",
@@ -3623,6 +3703,66 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     te.add_argument("--json", action="store_true")
     te.set_defaults(func=cmd_tools)
+
+    ev = sub.add_parser(
+        "eval",
+        help="domain MCP eval smoke: list / run scenarios (P2.3 AssetOpsBench shape)",
+    )
+    ev_sub = ev.add_subparsers(dest="eval_cmd")
+    ev_list = ev_sub.add_parser("list", help="list built-in domain scenarios")
+    ev_list.add_argument("--path", default=None, help="project root (default: cwd)")
+    ev_list.add_argument(
+        "--domain",
+        default=None,
+        help="filter domain(s), comma-separated",
+    )
+    ev_list.add_argument(
+        "--tag",
+        default=None,
+        help="filter tag(s), comma-separated",
+    )
+    ev_list.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="skip scenarios above this privilege",
+    )
+    ev_list.add_argument("--json", action="store_true")
+    ev_list.set_defaults(func=cmd_eval)
+    for name, help_s in (
+        ("smoke", "run full offline MCP smoke suite (default)"),
+        ("run", "alias for smoke"),
+    ):
+        ep = ev_sub.add_parser(name, help=help_s)
+        ep.add_argument("--path", default=None, help="project root (default: cwd)")
+        ep.add_argument(
+            "--domain",
+            default=None,
+            help="filter domain(s), comma-separated",
+        )
+        ep.add_argument(
+            "--tag",
+            default=None,
+            help="filter tag(s), comma-separated",
+        )
+        ep.add_argument(
+            "--max-privilege",
+            default=None,
+            choices=["read", "write", "ops", "admin"],
+        )
+        ep.add_argument(
+            "--out",
+            default=None,
+            help="export dir (default: .nexus_state/mcp_eval)",
+        )
+        ep.add_argument(
+            "--no-export",
+            action="store_true",
+            help="do not write report files",
+        )
+        ep.add_argument("--json", action="store_true")
+        ep.set_defaults(func=cmd_eval)
+    ev.set_defaults(func=cmd_eval, eval_cmd="smoke")
 
     args = ap.parse_args(raw)
     return int(args.func(args))

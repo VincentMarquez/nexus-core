@@ -608,3 +608,74 @@ def test_evidence_pack(tmp_path: Path):
     assert bad["ready"] is False
     assert bad["gates"]["budget_ok"] is False or bad["gates"]["completed"] is False
 
+
+
+def test_promote_on_review_opt_in(tmp_path: Path):
+    """P3: meta.promote_on_review runs IndependentVerify after review."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="prom1",
+        objective="promote after review",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={
+            "promote_on_review": True,
+            "promote_implementer": "coder",
+            "promote_keys": ["artifact"],
+            "verify_min_score": 0.3,
+        },
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    assert task.meta.get("verified") is True
+    prom = task.meta.get("promote") or {}
+    assert prom.get("ok") is True
+    assert prom.get("cross_agent") is True
+    assert "artifact" in (prom.get("promoted_keys") or [])
+    events = engine.events("prom1")
+    assert any(e.get("event") == "promote" for e in events)
+    taint = task.meta.get("taint") or {}
+    reg = taint.get("registry") or {}
+    assert (reg.get("artifact") or {}).get("level") == "trusted"
+
+
+def test_promote_denied_records_event(tmp_path: Path):
+    """P3: low score → promote_denied; task still completes unless require."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="prom2",
+        objective="promote deny soft",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={
+            "promote_on_review": True,
+            "promote_implementer": "coder",
+            "verify_min_score": 0.99,  # almost always deny mock scores
+        },
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    prom = task.meta.get("promote") or {}
+    assert prom.get("ok") is False
+    events = engine.events("prom2")
+    assert any(e.get("event") == "promote_denied" for e in events)
+
+
+def test_promote_require_fail_closed(tmp_path: Path):
+    """P3: promote_require=true fails the task when verify denies."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="prom3",
+        objective="promote require",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={
+            "promote_on_review": True,
+            "promote_require": True,
+            "promote_implementer": "coder",
+            "verify_min_score": 0.99,
+        },
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.failed
+    assert "promote denied" in (task.meta.get("error") or "")
