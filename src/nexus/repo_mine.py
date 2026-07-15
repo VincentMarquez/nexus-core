@@ -415,10 +415,15 @@ def step_evaluate(
     ollama_model: Optional[str] = None,
     keep_clone: bool = True,
     grader: str = "auto",
+    run_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Clone each unevaluated repo, grade, store scores.
 
     Default cascade (``grader=auto``): **Grok** grades → local Ollama light → heuristic.
+
+    After grading, results are also written to the append-only grade ledger
+    (weak scores retained) and a stage checkpoint is stored so restarts skip
+    re-grading completed repos (First apply slice P0.1–P0.4).
     """
     conn = connect(workdir)
     pending = unevaluated(conn, limit=limit)
@@ -429,9 +434,25 @@ def step_evaluate(
         g = "heuristic"
         use_ollama = False
 
+    rid = (run_id or "").strip() or f"mine-eval-{time.strftime('%Y%m%d%H%M%S')}"
+    # Resume: skip repos already graded for this run_id (checkpoint)
+    already: set[str] = set()
+    try:
+        from .grade_ledger import graded_repos_from_checkpoint
+
+        already = graded_repos_from_checkpoint(rid, workdir=workdir)
+    except Exception:
+        already = set()
+
     for row in pending:
         repo = row["repo"]
         entry: dict[str, Any] = {"repo": repo}
+        if repo in already:
+            entry["skipped"] = "checkpoint"
+            entry["method"] = "checkpoint"
+            results.append(entry)
+            print(f"  skip {repo}: already graded (checkpoint run_id={rid})")
+            continue
         try:
             conn_res = ga.connect_repo(repo, clone_root=clone_root, pull=True)
             entry["connect"] = conn_res.get("action")
@@ -467,12 +488,28 @@ def step_evaluate(
             entry["error"] = str(e)
             results.append(entry)
     conn.close()
+
+    ledger_info: dict[str, Any] = {}
+    try:
+        from .grade_ledger import record_evaluate_results
+
+        graded = [r for r in results if "idea" in r and r.get("skipped") != "checkpoint"]
+        if graded:
+            ledger_info = record_evaluate_results(graded, run_id=rid, workdir=workdir)
+    except Exception as e:
+        ledger_info = {"error": str(e)}
+
     return {
         "step": "evaluate",
         "grader": g,
+        "run_id": rid,
         "evaluated": len([r for r in results if "idea" in r]),
+        "skipped_checkpoint": len(
+            [r for r in results if r.get("skipped") == "checkpoint"]
+        ),
         "results": results,
         "db": str(_db_path(workdir)),
+        "grade_ledger": ledger_info,
     }
 
 

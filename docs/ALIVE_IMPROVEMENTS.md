@@ -703,3 +703,25 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-1bccfca000.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — grade ledger + eval CLI (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (AssetOpsBench 16 / routa 16 / soul 15 / lumen 15 / …) plan=`docs/LATEST_IMPROVE_PLAN.md` First apply slice + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT ordered stages **2510.13343**, multi-stage checkpoints **2604.03350**, CEMA why_selected **2302.10809**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN — prove mine→grade→retain→report):
+  - `src/nexus/grade_ledger.py` — append-only SQLite `nexus.grade_ledger/v1` under `.nexus_workspaces/mine_eval/ledger/`; weak scores retained; UPDATE/DELETE forbidden (triggers + API); idempotent `(run_id, repo, method)`; `checkpoint_stage`/`load_checkpoint`; `ingest_grades`/`record_evaluate_results`; MD/JSON export with `why_selected`
+  - `src/nexus/grade_cli.py` — `nexus-eval` entrypoint (AssetOpsBench shape)
+  - `src/nexus/cli.py` — `nexus grade list|top|weak|export|ingest|checkpoint`
+  - `src/nexus/repo_mine.py` — `step_evaluate` writes ledger + grade checkpoint; skips re-grade from checkpoint
+  - `pyproject.toml` — script `nexus-eval`
+  - tests: `tests/test_grade_ledger.py` (immutable, weak retain, checkpoint, no-dupe re-run, CLI export)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` success criteria checked; this log
+- patterns: soul immutable ledger; lumen keep-weak-scores; AssetOpsBench eval CLI; AOAD-MAT/2604.03350 stage checkpoints; CEMA decision audit (pattern only, no tree vendor)
+- non-goals kept: no full MCP server, no worktree supervisor, no UI board, no Temporal/NATS, no vendored trees
+- next open: P0.5 idempotent apply markers from ledger export · soul-style MCP handoff reading grade ledger · wire grade export into improve_apply brief
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 451 passed; `nexus grade ingest|top|export` on mine_eval_sample OK
+
+## Cycle 2026-07-15 23:46:37Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-eee4f605c5.md`

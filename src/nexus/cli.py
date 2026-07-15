@@ -2390,6 +2390,137 @@ def cmd_tools(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_grade(args: argparse.Namespace) -> int:
+    """Mine-eval grade ledger CLI (First apply slice / AssetOpsBench-shaped).
+
+    ``nexus grade list|top|weak|export|ingest`` — same shape as plan's nexus-eval.
+    """
+    from . import grade_ledger as gl
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "grade_cmd", None) or "list"
+    as_json = bool(getattr(args, "json", False))
+    run_id = getattr(args, "run_id", None)
+
+    if sub == "ingest":
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        report = gl.ingest_grades(
+            root,
+            run_id=run_id,
+            fixture=fixture,
+            min_score=float(getattr(args, "min_score", 0.0) or 0.0),
+            limit=int(getattr(args, "limit", 100) or 100),
+        )
+        if as_json:
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(
+                f"ingested {report.get('ingested')} grades run_id={report.get('run_id')}"
+            )
+            for r in report.get("repos") or []:
+                print(f"  - {r}")
+            print(f"ledger: {report.get('db')}")
+        return 0
+
+    if sub == "checkpoint":
+        stage = str(getattr(args, "stage", None) or gl.CHECKPOINT_STAGE_GRADE)
+        if getattr(args, "write", False):
+            payload_raw = getattr(args, "payload", None) or "{}"
+            try:
+                payload = json.loads(payload_raw)
+            except json.JSONDecodeError:
+                payload = {"note": str(payload_raw)}
+            rid = str(run_id or f"cp-{int(time.time())}")
+            rec = gl.checkpoint_stage(rid, stage, payload, workdir=root)
+            if as_json:
+                print(json.dumps(rec, indent=2, default=str))
+            else:
+                print(f"checkpoint run_id={rid} stage={stage} ok")
+            return 0
+        if not run_id:
+            print("error: grade checkpoint requires --run-id", file=sys.stderr)
+            return 2
+        rec = gl.load_checkpoint(str(run_id), stage, workdir=root)
+        if rec is None:
+            print(f"(no checkpoint for run_id={run_id} stage={stage})")
+            return 1
+        if as_json:
+            print(json.dumps(rec, indent=2, default=str))
+        else:
+            print(f"run_id={rec.get('run_id')} stage={rec.get('stage')}")
+            print(json.dumps(rec.get("payload"), indent=2, default=str))
+        return 0
+
+    with gl.GradeLedger.open(root) as led:
+        if sub == "list":
+            rows = led.list(
+                run_id=run_id,
+                limit=int(getattr(args, "limit", 100) or 100),
+            )
+            if as_json:
+                print(json.dumps(rows, indent=2, default=str))
+            else:
+                print(gl.format_table(rows, title=f"grades ({len(rows)}) @ {root}"))
+            return 0
+
+        if sub == "top":
+            n = int(getattr(args, "n", None) or getattr(args, "limit", None) or 10)
+            rows = led.top(n=n, run_id=run_id)
+            if as_json:
+                out = [{**r, "why_selected": gl.why_selected(r)} for r in rows]
+                print(json.dumps(out, indent=2, default=str))
+            else:
+                print(gl.format_table(rows, title=f"top {len(rows)} IMPROVE_OURS candidates"))
+                for r in rows:
+                    print(f"  why: {gl.why_selected(r)}")
+            return 0
+
+        if sub == "weak":
+            max_score = float(getattr(args, "max_score", 14.0) or 14.0)
+            rows = led.weak(max_score=max_score, run_id=run_id)
+            if as_json:
+                print(json.dumps(rows, indent=2, default=str))
+            else:
+                print(
+                    gl.format_table(
+                        rows,
+                        title=f"weak scores (≤{max_score}, retained) count={len(rows)}",
+                    )
+                )
+            return 0
+
+        if sub == "export":
+            fmt = str(getattr(args, "format", None) or "md").lower()
+            n = int(getattr(args, "n", None) or getattr(args, "limit", None) or 20)
+            out_path = getattr(args, "out", None)
+            if fmt in ("json", "jsonl"):
+                payload = led.export_json(n=n, run_id=run_id)
+                text = json.dumps(payload, indent=2, default=str)
+            else:
+                text = led.export_md(
+                    n=n,
+                    run_id=run_id,
+                    include_weak=not bool(getattr(args, "no_weak", False)),
+                    weak_max=float(getattr(args, "max_score", 14.0) or 14.0),
+                )
+            if out_path:
+                Path(out_path).write_text(text, encoding="utf-8")
+                print(f"wrote {out_path}")
+            else:
+                print(text, end="" if text.endswith("\n") else "\n")
+            return 0
+
+    print(
+        "usage: nexus grade list|top|weak|export|ingest|checkpoint",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     """P2.3/P2.4 domain MCP eval smoke + JSON scenario packs."""
     from . import mcp_eval as me
@@ -2895,6 +3026,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "skillpacks",
         "tools",
         "eval",
+        "grade",
         "improve",
         "procure",
         "arxiv",
@@ -4107,6 +4239,101 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     te.add_argument("--json", action="store_true")
     te.set_defaults(func=cmd_tools)
+
+    # First apply slice: immutable grade ledger + AssetOpsBench-shaped eval CLI
+    gr = sub.add_parser(
+        "grade",
+        help="mine-eval grade ledger: list|top|weak|export|ingest (keep weak scores)",
+    )
+    gr.add_argument("--path", default=".", help="project workdir")
+    gr_sub = gr.add_subparsers(dest="grade_cmd")
+    gr_list = gr_sub.add_parser("list", help="list all graded repos (weak included)")
+    gr_list.add_argument("--path", default=".", help="project workdir")
+    gr_list.add_argument("--run-id", default=None, dest="run_id")
+    gr_list.add_argument("--limit", type=int, default=100)
+    gr_list.add_argument("--json", action="store_true")
+    gr_list.set_defaults(func=cmd_grade, grade_cmd="list")
+    gr_top = gr_sub.add_parser("top", help="top-N IMPROVE_OURS candidates")
+    gr_top.add_argument("--path", default=".", help="project workdir")
+    gr_top.add_argument("--run-id", default=None, dest="run_id")
+    gr_top.add_argument("-n", "--n", type=int, default=10, dest="n")
+    gr_top.add_argument("--json", action="store_true")
+    gr_top.set_defaults(func=cmd_grade, grade_cmd="top")
+    gr_weak = gr_sub.add_parser(
+        "weak", help="show retained weak scores (default max-score 14)"
+    )
+    gr_weak.add_argument("--path", default=".", help="project workdir")
+    gr_weak.add_argument("--run-id", default=None, dest="run_id")
+    gr_weak.add_argument(
+        "--max-score", type=float, default=14.0, dest="max_score"
+    )
+    gr_weak.add_argument("--json", action="store_true")
+    gr_weak.set_defaults(func=cmd_grade, grade_cmd="weak")
+    gr_ex = gr_sub.add_parser(
+        "export", help="export markdown/json with why_selected audit"
+    )
+    gr_ex.add_argument("--path", default=".", help="project workdir")
+    gr_ex.add_argument("--run-id", default=None, dest="run_id")
+    gr_ex.add_argument("-n", "--n", type=int, default=20, dest="n")
+    gr_ex.add_argument(
+        "--format",
+        default="md",
+        choices=["md", "json"],
+        dest="format",
+    )
+    gr_ex.add_argument("--out", default=None, help="write to file")
+    gr_ex.add_argument(
+        "--max-score",
+        type=float,
+        default=14.0,
+        dest="max_score",
+        help="weak score ceiling in MD export section",
+    )
+    gr_ex.add_argument(
+        "--no-weak",
+        action="store_true",
+        dest="no_weak",
+        help="omit weak-score section from MD export",
+    )
+    gr_ex.add_argument("--json", action="store_true")
+    gr_ex.set_defaults(func=cmd_grade, grade_cmd="export")
+    gr_in = gr_sub.add_parser(
+        "ingest",
+        help="ingest digests/fixtures into append-only ledger",
+    )
+    gr_in.add_argument("--path", default=".", help="project workdir")
+    gr_in.add_argument("--run-id", default=None, dest="run_id")
+    gr_in.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    gr_in.add_argument("--min-score", type=float, default=0.0, dest="min_score")
+    gr_in.add_argument("--limit", type=int, default=100)
+    gr_in.add_argument("--json", action="store_true")
+    gr_in.set_defaults(func=cmd_grade, grade_cmd="ingest")
+    gr_cp = gr_sub.add_parser(
+        "checkpoint",
+        help="write/load stage checkpoint (grade pipeline resume)",
+    )
+    gr_cp.add_argument("--path", default=".", help="project workdir")
+    gr_cp.add_argument("--run-id", default=None, dest="run_id")
+    gr_cp.add_argument(
+        "--stage", default="grade", help="stage name (default: grade)"
+    )
+    gr_cp.add_argument(
+        "--write",
+        action="store_true",
+        help="write checkpoint (requires --run-id)",
+    )
+    gr_cp.add_argument(
+        "--payload",
+        default="{}",
+        help="JSON payload when --write",
+    )
+    gr_cp.add_argument("--json", action="store_true")
+    gr_cp.set_defaults(func=cmd_grade, grade_cmd="checkpoint")
+    gr.set_defaults(func=cmd_grade, grade_cmd="list")
 
     ev = sub.add_parser(
         "eval",
