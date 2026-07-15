@@ -431,6 +431,50 @@ TOOLS = [
         },
     },
     {
+        "name": "index_workspace",
+        "description": (
+            "Index offline grade fixtures + research claims into SQLite FTS "
+            "(cas-style evidence context). No network; used by make mcp-smoke."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "clear": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Clear existing index before reindex",
+                },
+            },
+        },
+    },
+    {
+        "name": "search_evidence",
+        "description": (
+            "FTS search over indexed Grok grade claims and arXiv research "
+            "snippets (Thucy path anchors). Auto-indexes fixtures if empty."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query e.g. 'Markdown marketplace'",
+                },
+                "k": {"type": "integer", "default": 10},
+                "kind": {
+                    "type": "string",
+                    "description": "Optional filter: claim|grade|paper|digest",
+                },
+                "auto_index": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Index fixtures first if DB missing",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "get_run_checkpoint",
         "description": (
             "Read durable checkpoint for a grade_loop or improve_apply run "
@@ -1040,6 +1084,35 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             if not g:
                 return _tool_result(f"grade not found: {repo}", is_error=True)
             return _tool_result(json.dumps(g, indent=2, default=str))
+
+        if name == "index_workspace":
+            from . import evidence_fts as efts
+
+            root = _root()
+            rep = efts.index_workspace(
+                root,
+                clear=bool(args.get("clear", True)),
+            )
+            return _tool_result(json.dumps(rep, indent=2, default=str))
+
+        if name == "search_evidence":
+            from . import evidence_fts as efts
+
+            root = _root()
+            query = str(args.get("query") or "").strip()
+            if not query:
+                return _tool_result("query required", is_error=True)
+            kind = args.get("kind") or None
+            if kind is not None:
+                kind = str(kind).strip() or None
+            res = efts.search_evidence(
+                query,
+                workdir=root,
+                k=int(args.get("k") or 10),
+                kind=kind,
+                auto_index=bool(args.get("auto_index", True)),
+            )
+            return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
 
         if name == "get_run_checkpoint":
             from . import grade_artifact as ga

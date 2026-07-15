@@ -32,11 +32,18 @@ SCHEMA_VERSION = "nexus.grade/v1"
 DEFAULT_METHOD = "grok:grok-4.5"
 DEFAULT_SCORE_THRESHOLD = 10.0
 
+# Mine-eval score bounds (Grok idea/skill 0–10, composite 0–20).
+SCORE_MIN = 0.0
+SCORE_MAX = 20.0
+IDEA_SKILL_MIN = 0.0
+IDEA_SKILL_MAX = 10.0
+
 # Ordered two-step loop (P0.1): resume restores next_agent, not only blobs.
 ORDERED_STEPS: tuple[str, ...] = ("grade_read", "apply_plan")
 STEP_INDEX: dict[str, int] = {s: i for i, s in enumerate(ORDERED_STEPS)}
 
 GRADE_REQUIRED = ("repo", "score", "idea", "skill", "method", "path")
+CLAIM_REQUIRED = ("statement", "path")
 
 _IDEA_SKILL = re.compile(
     r"idea\s*=\s*([0-9.]+).*?skill\s*=\s*([0-9.]+)",
@@ -54,14 +61,69 @@ class PrematureCompleteError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
+# Claims (Thucy-style evidence anchors — First apply slice)
+# ---------------------------------------------------------------------------
+
+
+def validate_claim(claim: Any) -> dict[str, Any]:
+    """Validate one evidence claim: {statement, path, quote?}."""
+    if not isinstance(claim, dict):
+        raise GradeValidationError("claim must be a dict")
+    missing = [k for k in CLAIM_REQUIRED if not str(claim.get(k) or "").strip()]
+    if missing:
+        raise GradeValidationError(f"claim missing required fields: {missing}")
+    out: dict[str, Any] = {
+        "statement": str(claim["statement"]).strip(),
+        "path": str(claim["path"]).strip(),
+    }
+    quote = claim.get("quote")
+    if quote is not None and str(quote).strip():
+        out["quote"] = str(quote).strip()
+    for opt in ("arxiv_id", "kind", "source", "confidence"):
+        if opt in claim and claim[opt] is not None:
+            out[opt] = claim[opt]
+    return out
+
+
+def validate_claims(claims: Any, *, require_nonempty: bool = False) -> list[dict[str, Any]]:
+    """Validate a claims list; optionally require at least one claim."""
+    if claims is None:
+        if require_nonempty:
+            raise GradeValidationError("grade.claims must be a non-empty list")
+        return []
+    if not isinstance(claims, list):
+        raise GradeValidationError("grade.claims must be a list")
+    if require_nonempty and not claims:
+        raise GradeValidationError("grade.claims must be a non-empty list")
+    return [validate_claim(c) for c in claims]
+
+
+def _check_score_range(key: str, value: float, lo: float, hi: float) -> float:
+    if value < lo or value > hi:
+        raise GradeValidationError(
+            f"grade.{key}={value} out of range [{lo}, {hi}]"
+        )
+    return value
+
+
+# ---------------------------------------------------------------------------
 # Validate / build / I/O
 # ---------------------------------------------------------------------------
 
 
-def validate_grade(data: Any, *, require_path: bool = True) -> dict[str, Any]:
+def validate_grade(
+    data: Any,
+    *,
+    require_path: bool = True,
+    require_claims: bool = False,
+    check_ranges: bool = True,
+) -> dict[str, Any]:
     """Validate grade artifact; return normalized dict.
 
     Rejects partial objects (missing required fields or non-numeric scores).
+    When *require_claims* is True, rejects grades without evidence claims
+    (Thucy / First apply slice quality gate).
+    When *check_ranges* is True, rejects out-of-range score/idea/skill.
     """
     if not isinstance(data, dict):
         raise GradeValidationError("grade must be a dict")
@@ -94,6 +156,17 @@ def validate_grade(data: Any, *, require_path: bool = True) -> dict[str, Any]:
         except (KeyError, TypeError, ValueError) as e:
             raise GradeValidationError(f"grade.{key} must be numeric") from e
 
+    if check_ranges:
+        _check_score_range("score", out["score"], SCORE_MIN, SCORE_MAX)
+        _check_score_range("idea", out["idea"], IDEA_SKILL_MIN, IDEA_SKILL_MAX)
+        _check_score_range("skill", out["skill"], IDEA_SKILL_MIN, IDEA_SKILL_MAX)
+
+    # Thucy-style evidence claims (optional unless require_claims)
+    if "claims" in data or require_claims:
+        out["claims"] = validate_claims(
+            data.get("claims"), require_nonempty=require_claims
+        )
+
     # Optional passthrough
     for opt in (
         "arxiv_id",
@@ -119,6 +192,7 @@ def build_grade(
     skill: float,
     method: str = DEFAULT_METHOD,
     path: str = "",
+    claims: Optional[list[dict[str, Any]]] = None,
     **extra: Any,
 ) -> dict[str, Any]:
     """Construct a grade artifact (does not write)."""
@@ -131,6 +205,8 @@ def build_grade(
         "method": method or DEFAULT_METHOD,
         "path": path,
     }
+    if claims is not None:
+        g["claims"] = list(claims)
     for k, v in extra.items():
         if k not in g and v is not None:
             g[k] = v

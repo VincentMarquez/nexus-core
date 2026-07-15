@@ -10,7 +10,14 @@
       "method": "grok:grok-4.5",
       "path": ".nexus_workspaces/mine_eval/wshobson__agents",
       "pattern": "Markdown source-of-truth for agents/skills/commands + harness generators",
-      "summary": "Multi-harness agentic plugin marketplace with single Markdown SoT, validation, and smoke tests."
+      "summary": "Multi-harness agentic plugin marketplace with single Markdown SoT, validation, and smoke tests.",
+      "claims": [
+        {
+          "statement": "Markdown marketplace for agents/skills with Makefile generate/validate/test tooling",
+          "path": ".nexus_workspaces/scout_repos/wshobson__agents/README.md",
+          "quote": "single Markdown source and idiomatic adapters"
+        }
+      ]
     },
     {
       "repo": "codingagentsystem/cas",
@@ -20,7 +27,14 @@
       "method": "grok:grok-4.5",
       "path": ".nexus_workspaces/mine_eval/codingagentsystem__cas",
       "pattern": "Supervisor/workers in git worktrees + MCP/SQLite persistent memory",
-      "summary": "Rust multi-crate multi-agent coding factory with worktree isolation."
+      "summary": "Rust multi-crate multi-agent coding factory with worktree isolation.",
+      "claims": [
+        {
+          "statement": "MCP SQLite/FTS context layer for supervisor/worker coding factory",
+          "path": ".nexus_workspaces/scout_repos/codingagentsystem__cas",
+          "quote": "MCP SQLite/FTS context layer"
+        }
+      ]
     }
   ]
 }

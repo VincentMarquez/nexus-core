@@ -593,3 +593,27 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f79aa74b58.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — grade claims + MCP FTS evidence (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: wshobson/agents (16) + cas (MCP SQLite/FTS) + soul ledger simplicity + mission-control quality gates; plan=`docs/LATEST_IMPROVE_PLAN.md` First apply slice + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: Thucy claim-verify **2512.03278**, deterministic decision package **2511.15755**, CEMA **2302.10809**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN — prove mine→grade→claims→FTS→gate loop):
+  - `src/nexus/grade_artifact.py` — Thucy claims `{statement,path,quote?}`; score/idea/skill range checks; `require_claims` quality gate
+  - `src/nexus/evidence_fts.py` — SQLite FTS5 `index_workspace` / `search_evidence` / `grade_validate_fixtures` / `smoke_search`
+  - `src/nexus/mcp_server.py` — MCP tools `index_workspace`, `search_evidence`
+  - `src/nexus/load_mine_eval.py` — claims passthrough from fixtures
+  - `src/nexus/tool_catalog.py` — privilege map for new tools
+  - `Makefile` — `grade-validate`, `mcp-smoke`, `test-quality` (wshobson/mission-control style gates)
+  - fixture: `fixtures/mine_eval/grades_with_claims.json` (wshobson Markdown marketplace + arXiv 2511.15755 decision package)
+  - tests: `tests/test_evidence_fts.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` pass criteria checked; this log
+- patterns: cas MCP SQLite/FTS; soul ledger simplicity; Thucy path-anchored claims; wshobson Makefile validate; mission-control quality gates (pattern only, no tree vendor)
+- non-goals kept: no full worktree apply engine rewrite, no board UI, no Temporal, no vendored trees
+- next open: wire evidence FTS into alive apply selection · budget/role-separated verifier · board CLI
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 404 passed; `make grade-validate` + `make mcp-smoke` → OK
+
+## Cycle 2026-07-15 22:47:31Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bc3837bb82.md`

@@ -46,12 +46,15 @@ def load_grade_dict(data: Any, *, source: str = "") -> dict[str, Any]:
             pattern=data.get("pattern") or "",
             summary=data.get("summary") or data.get("excerpt") or "",
             source=source or data.get("source") or "",
+            claims=data.get("claims"),
         )
         # optional extras
         for opt in ("arxiv_id", "notes", "local_path", "html_url"):
             if opt in data and data[opt] is not None:
                 g[opt] = data[opt]
-        return validate_grade(g, require_path=True)
+        # Prefer claims when present (First apply Thucy anchors)
+        require_claims = bool(g.get("claims"))
+        return validate_grade(g, require_path=True, require_claims=require_claims)
     return validate_grade(data, require_path=True)
 
 
