@@ -112,3 +112,65 @@ def test_review_veto_fails_closed(tmp_path: Path):
     assert any(e.get("event") == "failed" for e in events)
     # failed at review step (6), after implement+test
     assert task.current_step < 6 or 6 in task.outputs
+
+
+def test_step_complete_records_why(tmp_path: Path):
+    """Judge rationale is journaled as why on step_complete (CEMA audit)."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="why1",
+        objective="why field demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task, max_steps=3)
+    completes = [e for e in engine.events("why1") if e.get("event") == "step_complete"]
+    assert completes, "expected step_complete events"
+    # at least one complete should carry decision and/or why from the judge
+    assert any(e.get("decision") for e in completes)
+    # why may be empty for pure structural steps, but key must exist on judged steps
+    with_why_key = [e for e in completes if "why" in e]
+    assert with_why_key, "step_complete should include why field"
+
+
+def test_replay_timeline_and_explain(tmp_path: Path):
+    """replay() normalizes journal; explain() builds causal decision chain."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="rx1",
+        objective="replay explain demo",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+
+    timeline = engine.replay("rx1")
+    assert timeline, "replay should return journal rows"
+    assert timeline[0]["i"] == 0
+    assert "event" in timeline[0]
+    # completed marker present
+    assert any(e.get("event") == "completed" for e in timeline)
+    # handoff rows keep from/to
+    handoff_rows = [e for e in timeline if e.get("event") == "handoff"]
+    if handoff_rows:
+        assert handoff_rows[0].get("from_agent")
+        assert handoff_rows[0].get("to_agent")
+
+    # limit tail works via events() path
+    short = engine.replay("rx1", limit=3)
+    assert len(short) <= 3
+
+    rep = engine.explain("rx1")
+    assert rep["found"] is True
+    assert rep["status"] == "completed"
+    assert rep["task_id"] == "rx1"
+    assert rep["n_events"] >= 1
+    assert rep["steps"], "explain should list completed steps"
+    assert "COMPLETED" in rep["story"]
+    # steps carry agent + decision when judged
+    judged = [s for s in rep["steps"] if s.get("decision")]
+    assert judged, "expected at least one judged step with decision"
+
+    missing = engine.explain("does-not-exist")
+    assert missing["found"] is False

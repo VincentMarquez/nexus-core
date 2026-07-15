@@ -1,6 +1,6 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-15 (P0 + P1 hard-apply)_
+_Generated 2026-07-15 (P0 + P1 + P2 hard-apply)_
 
 Model: `grok-4.5` · repos=10 · arXiv=10
 
@@ -8,11 +8,11 @@ Model: `grok-4.5` · repos=10 · arXiv=10
 
 ## Executive summary
 
-- NEXUS already has crash→resume tasks, mine/alive loops, Grok grading, and heartbeat recovery; the gap was **operator-grade durability** (atomic checkpoints, audit/replay), **multi-agent communication** (handoffs / veto), and **context on resume**.
-- Top mined sources (MisterSmith, Rojak, edict, DriftQ, DurableMultiAgentTemplate, openclaw-hawkins, Swarm) agree: durable state + audit trails beat prompt-only orchestration.
-- arXiv signals that matter here: **context engineering** (2508.08322), **multi-agent communication/conventions** (2203.08975, 2412.06333), **multi-LLM tool routing** (2401.07324), not deep RL training loops.
-- **P0 First apply slice (landed):** atomic write-then-rename checkpoints + append-only task event journal + optional decay-aware SQLite memory.
-- **P1 slice (landed this session):** `nexus task list|show|events`, swarm-style handoff events, journal context injection on resume, edict-style review veto, tail-limited event reads.
+- NEXUS already has crash→resume tasks, mine/alive loops, Grok grading, and heartbeat recovery; earlier gaps were **operator-grade durability**, **multi-agent communication**, and **context on resume** (P0/P1 landed).
+- This cycle’s mined sources (mission-control, solace-agent-mesh, maestro-flow, EDDI, open-multi-agent, nocturne, MisterSmith, …) and arXiv (CEMA causal explanations, multi-agent orchestration for incident response, context engineering) point at **post-hoc decision observability**: replay timelines + causal “why” without re-running agents.
+- **P0 (landed):** atomic write-then-rename checkpoints + append-only task event journal + optional decay-aware SQLite memory.
+- **P1 (landed):** `nexus task list|show|events`, swarm handoffs, journal context on resume, edict review veto.
+- **P2 First apply (this session):** `engine.replay` / `engine.explain`, `why` on `step_complete`, CLI `nexus task replay|explain`.
 - Keep apply scope small; prove with `pytest`; do not vendor upstream trees.
 
 ## Reasoning plan (how to run a cycle)
@@ -33,14 +33,14 @@ PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle
 | id | idea | concrete NEXUS change |
 |----|------|------------------------|
 | 2203.08975 | Communication coordinates agents | Structured step events / handoff messages (journal) |
-| 1311.5108 | Multi-level validation methodology | Layered checks: structural gate → judge → tests |
-| 2412.06333 | Conventions improve cooperation | Fixed event schema (`event`, `step`, `agent`, `status`) |
-| 2508.08322 | Context engineering for multi-file agents | Cascade index + journal summary as shallow context |
-| 2512.03278 | Multi-agent claim verification over DBs | Rubric judge with artifact evidence; journal for audit |
-| 2602.04518 | Learn value systems / preferences | Prefer scored mine results + human approval gates |
-| 2510.13343 | Order of action decisions | Ordered `StepPolicy` pipeline; journal records order |
+| 2508.08322 | Context engineering for multi-file agents | Cascade + journal summary as shallow context |
+| 2302.10809 | Causal explanations for sequential MAS decisions | `engine.explain` + `why` on step_complete |
+| 2511.15755 | Multi-agent orchestration for incident response | Deterministic audit timeline (`replay`) |
 | 2401.07324 | Small LLMs weak tools → multi-LLM | Grok hard path + Ollama light fallback |
-| 2410.12532 | Information fusion across agents | Trust provenance + multi-agent panel outputs |
+| 2412.06333 | Conventions improve cooperation | Fixed event schema (`event`, `step`, `agent`, `why`) |
+| 2606.09832 | Agent identity as collaboration interface | `last_agent` / handoff from/to fields |
+| 2506.03053 | Emergent multi-agent behavior eval | Journal as evidence for post-run analysis |
+| 2601.00360 | Anti-collusion / trust mechanisms | Trust provenance + review veto |
 | 2103.04480 | Distributed stabilizing controllers | Heartbeat dead-man + recovery |
 
 ## 10 GitHub repos — portable patterns
@@ -48,56 +48,61 @@ PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle
 | repo | score | pattern | where ported |
 |------|-------|---------|--------------|
 | wshobson/agents | 16.0 | Multi-harness marketplace | Worker/grader selection (grok/ollama) |
-| MattMagg/MisterSmith | 15.0 | Supervised execution + operator surfaces | Event journal + `nexus task *` |
+| builderz-labs/mission-control | 15.0 | Fleet ops / inspect surfaces | `nexus task *` board + explain |
+| MattMagg/MisterSmith | 15.0 | Supervised execution + operator surfaces | Event journal + task CLI |
+| open-multi-agent/open-multi-agent | 13–15 | Plan-replay dashboard | `engine.replay` / `task replay` |
+| muhamadjawdatsalemalakoum/nocturne | 15.0 | Durable checkpoints | Atomic checkpoints + resume |
 | parijatmukherjee/openclaw-hawkins | 15.0 | Decay-aware shared memory | `SqliteMemory(decay_half_life_days=…)` |
-| Yeachan-Heo/oh-my-claudecode | 15.0 | Productized agents/hooks | Keep CLI hooks small; no vendor |
-| muhamadjawdatsalemalakoum/nocturne | 15.0 | Durable checkpoints / wait-out limits | Atomic checkpoints + resume |
-| StreetLamb/rojak | 14.0 | Durable workflow state / HITL | Atomic checkpoints + waiting_human events |
-| openai/swarm | 13.0 | Lightweight handoffs | `handoff` journal events + `from_agent`/`to_agent` |
-| cft0808/edict | 13.0 | Full audit trails + review veto | `*.events.jsonl` + review fail-closed |
-| jvogan/symphony-claude-lane | 13.0 | Long-horizon harness | Resume + journal across sessions |
-| 0xAddict/threadwork | 13.0 | SQLite task board / memory | SQLite memory + task sidecars |
+| catlog22/maestro-flow | 15.0 | Adaptive lifecycle + knowledge graph | Ordered steps + journal story |
+| labsai/EDDI | 15.0 | Production audit / MCP | Append-only events + explain |
+| openai/swarm | 13.0 | Lightweight handoffs | `handoff` journal events |
+| cft0808/edict | 13.0 | Full audit + review veto | `*.events.jsonl` + veto fail-closed |
 
-Also: DurableMultiAgentTemplate / DriftQ write-then-rename checkpoints → `nexus.persist`.
+Also: DurableMultiAgentTemplate / DriftQ / Rojak write-then-rename → `nexus.persist`.
 
 ## Prioritized engineering backlog
 
 ### P0 (landed)
 
 1. **Atomic checkpoints** — `nexus.persist.atomic_write_json` used by `DurableEngine.save` and `TrustLog`.
-2. **Append-only task event journal** — `tasks/<id>.events.jsonl` with step_start/complete/failed/resume/completed.
-3. **Decay-aware memory (opt-in)** — `SqliteMemory(decay_half_life_days=…)` + `ts` column + migration.
+2. **Append-only task event journal** — `tasks/<id>.events.jsonl`.
+3. **Decay-aware memory (opt-in)** — `SqliteMemory(decay_half_life_days=…)`.
 
-### P1 (landed this session)
+### P1 (landed)
 
-1. CLI: `nexus task list|show|events <id>` pretty-print journal.
-2. Swarm-style handoff field when panel routes change mid-run.
-3. Inject last N journal lines into step prompts on resume (context engineering).
-4. Edict-style review veto (fail-closed on reject/veto/…).
-5. `events(limit=)` returns the **tail** (operator timeline).
+1. CLI: `nexus task list|show|events`.
+2. Swarm-style handoff events.
+3. Journal snippet on resume (context engineering).
+4. Edict-style review veto.
+5. `events(limit=)` returns the **tail**.
 
-### P2 (next)
+### P2 (this session — First apply)
 
-1. Prometheus/OTel hooks (DriftQ lean observability) behind optional extra.
-2. Dashboard surface for event timeline (edict-inspired).
-3. Preference/value logging for judge thresholds.
-4. Cookbook page for crash-resume + task journal inspect.
+1. **`engine.replay(task_id)`** — normalized timeline from journal (no re-run).
+2. **`engine.explain(task_id)`** — causal decision chain (steps, handoffs, vetoes, story).
+3. **`why` on `step_complete`** — short judge rationale for audit.
+4. CLI: `nexus task replay|explain` (+ `--json`).
 
-## First apply slice → evidence
+### P3 (next)
 
-**Goal:** Prove durability + communication loop with PR-sized changes.
+1. Optional Prometheus/OTel counters (DriftQ lean observability).
+2. Dashboard event timeline surface (edict / mission-control board).
+3. Preference/value logging for judge thresholds (arXiv value systems).
+4. Task-level usage/cost rollup (mission-control costs).
+
+## First apply slice → evidence (P2)
 
 | Item | Files | Tests |
 |------|-------|-------|
-| `persist.py` helpers | `src/nexus/persist.py` | `tests/test_persist.py` |
-| Engine journal + handoff/veto/context | `src/nexus/engine.py` | `tests/test_engine.py`, `tests/test_persist.py` |
-| Trust atomic flush | `src/nexus/trust.py` | covered via engine |
-| Memory decay + ts | `src/nexus/memory_sqlite.py` | `tests/test_memory_sqlite.py` |
-| Task CLI | `src/nexus/cli.py` | `tests/test_task_cli.py` |
+| replay + explain + why | `src/nexus/engine.py` | `tests/test_engine.py` |
+| task replay/explain CLI | `src/nexus/cli.py` | `tests/test_task_cli.py` |
 | Plans / log | `docs/SELF_IMPROVE_CYCLE.md`, `docs/LATEST_IMPROVE_PLAN.md`, `docs/ALIVE_IMPROVEMENTS.md` | — |
+| Cookbook inspect | `cookbook/01_crash_resume.md` | manual |
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 nexus task list --state-dir .nexus_state
-nexus task events <id> --limit 20
+nexus task replay <id> --limit 20
+nexus task explain <id>
+nexus task explain <id> --json
 ```

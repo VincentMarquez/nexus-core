@@ -71,3 +71,20 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
 - arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-03b7641275.md`
+
+## Cycle 2026-07-15 hard-apply P2 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: 10 used (mission-control / solace-agent-mesh / maestro-flow / EDDI / open-multi-agent / nocturne / …) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-703f35888a.md` (+ prior rx-03b7641275 / rx-62b77a6ce8 / rx-ec0777735b)
+- apply slice (P2 operator observability — First apply this session):
+  - `src/nexus/engine.py` — `replay()` timeline; `explain()` causal chain; `why` on `step_complete`; journal context includes why
+  - `src/nexus/cli.py` — `nexus task replay|explain` (+ `--json`)
+  - tests: `tests/test_engine.py` (why/replay/explain), `tests/test_task_cli.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; cookbook crash-resume inspect
+- patterns: open-multi-agent (plan-replay), arXiv CEMA 2302.10809 (causal explain), mission-control/MisterSmith (operator inspect), 2511.15755 (deterministic audit)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 98 passed
+
+## Cycle 2026-07-15 18:04:21Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=10 used=10 plan=`None`
+- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-703f35888a.md`

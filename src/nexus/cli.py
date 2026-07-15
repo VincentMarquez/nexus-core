@@ -1214,7 +1214,7 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list tasks / show checkpoint / pretty-print event journal."""
+    """Operator surface: list/show/events + replay/explain (mission-control inspect)."""
     from .engine import DurableEngine
 
     settings = _task_settings(args)
@@ -1276,7 +1276,94 @@ def cmd_task(args: argparse.Namespace) -> int:
                 extra = f"  {r.get('from_agent', '')}->{r.get('to_agent', '')}"
             elif r.get("verdict"):
                 extra = f"  verdict={r['verdict']}"
+            elif r.get("why"):
+                extra = f"  why={str(r['why'])[:40]}"
             print(f"{ts_s}  {step_s:>3}  {ev:<14}  {agent:<16}  {detail}{extra}")
+        return 0
+
+    if sub == "replay":
+        # open-multi-agent plan-replay: normalized timeline, no re-execution
+        path = engine._events_path(args.task_id)
+        rows = engine.replay(
+            args.task_id,
+            limit=int(getattr(args, "limit", 0) or 0) or None,
+        )
+        if not rows:
+            if not path.is_file():
+                print(f"no journal for task {args.task_id!r} ({path})", file=sys.stderr)
+                return 1
+            print(f"(empty journal: {path})")
+            return 0
+        if getattr(args, "json", False):
+            print(json.dumps(rows, indent=2, default=str))
+            return 0
+        print(f"# replay {args.task_id}  ({len(rows)} events)  path={path}")
+        for r in rows:
+            ts = r.get("ts")
+            try:
+                ts_s = time.strftime("%H:%M:%S", time.localtime(float(ts))) if ts else "??:??:??"
+            except (TypeError, ValueError, OSError):
+                ts_s = "??:??:??"
+            step = r.get("step")
+            step_s = f"s{step}" if step is not None else "  "
+            agent = (r.get("agent") or "")[:14]
+            ev = r.get("event", "?")
+            detail = (r.get("detail") or "")[:50]
+            bits = []
+            if r.get("from_agent") or r.get("to_agent"):
+                bits.append(f"{r.get('from_agent', '')}->{r.get('to_agent', '')}")
+            if r.get("decision"):
+                bits.append(f"dec={r['decision']}")
+            if r.get("why"):
+                bits.append(f"why={str(r['why'])[:36]}")
+            if r.get("verdict"):
+                bits.append(f"verdict={r['verdict']}")
+            tail = ("  " + " ".join(bits)) if bits else ""
+            print(f"{r.get('i', 0):>3} {ts_s}  {step_s:>3}  {ev:<14}  {agent:<14}  {detail}{tail}")
+        return 0
+
+    if sub == "explain":
+        # CEMA-style causal decision summary (read-only)
+        rep = engine.explain(args.task_id)
+        if not rep.get("found"):
+            print(rep.get("error") or f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(rep, indent=2, default=str))
+            return 0
+        print(f"# explain {rep['task_id']}")
+        print(f"status:       {rep.get('status')}  step={rep.get('current_step')}  events={rep.get('n_events')}")
+        print(f"objective:    {rep.get('objective', '')}")
+        if rep.get("last_agent"):
+            print(f"last_agent:   {rep['last_agent']}")
+        if rep.get("error"):
+            print(f"error:        {rep['error']}")
+        print(f"story:        {rep.get('story', '')}")
+        if rep.get("handoffs"):
+            print("handoffs:")
+            for h in rep["handoffs"]:
+                print(
+                    f"  step {h.get('step')}: "
+                    f"{h.get('from_agent')} -> {h.get('to_agent')}"
+                )
+        if rep.get("vetoes"):
+            print("vetoes:")
+            for v in rep["vetoes"]:
+                print(f"  step {v.get('step')}: {v.get('verdict')}  agent={v.get('agent')}")
+        if rep.get("failures"):
+            print("failures:")
+            for f in rep["failures"]:
+                print(f"  step {f.get('step')}: {f.get('detail')}")
+        if rep.get("steps"):
+            print("steps:")
+            for s in rep["steps"]:
+                why = (s.get("why") or "")[:70]
+                print(
+                    f"  s{s.get('step')}: {s.get('name') or '?'}  "
+                    f"agent={s.get('agent') or '-'}  "
+                    f"decision={s.get('decision') or '-'}  "
+                    f"why={why or '-'}"
+                )
         return 0
 
     print(f"unknown task subcommand: {sub}", file=sys.stderr)
@@ -2170,6 +2257,25 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_show.add_argument("task_id")
     tk_show.add_argument("--state-dir", default=None)
     tk_show.set_defaults(func=cmd_task)
+    tk_replay = tk_sub.add_parser(
+        "replay",
+        help="normalized decision timeline from journal (no re-run; plan-replay)",
+    )
+    tk_replay.add_argument("task_id")
+    tk_replay.add_argument(
+        "--limit", type=int, default=0, help="last N events (0 = all)"
+    )
+    tk_replay.add_argument("--json", action="store_true", help="emit JSON array")
+    tk_replay.add_argument("--state-dir", default=None)
+    tk_replay.set_defaults(func=cmd_task)
+    tk_explain = tk_sub.add_parser(
+        "explain",
+        help="causal decision chain (steps, handoffs, vetoes, judge why)",
+    )
+    tk_explain.add_argument("task_id")
+    tk_explain.add_argument("--json", action="store_true", help="emit JSON object")
+    tk_explain.add_argument("--state-dir", default=None)
+    tk_explain.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))

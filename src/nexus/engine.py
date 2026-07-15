@@ -7,6 +7,11 @@ Each status/step transition also appends to an append-only JSONL event journal
 Also records swarm-style handoffs when the active agent changes, injects last-N
 journal lines on resume (context engineering), and fail-closes on review veto
 (edict-style).
+
+Operator observability (P2):
+- ``replay(task_id)`` — normalized timeline from the journal (open-multi-agent plan-replay).
+- ``explain(task_id)`` — causal decision chain from events + step outputs (CEMA-style).
+- ``why`` on step_complete — short judge rationale for post-hoc audit.
 """
 
 from __future__ import annotations
@@ -163,9 +168,10 @@ class DurableEngine:
             if r.get("detail"):
                 parts.append(str(r["detail"])[:80])
             extra_bits = []
-            for k in ("from_agent", "to_agent", "decision"):
+            for k in ("from_agent", "to_agent", "decision", "why"):
                 if r.get(k):
-                    extra_bits.append(f"{k}={r[k]}")
+                    val = str(r[k])[:60] if k == "why" else r[k]
+                    extra_bits.append(f"{k}={val}")
             if extra_bits:
                 parts.append(" ".join(extra_bits))
             lines.append("- " + " ".join(parts))
@@ -379,11 +385,16 @@ class DurableEngine:
             if "artifacts" in output:
                 task.meta["_artifact_path"] = (output["artifacts"] or [None])[0]
             self.save(task)
+            # CEMA-style short causal "why" from judge rationale (audit / explain)
+            why = str(getattr(verdict, "rationale", "") or "")[:200]
             self.record_event(
                 task.task_id, "step_complete",
                 step=step.number, agent=agent_name, status=task.status.value,
                 detail=step.name,
-                extra={"decision": getattr(verdict, "decision", "")},
+                extra={
+                    "decision": getattr(verdict, "decision", ""),
+                    "why": why,
+                },
             )
 
         if stopped_early:
@@ -472,3 +483,143 @@ class DurableEngine:
             except Exception:
                 continue
         return out
+
+    def replay(self, task_id: str, *, limit: Optional[int] = None) -> list[dict[str, Any]]:
+        """Normalized decision timeline from the event journal (plan-replay shape).
+
+        Does not re-run agents. Suitable for operator boards and post-hoc audit
+        (open-multi-agent plan-replay / mission-control inspect patterns).
+        """
+        rows = self.events(task_id, limit=limit)
+        timeline: list[dict[str, Any]] = []
+        for i, r in enumerate(rows):
+            entry: dict[str, Any] = {
+                "i": i,
+                "ts": r.get("ts"),
+                "event": r.get("event"),
+                "step": r.get("step"),
+                "agent": r.get("agent") or "",
+                "status": r.get("status") or "",
+                "detail": r.get("detail") or "",
+            }
+            for k in ("from_agent", "to_agent", "decision", "why", "verdict", "approve"):
+                if r.get(k) not in (None, ""):
+                    entry[k] = r[k]
+            timeline.append(entry)
+        return timeline
+
+    def explain(self, task_id: str) -> dict[str, Any]:
+        """Causal decision chain for a task (CEMA-style sequential explanations).
+
+        Merges checkpoint metadata, journal handoffs/vetoes, and per-step judge
+        verdicts into a single operator-readable summary. Read-only.
+        """
+        try:
+            task = self.load(task_id)
+        except FileNotFoundError:
+            return {
+                "task_id": task_id,
+                "found": False,
+                "error": f"task not found: {task_id}",
+            }
+
+        events = self.events(task_id)
+        handoffs = [
+            {
+                "step": e.get("step"),
+                "from_agent": e.get("from_agent"),
+                "to_agent": e.get("to_agent"),
+                "detail": e.get("detail") or "",
+            }
+            for e in events
+            if e.get("event") == "handoff"
+        ]
+        vetoes = [
+            {
+                "step": e.get("step"),
+                "verdict": e.get("verdict") or e.get("detail") or "",
+                "agent": e.get("agent") or "",
+            }
+            for e in events
+            if e.get("event") == "veto"
+        ]
+        failures = [
+            {
+                "step": e.get("step"),
+                "detail": e.get("detail") or "",
+                "agent": e.get("agent") or "",
+            }
+            for e in events
+            if e.get("event") == "failed"
+        ]
+
+        # Per-step causal chain: prefer journal why/decision, fall back to outputs
+        by_step: dict[int, dict[str, Any]] = {}
+        for e in events:
+            if e.get("event") != "step_complete":
+                continue
+            sn = e.get("step")
+            if sn is None:
+                continue
+            sn_i = int(sn)
+            by_step[sn_i] = {
+                "step": sn_i,
+                "name": e.get("detail") or "",
+                "agent": e.get("agent") or "",
+                "decision": e.get("decision") or "",
+                "why": e.get("why") or "",
+            }
+        for sn, out in (task.outputs or {}).items():
+            sn_i = int(sn)
+            row = by_step.setdefault(
+                sn_i,
+                {"step": sn_i, "name": "", "agent": "", "decision": "", "why": ""},
+            )
+            verdict = out.get("_verdict") if isinstance(out, dict) else None
+            if isinstance(verdict, dict):
+                if not row.get("decision"):
+                    row["decision"] = str(verdict.get("decision") or "")
+                if not row.get("why"):
+                    row["why"] = str(verdict.get("rationale") or "")[:200]
+                if not row.get("agent") and verdict.get("implementer"):
+                    row["agent"] = str(verdict.get("implementer") or "")
+            if isinstance(out, dict) and out.get("approved") is not None and not row.get("why"):
+                row["why"] = "human approved" if out.get("approved") else "human rejected"
+                row["decision"] = row.get("decision") or (
+                    "pass" if out.get("approved") else "fail"
+                )
+
+        steps = [by_step[k] for k in sorted(by_step)]
+        # One-line causal story for dashboards / MCP
+        story_bits: list[str] = []
+        for s in steps:
+            bit = f"s{s['step']}"
+            if s.get("name"):
+                bit += f" {s['name']}"
+            if s.get("agent"):
+                bit += f"@{s['agent']}"
+            if s.get("decision"):
+                bit += f"→{s['decision']}"
+            story_bits.append(bit)
+        if vetoes:
+            story_bits.append(f"veto@{vetoes[-1].get('step')}")
+        if failures and task.status == TaskStatus.failed:
+            story_bits.append("FAILED")
+        elif task.status == TaskStatus.completed:
+            story_bits.append("COMPLETED")
+
+        return {
+            "task_id": task.task_id,
+            "found": True,
+            "status": task.status.value,
+            "current_step": task.current_step,
+            "objective": task.objective,
+            "error": task.meta.get("error") or "",
+            "last_agent": task.meta.get("last_agent") or "",
+            "n_events": len(events),
+            "handoffs": handoffs,
+            "vetoes": vetoes,
+            "failures": failures,
+            "steps": steps,
+            "story": " | ".join(story_bits) if story_bits else "(no steps recorded)",
+        }
