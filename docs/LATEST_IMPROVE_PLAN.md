@@ -182,11 +182,39 @@ PYTHONPATH=src python3 -m nexus.cli demo self-improve-slice \
 ---
 
 ### Apply order after first slice
-1. Merge first apply slice (P0.1–P0.5 core).  
-2. Add mission-control-style task/spend store (P1.1) + DAG (P1.2).  
+1. Merge first apply slice (P0.1–P0.5 core). ✅  
+2. Add mission-control-style task/spend store (P1.1) + DAG (P1.2). ← **P1.1 landed**  
 3. Modularize MCP domains + eval CLI (AssetOpsBench).  
 4. Consensus grading (gossipcat) before any fully autonomous hard-apply.  
 5. Packaging/security/OpenAPI (P2) once the loop is demo-stable.
+
+---
+
+## P1.1 Landed — task/spend control plane (2026-07-15 hard-apply)
+
+**First apply this session (P0 already done):** mission-control-style SQLite ops plane.
+
+| Surface | What |
+|---------|------|
+| `src/nexus/ops_store.py` | SQLite jobs + spend; `calculate_stats`; ingest from usage ledger; `note_alive_cycle` / `note_improve_run` |
+| `src/nexus/usage.py` | Dual-write to ops when `meta.task_id` set (fail-open; `_ops_skip` prevents double-count) |
+| `src/nexus/improve_apply.py` | Registers improve runs on ops board (running → completed) |
+| `src/nexus/alive.py` | Registers each alive cycle as an ops job |
+| `src/nexus/cli.py` | `nexus ops list\|show\|spend\|record\|status\|ingest\|set-status` |
+| `src/nexus/mcp_server.py` | MCP tool `ops_control` (list/show/spend/status/record) |
+| `tests/test_ops_store.py` | unit + dual-write + ingest + CLI + MCP |
+
+**Patterns:** builderz-labs/mission-control (task-costs + status); no tree vendored.
+
+**Demo:**
+```bash
+PYTHONPATH=src python3 -m nexus.cli ops record demo-job --tokens 42 --kind improve --title "ops plane"
+PYTHONPATH=src python3 -m nexus.cli ops list
+PYTHONPATH=src python3 -m nexus.cli ops show demo-job
+PYTHONPATH=src python3 -m nexus.cli ops spend
+```
+
+**Next open:** P1.2 multi-agent task DAG (open-multi-agent) · P1.3 consensus grading (gossipcat) · P1.4 formal context pack stage
 
 ---
 

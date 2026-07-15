@@ -218,6 +218,33 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "ops_control",
+        "description": (
+            "Mission-control ops plane: list/show jobs and spend rollups "
+            "(mine/alive/improve/task). action=list|show|spend|status|record."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list | show | spend | status | record",
+                    "default": "list",
+                },
+                "job_id": {"type": "string", "description": "Required for show/record"},
+                "kind": {"type": "string", "description": "Filter kind for list"},
+                "status": {"type": "string", "description": "Filter status for list"},
+                "tokens": {
+                    "type": "integer",
+                    "description": "Tokens to record (action=record)",
+                },
+                "source": {"type": "string", "default": "mcp"},
+                "label": {"type": "string", "default": ""},
+                "limit": {"type": "integer", "default": 50},
+            },
+        },
+    },
 ]
 
 
@@ -444,6 +471,67 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 "audit": status.get("audit"),
             }
             return _tool_result(json.dumps(slim, indent=2, default=str))
+
+        if name == "ops_control":
+            from .ops_store import OpsStore, OpsError
+
+            root = _root()
+            action = str(args.get("action") or "list").lower()
+            try:
+                with OpsStore.open(root) as store:
+                    if action == "list":
+                        rows = store.list_jobs(
+                            kind=args.get("kind") or None,
+                            status=args.get("status") or None,
+                            limit=int(args.get("limit") or 50),
+                        )
+                        return _tool_result(json.dumps(rows, indent=2, default=str))
+                    if action == "show":
+                        jid = str(args.get("job_id") or "")
+                        job = store.get(jid)
+                        if not job:
+                            return _tool_result(f"job not found: {jid}", is_error=True)
+                        return _tool_result(
+                            json.dumps(
+                                {"job": job, "spend": store.spend_report(jid)},
+                                indent=2,
+                                default=str,
+                            )
+                        )
+                    if action == "spend":
+                        jid = args.get("job_id") or None
+                        return _tool_result(
+                            json.dumps(
+                                store.spend_report(jid),
+                                indent=2,
+                                default=str,
+                            )
+                        )
+                    if action == "status":
+                        return _tool_result(
+                            json.dumps(store.summary(), indent=2, default=str)
+                        )
+                    if action == "record":
+                        jid = str(args.get("job_id") or "")
+                        tokens = int(args.get("tokens") or 0)
+                        if not jid:
+                            return _tool_result("job_id required", is_error=True)
+                        row = store.record_spend(
+                            jid,
+                            tokens,
+                            source=str(args.get("source") or "mcp"),
+                            label=str(args.get("label") or ""),
+                            dual_write_usage=False,
+                            ensure=True,
+                            kind=str(args.get("kind") or "task"),
+                        )
+                        return _tool_result(json.dumps(row, indent=2, default=str))
+            except OpsError as e:
+                return _tool_result(f"OpsError: {e}", is_error=True)
+            return _tool_result(
+                f"unknown ops action: {action} (list|show|spend|status|record)",
+                is_error=True,
+            )
 
         return _tool_result(f"unknown tool: {name}", is_error=True)
 

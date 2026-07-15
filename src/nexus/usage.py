@@ -297,6 +297,32 @@ def record(
     with open(ledger_path(workdir), "a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
     gate["recorded"] = row
+    # Mission-control ops plane: attribute spend when meta.task_id is set (fail-open).
+    # Skip when ledger row originated from ops_store (prevents double-count).
+    task_id = ""
+    skip_ops = False
+    if isinstance(meta, dict):
+        task_id = str(meta.get("task_id") or "").strip()
+        skip_ops = bool(meta.get("_ops_skip"))
+    if task_id and not skip_ops:
+        try:
+            from .ops_store import OpsStore
+
+            kind = str((meta or {}).get("kind") or "task")
+            with OpsStore.open(workdir) as store:
+                store.record_spend(
+                    task_id,
+                    tokens,
+                    source=source,
+                    label=label,
+                    meta={k: v for k, v in (meta or {}).items() if k != "_ops_skip"},
+                    dual_write_usage=False,  # already wrote ledger above
+                    ensure=True,
+                    kind=kind if kind else "task",
+                )
+            gate["ops_job_id"] = task_id
+        except Exception as e:
+            gate["ops_error"] = str(e)
     gate["totals_after"] = totals(workdir)
     return gate
 

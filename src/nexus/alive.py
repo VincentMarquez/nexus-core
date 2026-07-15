@@ -409,6 +409,30 @@ def cycle_once(
 
     report["usage"] = usage_mod.status(root)
     report["ok"] = True
+    # P1.1: mission-control ops plane — register this cycle as a job (fail-open)
+    try:
+        from .ops_store import note_alive_cycle
+
+        ops_job = note_alive_cycle(
+            root,
+            {**report, "goal": cfg.goal, "cycle": int(time.time())},
+            tokens=0,
+        )
+        if ops_job:
+            report["ops_job"] = {
+                "id": ops_job.get("id"),
+                "status": ops_job.get("status"),
+                "kind": ops_job.get("kind"),
+            }
+            report["steps"].append(
+                {
+                    "step": "ops_store",
+                    "job_id": ops_job.get("id"),
+                    "status": ops_job.get("status"),
+                }
+            )
+    except Exception as e:
+        report["steps"].append({"step": "ops_store", "error": str(e)})
     _save_state(report, root)
     return report
 

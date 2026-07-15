@@ -571,6 +571,18 @@ class ImproveApplyRun:
         self.meta["completed_at"] = time.time()
         self._log("done", self.audit_path or "")
         self.save()
+        try:
+            from .ops_store import note_improve_run
+
+            note_improve_run(
+                self.workdir,
+                self.run_id,
+                phase="done",
+                repo=str(self.grade.get("repo") or ""),
+                status="completed",
+            )
+        except Exception:
+            pass
         return self.phase
 
     def run_to_done(self) -> dict[str, Any]:
@@ -658,6 +670,19 @@ def start_run(
     run.run_dir.mkdir(parents=True, exist_ok=True)
     run._log("start", f"repo={run.grade.get('repo')} score={run.grade.get('score')}")
     run.save()
+    # P1.1: register on mission-control-style ops board (fail-open)
+    try:
+        from .ops_store import note_improve_run
+
+        note_improve_run(
+            workdir,
+            rid,
+            phase=run.phase,
+            repo=str(run.grade.get("repo") or ""),
+            status="running",
+        )
+    except Exception:
+        pass
     return run
 
 

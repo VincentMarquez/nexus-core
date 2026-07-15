@@ -173,11 +173,13 @@ Demo output should show: Grok scores → chosen pattern (“idempotent phases + 
 ---
 
 ### Apply order after first slice
-1. Merge first apply slice (P0.1–P0.5 core).  
-2. Add mission-control-style task/spend store (P1.1) + DAG (P1.2).  
+1. Merge first apply slice (P0.1–P0.5 core). ✅  
+2. Add mission-control-style task/spend store (P1.1) + DAG (P1.2). ← **P1.1 landed** (`src/nexus/ops_store.py`, `nexus ops …`, MCP `ops_control`)  
 3. Modularize MCP domains + eval CLI (AssetOpsBench).  
 4. Consensus grading (gossipcat) before any fully autonomous hard-apply.  
 5. Packaging/security/OpenAPI (P2) once the loop is demo-stable.
+
+See `docs/LATEST_IMPROVE_PLAN.md` for P1.1 landing notes and demo commands.
 
 ---
 

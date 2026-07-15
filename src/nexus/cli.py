@@ -1829,6 +1829,96 @@ def cmd_task(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_ops(args: argparse.Namespace) -> int:
+    """Mission-control-style ops plane: list/show jobs + spend (P1.1)."""
+    from .ops_store import OpsStore, OpsError
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "ops_cmd", None) or "list"
+    try:
+        with OpsStore.open(root) as store:
+            if sub == "list":
+                rows = store.list_jobs(
+                    kind=getattr(args, "kind", None) or None,
+                    status=getattr(args, "status", None) or None,
+                    limit=int(getattr(args, "limit", 50) or 50),
+                )
+                if getattr(args, "json", False):
+                    print(json.dumps(rows, indent=2, default=str))
+                    return 0
+                if not rows:
+                    print(f"(no ops jobs in {store.workdir / '.nexus_state' / 'ops'})")
+                    return 0
+                print(
+                    f"{'JOB_ID':<28} {'KIND':<10} {'STATUS':<10} "
+                    f"{'TOK':>8}  TITLE"
+                )
+                for r in rows:
+                    print(
+                        f"{str(r['id'])[:28]:<28} {str(r['kind'])[:10]:<10} "
+                        f"{str(r['status'])[:10]:<10} {int(r.get('tokens') or 0):>8}  "
+                        f"{str(r.get('title') or '')[:48]}"
+                    )
+                return 0
+            if sub == "show":
+                jid = str(getattr(args, "job_id", "") or "")
+                job = store.get(jid)
+                if not job:
+                    print(f"job not found: {jid}", file=sys.stderr)
+                    return 1
+                rep = store.spend_report(jid)
+                out = {"job": job, "spend": rep}
+                print(json.dumps(out, indent=2, default=str))
+                return 0
+            if sub == "spend":
+                jid = getattr(args, "job_id", None) or None
+                rep = store.spend_report(jid)
+                print(json.dumps(rep, indent=2, default=str))
+                return 0
+            if sub == "record":
+                jid = str(getattr(args, "job_id", "") or "")
+                tokens = int(getattr(args, "tokens", 0) or 0)
+                kind = str(getattr(args, "kind", None) or "task")
+                title = str(getattr(args, "title", None) or jid)
+                status = str(getattr(args, "status", None) or "running")
+                store.upsert_job(
+                    jid,
+                    kind=kind,
+                    title=title,
+                    status=status,
+                    goal=str(getattr(args, "goal", None) or ""),
+                )
+                row = store.record_spend(
+                    jid,
+                    tokens,
+                    source=str(getattr(args, "source", None) or "manual"),
+                    label=str(getattr(args, "label", None) or ""),
+                    dual_write_usage=bool(getattr(args, "usage", False)),
+                    ensure=False,
+                    kind=kind,
+                )
+                print(json.dumps(row, indent=2, default=str))
+                return 0
+            if sub == "status":
+                print(json.dumps(store.summary(), indent=2, default=str))
+                return 0
+            if sub == "ingest":
+                res = store.ingest_usage_ledger()
+                print(json.dumps(res, indent=2, default=str))
+                return 0
+            if sub == "set-status":
+                jid = str(getattr(args, "job_id", "") or "")
+                st = str(getattr(args, "status", "") or "")
+                job = store.set_status(jid, st)
+                print(json.dumps(job, indent=2, default=str))
+                return 0
+    except OpsError as e:
+        print(f"ops error: {e}", file=sys.stderr)
+        return 1
+    print("usage: nexus ops list|show|spend|record|status|ingest|set-status", file=sys.stderr)
+    return 2
+
+
 def cmd_alive(args: argparse.Namespace) -> int:
     """Self-improvement under user goals + token budget."""
     from . import alive as al
@@ -1906,6 +1996,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "recovery",
         "schedule",
         "usage",
+        "ops",
         "alive",
         "procure",
         "arxiv",
@@ -2599,6 +2690,58 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="include @reboot nexus mcp --http (tunnel for ChatGPT connectors)",
     )
     sch.set_defaults(func=cmd_schedule)
+
+    ops = sub.add_parser(
+        "ops",
+        help="mission-control ops plane: jobs + spend (list/show/record)",
+    )
+    ops_sub = ops.add_subparsers(dest="ops_cmd")
+    ops_list = ops_sub.add_parser("list", help="list jobs")
+    ops_list.add_argument("--path", default=".")
+    ops_list.add_argument("--kind", default=None, help="filter: mine|alive|improve|task|…")
+    ops_list.add_argument("--status", default=None, help="filter: running|completed|…")
+    ops_list.add_argument("--limit", type=int, default=50)
+    ops_list.add_argument("--json", action="store_true")
+    ops_list.set_defaults(func=cmd_ops)
+    ops_show = ops_sub.add_parser("show", help="show one job + spend rollup")
+    ops_show.add_argument("job_id")
+    ops_show.add_argument("--path", default=".")
+    ops_show.set_defaults(func=cmd_ops)
+    ops_sp = ops_sub.add_parser("spend", help="spend report (optional job_id)")
+    ops_sp.add_argument("job_id", nargs="?", default=None)
+    ops_sp.add_argument("--path", default=".")
+    ops_sp.set_defaults(func=cmd_ops)
+    ops_rec = ops_sub.add_parser("record", help="upsert job + record token spend")
+    ops_rec.add_argument("job_id")
+    ops_rec.add_argument("--tokens", type=int, required=True)
+    ops_rec.add_argument("--path", default=".")
+    ops_rec.add_argument("--kind", default="task")
+    ops_rec.add_argument("--title", default=None)
+    ops_rec.add_argument("--status", default="running")
+    ops_rec.add_argument("--goal", default="")
+    ops_rec.add_argument("--source", default="manual")
+    ops_rec.add_argument("--label", default="")
+    ops_rec.add_argument(
+        "--usage",
+        action="store_true",
+        help="also append global usage ledger",
+    )
+    ops_rec.set_defaults(func=cmd_ops)
+    ops_st = ops_sub.add_parser("status", help="ops dashboard summary")
+    ops_st.add_argument("--path", default=".")
+    ops_st.set_defaults(func=cmd_ops)
+    ops_in = ops_sub.add_parser(
+        "ingest",
+        help="backfill spend from usage ledger rows with meta.task_id",
+    )
+    ops_in.add_argument("--path", default=".")
+    ops_in.set_defaults(func=cmd_ops)
+    ops_ss = ops_sub.add_parser("set-status", help="set job status")
+    ops_ss.add_argument("job_id")
+    ops_ss.add_argument("status", help="inbox|running|blocked|completed|failed|cancelled")
+    ops_ss.add_argument("--path", default=".")
+    ops_ss.set_defaults(func=cmd_ops)
+    ops.set_defaults(func=cmd_ops, ops_cmd="list")
 
     us = sub.add_parser("usage", help="token budget / throttle (daily/monthly caps)")
     us_sub = us.add_subparsers(dest="usage_cmd")
