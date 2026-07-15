@@ -151,6 +151,52 @@ nexus improve prefer list
 """
 
 
+# mission-control spend / ops plane skill (pattern only)
+_SPEND_OPS_MANIFEST = {
+    "id": "mission-control-spend-ops",
+    "version": "0.1.0",
+    "name": "Mission Control Spend Ops",
+    "description": (
+        "Operator skill for SQLite ops jobs + token spend rollups "
+        "(mission-control task-costs shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": ["ops", "spend", "budget", "mission-control"],
+}
+
+_SPEND_OPS_SKILL_MD = """# Mission Control Spend Ops
+
+## When to use
+
+- Inspect alive / improve / mine job spend before self-approve
+- Ingest usage ledger into the ops plane for operator list/show
+- Gate hard apply when task token budgets are exhausted
+
+## Commands
+
+```bash
+nexus ops list
+nexus ops spend
+nexus ops status
+nexus task cost --task-id <id>
+nexus improve board --sync-gaps
+```
+
+## Rules
+
+- Treat spend as operator estimate, not billing truth
+- Prefer fail-closed hard stop when `max_tokens` / RunBudget exhausted
+- Dual-write usage with `_ops_skip` anti-loop when recording
+- No vendored upstream trees — patterns only
+
+## Success
+
+- Ops store schema `nexus.ops/v1`
+- `nexus ops spend` returns non-empty rollup after ledger ingest
+- Budget deny reasons appear on decision package / board signal
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -187,6 +233,24 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "evidence-board-ops",
+    },
+    "mission-control-spend-ops": {
+        "id": "mission-control-spend-ops",
+        "repo": "builderz-labs/mission-control",
+        "description": (
+            "SQLite ops jobs + spend rollup skill "
+            "(mission-control task-costs shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/mission-control-spend-ops/manifest.json": json.dumps(
+                _SPEND_OPS_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/mission-control-spend-ops/SKILL.md": _SPEND_OPS_SKILL_MD,
+            "skillpacks/mission-control-spend-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "mission-control-spend-ops",
     },
 }
 

@@ -1,4 +1,4 @@
-.PHONY: all install test smoke eval-samples demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean
+.PHONY: all install test smoke eval-samples demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean grade-validate mcp-smoke board-sync-gaps test-quality
 
 # Default: zero-config bootstrap + automatic start with agents
 all: run
@@ -15,6 +15,36 @@ test:
 
 smoke:
 	. .venv/bin/activate && python evals/smoke.py
+
+# First-apply quality gates (offline fixtures only — no live Grok API)
+# P0.3 grade schema + claims; P0.4 MCP SQLite/FTS evidence search
+grade-validate:
+	. .venv/bin/activate && PYTHONPATH=src python -c "\
+from nexus.evidence_fts import grade_validate_fixtures; \
+import json, sys; \
+r = grade_validate_fixtures('.'); \
+print(json.dumps(r, indent=2)); \
+sys.exit(0 if r.get('ok') else 1)"
+
+mcp-smoke:
+	. .venv/bin/activate && PYTHONPATH=src python -c "\
+from nexus.evidence_fts import smoke_search; \
+import json, sys; \
+r = smoke_search('.'); \
+print(json.dumps(r, indent=2)); \
+sys.exit(0 if r.get('ok') else 1)"
+
+# Board signal → PrincipledStop gaps (operator gate regression)
+board-sync-gaps:
+	. .venv/bin/activate && PYTHONPATH=src python -c "\
+from nexus.apply_select import smoke_board_sync; \
+import json, sys; \
+r = smoke_board_sync('.'); \
+print(json.dumps(r, indent=2, default=str)); \
+sys.exit(0 if r.get('ok') else 1)"
+
+test-quality: grade-validate mcp-smoke board-sync-gaps
+	@echo "OK — grade-validate + mcp-smoke + board-sync-gaps"
 
 # Offline sample MCP scenario packs (fixtures/ → .nexus_state/; CI-safe)
 eval-samples:
@@ -77,7 +107,7 @@ docs-serve:
 docs-build:
 	. .venv/bin/activate && pip install -q mkdocs-material && mkdocs build --strict
 
-release-check: install test smoke
+release-check: install test smoke test-quality
 	@echo "OK — ready to tag a release"
 
 clean:

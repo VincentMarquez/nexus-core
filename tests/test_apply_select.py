@@ -127,6 +127,62 @@ def test_rank_score_boosts_with_hits():
     g = {"score": 10.0}
     assert asel.rank_score(g, []) == 10.0
     assert asel.rank_score(g, [{"id": "1"}, {"id": "2"}]) == 11.0
+    assert asel.rank_score(g, [], preference_delta=0.5) == 10.5
+    assert asel.rank_score(g, [{"id": "1"}], preference_delta=-0.25) == 10.25
+
+
+def test_select_candidates_applies_preference_boost(work: Path):
+    """Offline preference pairs (2602.04518) bias rank when use_preference=True."""
+    from nexus import preference_pairs as pp
+
+    fx = work / "fixtures" / "mine_eval" / "grades_with_claims.json"
+    # Record strong preference for wshobson over any competitor
+    pp.record_pair(
+        work,
+        better="wshobson/agents",
+        worse="codingagentsystem/cas",
+        better_score=16.0,
+        worse_score=15.0,
+        source="test",
+    )
+    # Extra wins so boost is clearly non-zero
+    pp.record_pair(
+        work,
+        better="wshobson/agents",
+        worse="openai/swarm",
+        source="test",
+    )
+
+    sel = asel.select_candidates(
+        work,
+        fixture=fx,
+        min_score=10.0,
+        limit=5,
+        require_evidence=True,
+        auto_index=True,
+        use_preference=True,
+    )
+    assert sel["ok"] is True
+    assert sel["use_preference"] is True
+    by_repo = {c["repo"]: c for c in sel["candidates"]}
+    assert "wshobson/agents" in by_repo
+    w = by_repo["wshobson/agents"]
+    assert w["preference_boost"] > 0
+    # rank includes preference delta above score + evidence
+    assert w["rank"] >= w["score"] + w["preference_boost"] - 0.01
+
+    sel_off = asel.select_candidates(
+        work,
+        fixture=fx,
+        min_score=10.0,
+        limit=5,
+        require_evidence=True,
+        auto_index=False,
+        use_preference=False,
+    )
+    w_off = {c["repo"]: c for c in sel_off["candidates"]}["wshobson/agents"]
+    assert w_off["preference_boost"] == 0.0
+    assert w_off["rank"] < w["rank"]
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +420,21 @@ def test_sync_signal_to_stop_continue_closes_board_gaps():
     assert out["ok"] is True
     assert stop.gaps[asel.BOARD_GAP_REPLAN].open is False
     assert stop.gaps[asel.BOARD_GAP_STOP].open is False
+
+
+def test_smoke_board_sync_ok(work: Path):
+    """CI smoke: board builds + signal is valid + sync path runs."""
+    report = asel.smoke_board_sync(
+        work,
+        fixture=work / "fixtures" / "mine_eval" / "grades_with_claims.json",
+        sync_gaps=True,
+    )
+    assert report["ok"] is True, report
+    assert report["signal"] in asel.BOARD_SIGNALS
+    assert report["candidates"] >= 1
+    assert report["top_repo"]
+    assert report.get("sync") is not None
+    assert report["sync"].get("ok") is True
 
 
 def test_decision_for_grade_from_claims_fixture():

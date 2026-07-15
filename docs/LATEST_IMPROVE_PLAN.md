@@ -5,53 +5,52 @@ Model: `grok-4.5` · sources: 20 mined repos (IMPROVE_OURS) + 20 arXiv notes
 
 ---
 
-## Landed this session (First apply slice)
+## First apply slice (this session) — landed
 
-### Board signal → PrincipledStop gaps + preference pairs + pattern catalog
+### Preference rank bias + board-sync CI + mission-control spend pattern
 
 | Pass criterion | Status |
 |----------------|--------|
-| `sync_signal_to_stop` maps replan→`board-replan`, stop→`board-stop` | ✅ `apply_select.sync_signal_to_stop` |
-| Hard stop (collusion/budget/principled) can abort stop board for watch exit | ✅ `abort_on_hard_stop` |
-| Continue closes board signal gaps | ✅ `close_on_continue` |
-| Alive self_approve gate syncs gaps + optional preference pair | ✅ `_self_approve_decision_gate` |
-| Principled stop re-syncs board signal each cycle | ✅ `_record_principled_stop` |
-| Offline preference pairs (arXiv **2602.04518**) | ✅ `preference_pairs.py` + `nexus improve prefer` |
-| Second worktree pattern: `cas-evidence-board-ops` | ✅ `worktree_apply.PATTERN_CATALOG` |
-| CLI `board --sync-gaps` / `--record-pref` | ✅ `cli.py` |
+| `preference_boost` applied inside `select_candidates` rank | ✅ `rank_score(..., preference_delta=)` + `use_preference` |
+| Candidate rows expose `preference_boost` | ✅ board / select format show `pref=` |
+| Offline better>worse pairs bias ranking (arXiv **2602.04518**) | ✅ `preference_pairs.preference_boost` |
+| CI/Makefile `board --sync-gaps` smoke | ✅ `smoke_board_sync` + `make board-sync-gaps` |
+| Pattern catalog: mission-control spend skill | ✅ `mission-control-spend-ops` |
 | pytest green | ✅ full suite |
 
-**Modules:** `src/nexus/apply_select.py`, `src/nexus/alive.py`, `src/nexus/preference_pairs.py`, `src/nexus/worktree_apply.py`, `src/nexus/cli.py`  
-**Tests:** `tests/test_apply_select.py`, `tests/test_preference_pairs.py`, `tests/test_usage_alive.py`, `tests/test_worktree_apply.py`
+**Modules:** `src/nexus/apply_select.py`, `src/nexus/worktree_apply.py`, `src/nexus/preference_pairs.py`  
+**Tests:** `tests/test_apply_select.py`, `tests/test_worktree_apply.py`  
+**Ops:** `Makefile` (`board-sync-gaps`, `test-quality`), `.github/workflows/ci.yml`
 
 **Patterns (shape only, not vendored trees):**  
-Intelligent-Internet/zenith (stop/replan/gap), codingagentsystem/cas (FTS evidence skill), mission-control/routa (board), wshobson/agents (skill SoT), arXiv **2602.04518** preference pairs, **2601.00360** anti-collusion, **2511.15755** decision package, **2506.03053** MAEBE thrash.
+builderz-labs/mission-control (spend/ops), codingagentsystem/cas (FTS board), wshobson/agents (skill SoT), Intelligent-Internet/zenith (stop/replan), arXiv **2602.04518** preference pairs, **2511.15755** decision package, **2601.00360** anti-collusion.
 
 ### Prior slices still green
 
-- Decision package → worktree_apply + alive self_approve + board signals
+- Board signal → PrincipledStop gaps + preference pair store
+- Decision package → worktree_apply + alive self_approve
 - Grade claims + MCP FTS evidence
 - Worktree apply + promote-to-main
-- Durable MCP context loop, skillpacks, tool catalog, mcp_eval, ops, consensus, DAG
+- Durable MCP context, skillpacks, tool catalog, mcp_eval, ops, consensus, DAG
 
 ---
 
-## First apply slice (this session) — scope
+## First apply slice — scope (this session)
 
-**Goal:** Close prior open items: *wire board signal into PrincipledStop gap board · preference-pair store · more pattern catalog*.
+**Goal:** Close prior open items: *preference_boost in select rank · CI board --sync-gaps · mission-control spend pattern*.
 
 ### Do
 
-1. **Board → gap board** — replan registers `board-replan`; stop registers `board-stop` (hard stops abort); continue closes board gaps.
-2. **Alive wire** — self_approve decision gate + principled stop cycle both sync signals; knobs `sync_board_gaps` / `abort_on_board_stop` / `record_preferences`.
-3. **Preference pairs** — offline JSONL better>worse pairs + boost/brief for later ranking bias.
-4. **Pattern catalog** — `cas-evidence-board-ops` skillpack (evidence board operator docs).
+1. **Preference rank** — `select_candidates` adds offline pair boost to composite rank (default on; `use_preference=False` to disable).
+2. **Board sync smoke** — pure `smoke_board_sync()` + Makefile/CI quality gate (no live Grok).
+3. **Pattern catalog** — `mission-control-spend-ops` skillpack (ops list/spend/status commands).
 
 ### Explicit non-goals
 
 - No live preference IRL training loop
 - No vendored upstream trees
 - No force-push / auto-promote without flags
+- No live Grok judge in unit tests
 
 ---
 
@@ -59,30 +58,32 @@ Intelligent-Internet/zenith (stop/replan/gap), codingagentsystem/cas (FTS eviden
 
 | Item | Notes |
 |------|--------|
-| Use `preference_boost` inside `select_candidates` rank | small rank delta from offline pairs |
-| CI job for `board --sync-gaps` smoke | operator gate regression |
-| Live Grok judge gated integration (optional CI secret) | already offline fallback |
-| More pattern catalog (mission-control spend skill) | optional |
+| Preference brief inject into context_pack | small |
+| Wire `use_preference` CLI flag on `improve select\|board` | operator control |
+| Live Grok judge gated integration (optional CI secret) | offline fallback already |
+| Alive cycle: auto `record_from_ranked` when board continues | optional |
 
 ---
 
 ## Evidence sources (this cycle)
 
-- `.nexus_state/repo_mine/IMPROVE_OURS.md` — top: wshobson/agents, mission-control, cas, lumen, zenith, forge, …
-- `.nexus_state/arxiv_improve/improve-rx-a7bfdd595a.md` — communication survey, context **2508.08322**, Thucy **2512.03278**, preference IRL **2602.04518**, decision package **2511.15755**, anti-collusion **2601.00360**, MAEBE **2506.03053**
+- `.nexus_state/repo_mine/IMPROVE_OURS.md` — top: labsai/EDDI 17, wshobson/agents 16, MisterSmith 16, mission-control 15, cas 15, …
+- `.nexus_state/arxiv_improve/improve-rx-1bccfca000.md` — communication survey **2203.08975**, context **2508.08322**, Thucy **2512.03278**, AOAD-MAT **2510.13343**, principles **2502.07165**
+- Prior plan open items from hard-apply board→gaps + preferences cycle
 
 ---
 
 ## Commands
 
 ```bash
-# board + sync signal onto gap board
-nexus improve board --fixture fixtures/mine_eval/grades_with_claims.json --sync-gaps
-# preference pairs
+# preference-biased select
 nexus improve prefer record --better wshobson/agents --worse openai/swarm
-nexus improve prefer list
-# second pattern
-nexus improve apply --mode sandbox --pattern cas-evidence-board-ops \
+nexus improve select --fixture fixtures/mine_eval/grades_with_claims.json
+# board + gap sync smoke
+make board-sync-gaps
+# third pattern
+nexus improve apply --mode sandbox --pattern mission-control-spend-ops \
   --fixture tests/fixtures/mine_eval_sample.json --no-require-decision
 PYTHONPATH=src python3 -m pytest -q
+make test-quality
 ```

@@ -4,11 +4,12 @@ First apply slice (docs/LATEST_IMPROVE_PLAN.md next PR after grade claims/FTS):
 
   graded candidates
     → FTS evidence hits (cas/soul search)
-    → rank by score + evidence
+    → rank by score + evidence + preference_boost (offline pairs)
     → role gate: grader ≠ implementer ≠ verifier (anti-collusion)
     → budget check (Network-AI / mission-control)
     → decision package (2511.15755) before apply
     → routa-lite board CLI/MCP
+    → board signal → PrincipledStop gaps (sync_signal_to_stop)
 
 Patterns (shape only, not vendored trees):
 - codingagentsystem/cas — MCP SQLite/FTS evidence search
@@ -19,6 +20,7 @@ Patterns (shape only, not vendored trees):
 - arXiv 2601.00360 — anti-collusion role separation
 - arXiv 2511.15755 — terminal decision package
 - arXiv 2512.03278 — Thucy path-anchored claims
+- arXiv 2602.04518 — preference-pair rank bias (offline)
 - Intelligent-Internet/zenith — independent verify before promote/apply
 
 Does not call the network; fixtures + offline digests only for unit paths.
@@ -50,6 +52,7 @@ DEFAULT_ROLES = {
 }
 
 # Weighting for rank score = grade_score + evidence_boost * hit_count (capped)
+# + optional preference_boost from offline better>worse pairs (arXiv 2602.04518)
 EVIDENCE_BOOST = 0.5
 EVIDENCE_HIT_CAP = 5
 
@@ -293,14 +296,27 @@ def _evidence_for_grade(
     return (ranked + rest)[:k]
 
 
-def rank_score(grade: dict[str, Any], evidence_hits: Sequence[dict[str, Any]]) -> float:
-    """Composite rank: grade score + capped evidence boost."""
+def rank_score(
+    grade: dict[str, Any],
+    evidence_hits: Sequence[dict[str, Any]],
+    *,
+    preference_delta: float = 0.0,
+) -> float:
+    """Composite rank: grade score + capped evidence boost + preference delta.
+
+    *preference_delta* is typically ``preference_boost(repo)`` from offline
+    better>worse pairs (arXiv 2602.04518), clamped in that helper to ±1.5.
+    """
     try:
         base = float(grade.get("score") or 0)
     except (TypeError, ValueError):
         base = 0.0
     n = min(len(evidence_hits), EVIDENCE_HIT_CAP)
-    return round(base + EVIDENCE_BOOST * n, 4)
+    try:
+        pref = float(preference_delta or 0.0)
+    except (TypeError, ValueError):
+        pref = 0.0
+    return round(base + EVIDENCE_BOOST * n + pref, 4)
 
 
 def select_candidates(
@@ -313,12 +329,15 @@ def select_candidates(
     require_evidence: bool = True,
     auto_index: bool = True,
     k_evidence: int = 5,
+    use_preference: bool = True,
 ) -> dict[str, Any]:
-    """Rank apply candidates by grade score + FTS evidence hits.
+    """Rank apply candidates by grade score + FTS evidence hits + preference.
 
     When *query* is set, also runs a global FTS search and boosts matching repos.
     When *require_evidence* is True, candidates with zero evidence hits are
     excluded (fail-closed for ungrounded applies).
+    When *use_preference* is True (default), offline preference pairs bias rank
+    via ``preference_boost`` (wins−losses, capped).
     """
     root = _root(workdir)
     index_report: Optional[dict[str, Any]] = None
@@ -390,7 +409,16 @@ def select_candidates(
                 for i, p in enumerate(claim_paths[:k_evidence])
             ]
 
-        rs = rank_score(g, hits)
+        pref_delta = 0.0
+        if use_preference and repo:
+            try:
+                from .preference_pairs import preference_boost
+
+                pref_delta = float(preference_boost(repo, root))
+            except Exception:
+                pref_delta = 0.0
+
+        rs = rank_score(g, hits, preference_delta=pref_delta)
         # boost if global query matched
         if query.strip() and repo in repo_from_query:
             rs = round(rs + 1.0, 4)
@@ -405,6 +433,7 @@ def select_candidates(
             "path": g.get("path"),
             "pattern": g.get("pattern") or "",
             "rank": rs,
+            "preference_boost": round(pref_delta, 4),
             "evidence_hits": len(hits),
             "evidence": [
                 {
@@ -445,6 +474,7 @@ def select_candidates(
         "query": query,
         "min_score": min_score,
         "require_evidence": require_evidence,
+        "use_preference": bool(use_preference),
         "count": len(selected),
         "total_considered": len(grades),
         "candidates": selected,
@@ -1270,16 +1300,18 @@ def format_board(board: dict[str, Any]) -> str:
         f"verifier={ (board.get('roles') or {}).get('verifier') }  "
         f"[{'OK' if board.get('roles_ok') else 'COLLISION'}]",
         "",
-        "candidates (score + evidence rank):",
+        "candidates (score + evidence + preference rank):",
     ]
     cands = board.get("candidates") or []
     if not cands:
         lines.append("  (none — index fixtures or lower --min-score)")
     for i, c in enumerate(cands, 1):
+        pref = c.get("preference_boost")
+        pref_s = f"  pref={pref:+.2f}" if pref not in (None, 0, 0.0) else ""
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
             f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}  "
-            f"claims={c.get('claims')}"
+            f"claims={c.get('claims')}{pref_s}"
         )
         for e in (c.get("evidence") or [])[:2]:
             st = (e.get("statement") or "")[:70]
@@ -1328,9 +1360,11 @@ def format_selection(sel: dict[str, Any]) -> str:
         f"require_evidence: {sel.get('require_evidence')}",
     ]
     for i, c in enumerate(sel.get("candidates") or [], 1):
+        pref = c.get("preference_boost")
+        pref_s = f"  pref={pref:+.2f}" if pref not in (None, 0, 0.0) else ""
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
-            f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}"
+            f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}{pref_s}"
         )
     skipped = sel.get("skipped") or []
     if skipped:
@@ -1340,6 +1374,113 @@ def format_selection(sel: dict[str, Any]) -> str:
                 f"  - {s.get('repo')}: {s.get('skip_reason')}"
             )
     return "\n".join(lines)
+
+
+def smoke_board_sync(
+    workdir: Optional[Path | str] = None,
+    *,
+    fixture: Optional[Path | str] = None,
+    sync_gaps: bool = True,
+    abort_on_hard_stop: bool = True,
+) -> dict[str, Any]:
+    """Offline CI smoke: build improve board and optionally sync signal→gaps.
+
+    Fail-closed: returns ``ok=False`` when board construction fails or signal
+    is missing. Does not call the network.
+    """
+    from .durability.stop import PrincipledStop
+
+    root = _root(workdir)
+    fx = fixture
+    if fx is None:
+        preferred = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+        sample = root / "tests" / "fixtures" / "mine_eval_sample.json"
+        if preferred.is_file():
+            fx = preferred
+        elif sample.is_file():
+            fx = sample
+
+    try:
+        board = improve_board(
+            root,
+            fixture=fx,
+            auto_index=True,
+            goal="smoke board --sync-gaps",
+        )
+    except Exception as e:
+        return {
+            "schema": BOARD_SCHEMA,
+            "ok": False,
+            "error": f"board_failed:{e}",
+            "workdir": str(root),
+        }
+
+    signal = str(board.get("signal") or "")
+    if signal not in BOARD_SIGNALS:
+        return {
+            "schema": BOARD_SCHEMA,
+            "ok": False,
+            "error": f"missing_or_invalid_signal:{signal!r}",
+            "board": {
+                "signal": board.get("signal"),
+                "signal_reason": board.get("signal_reason"),
+                "count": len(board.get("candidates") or []),
+            },
+            "workdir": str(root),
+        }
+
+    sync_report: Optional[dict[str, Any]] = None
+    if sync_gaps:
+        stop = PrincipledStop()
+        try:
+            sync_report = sync_signal_to_stop(
+                stop,
+                {
+                    "signal": signal,
+                    "reason": board.get("signal_reason"),
+                    "detail": board.get("signal_detail"),
+                    "hints": list(board.get("replan_hints") or []),
+                },
+                abort_on_hard_stop=abort_on_hard_stop,
+                close_on_continue=True,
+            )
+            # Surface open gaps for operator / CI log
+            if sync_report is not None and hasattr(stop, "gaps"):
+                sync_report = {
+                    **sync_report,
+                    "open_gaps": [
+                        gid
+                        for gid, g in (stop.gaps or {}).items()
+                        if getattr(g, "open", False)
+                    ],
+                    "aborted": bool(getattr(stop, "aborted", False)),
+                }
+        except Exception as e:
+            return {
+                "schema": BOARD_SCHEMA,
+                "ok": False,
+                "error": f"sync_failed:{e}",
+                "signal": signal,
+                "workdir": str(root),
+            }
+
+    cands = board.get("candidates") or []
+    top = cands[0] if cands else None
+    return {
+        "schema": BOARD_SCHEMA,
+        "ok": True,
+        "signal": signal,
+        "signal_reason": board.get("signal_reason"),
+        "candidates": len(cands),
+        "top_repo": (top or {}).get("repo"),
+        "top_rank": (top or {}).get("rank"),
+        "top_preference_boost": (top or {}).get("preference_boost"),
+        "decision_ok": bool((board.get("decision") or {}).get("ok")),
+        "roles_ok": bool(board.get("roles_ok")),
+        "sync": sync_report,
+        "workdir": str(root),
+        "ts": time.time(),
+    }
 
 
 __all__ = [
@@ -1370,4 +1511,5 @@ __all__ = [
     "format_board",
     "format_selection",
     "rank_score",
+    "smoke_board_sync",
 ]

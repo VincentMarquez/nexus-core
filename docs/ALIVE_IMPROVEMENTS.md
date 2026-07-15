@@ -682,3 +682,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a7bfdd595a.md`
+
+## Cycle 2026-07-15 hard-apply First apply slice — preference rank + board CI + spend pattern (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI 17 / wshobson 16 / MisterSmith 16 / mission-control 15 / cas 15 / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: communication **2203.08975**, context **2508.08322**, preference IRL **2602.04518**, decision package **2511.15755**, anti-collusion **2601.00360** (notes `improve-rx-1bccfca000` + priors)
+- apply slice (**First apply slice** — close prior open: preference_boost in select · CI board-sync-gaps · pattern catalog):
+  - `src/nexus/apply_select.py` — `rank_score(..., preference_delta=)`; `select_candidates(use_preference=True)` applies offline boost; rows expose `preference_boost`; `smoke_board_sync` CI helper; board/select format show `pref=`
+  - `src/nexus/worktree_apply.py` — pattern `mission-control-spend-ops` (ops list/spend/status skill)
+  - `Makefile` — `board-sync-gaps` target; `test-quality` includes it
+  - `.github/workflows/ci.yml` — quality gates + sample MCP eval packs
+  - tests: `tests/test_apply_select.py` (pref rank + smoke), `tests/test_worktree_apply.py` (spend pattern)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: mission-control spend/ops; cas FTS board; wshobson SoT; zenith stop/replan; arXiv 2602.04518 preference bias (pattern only, no tree vendor)
+- non-goals kept: no live IRL trainer; no vendored trees; no auto-promote without flags
+- next open: preference brief → context_pack · CLI `--no-preference` · alive auto `record_from_ranked`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 443 passed; `smoke_board_sync` → signal=continue
+
+## Cycle 2026-07-15 23:31:01Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-1bccfca000.md`

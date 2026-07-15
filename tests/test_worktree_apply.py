@@ -40,6 +40,30 @@ def test_pattern_catalog_has_cas_evidence_board(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_mission_control_spend(tmp_path: Path):
+    """Third catalog entry: mission-control spend / ops skill."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "mission-control-spend-ops" for r in rows)
+    p = wta.get_pattern("mission-control-spend-ops")
+    assert p["repo"] == "builderz-labs/mission-control"
+    assert p["pack_id"] == "mission-control-spend-ops"
+    meta = wta.create_worktree(tmp_path, job_id="spend-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(
+        wt, "mission-control-spend-ops", job_id="spend-1"
+    )
+    assert any("mission-control-spend-ops" in f for f in applied["files_written"])
+    assert (
+        wt / "skillpacks" / "mission-control-spend-ops" / "APPLY_META.json"
+    ).is_file()
+    skill = (wt / "skillpacks" / "mission-control-spend-ops" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "ops spend" in skill.lower() or "nexus ops" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "mission-control-spend-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")
