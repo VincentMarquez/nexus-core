@@ -2,20 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 60_
+_Rows: 70_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| 1301.6431 | Automatic Verification of Parameterised Interleaved Multi-Agent System | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2008.06604 | Model-Free Optimal Control of Linear Multi-Agent Systems via Decomposi | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2302.10809 | Causal Explanations for Sequential Decision-Making in Multi-Agent Syst | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2303.16641 | A Hierarchical Game-Theoretic Decision-Making for Cooperative Multi-Ag | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2506.03053 | MAEBE: Multi-Agent Emergent Behavior Framework | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2511.15755 | Multi-Agent LLM Orchestration Achieves Deterministic, High-Quality Dec | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2601.00360 | Mapping Human Anti-collusion Mechanisms to Multi-agent AI Systems | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2603.20143 | Synergistic Perception and Generative Recomposition: A Multi-Agent Orc | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2604.03350 | From Model-Based Screening to Data-Driven Surrogates: A Multi-Stage Wo | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
-| 2606.09832 | Agentic Social Affordance Framework (ASAF): Agent Identity Design as a | 1 | 2026-07-15T18:01:51Z | multi-agent systems durable orchestratio |
 | 1709.01586 | Robust Semi-Cooperative Multi-Agent Coordination in the Presence of St | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
 | 2401.16216 | A mechanism for discovering semantic relationships among agent communi | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
 | 2409.01907 | Focus Agent: LLM-Powered Virtual Focus Group | 1 | 2026-07-15T18:08:00Z | multi agent communication coordination L |
@@ -56,3 +46,13 @@ _Rows: 60_
 | 2603.13189 | LLM Constitutional Multi-Agent Governance | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
 | 2606.31578 | Holonic Active Distillation for Scalable Multi-Agent Learning in Multi | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
 | nlin | A Model of a Trust-based Recommendation System on a Social Network | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
+| 1706.03235 | ACCNet: Actor-Coordinator-Critic Net for "Learning-to-Communicate" wit | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2006.00176 | When2com: Multi-Agent Perception via Communication Graph Grouping | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2405.00839 | Communication-Efficient Training Workload Balancing for Decentralized  | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2501.01140 | Communicating Unexpectedness for Out-of-Distribution Multi-Agent Reinf | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2509.05882 | Collaborate, Deliberate, Evaluate: How LLM Alignment Affects Coordinat | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2510.05158 | Lang-PINN: From Language to Physics-Informed Neural Networks via a Mul | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2510.25595 | Communication and Verification in LLM Agents towards Collaboration und | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2604.11028 | Federated Single-Agent Robotics: Multi-Robot Coordination Without Intr | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2605.11376 | LLM-X: A Scalable Negotiation-Oriented Exchange for Communication Amon | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
+| 2606.05868 | YouZhi: Towards High-Concurrency Financial LLMs via Adaptive GQA-to-ML | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |

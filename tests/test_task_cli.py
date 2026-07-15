@@ -281,3 +281,87 @@ def test_task_evidence_cli(tmp_path: Path, capsys):
 
     rc = main(["task", "evidence", "missing", "--state-dir", state])
     assert rc == 1
+
+
+def test_task_resume_hitl_cli(tmp_path: Path, capsys):
+    """P7: nexus task resume --approve / --reject for waiting_human gates."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+    engine = DurableEngine(settings=settings, auto_approve=False)
+    task = Task(
+        task_id="cli7",
+        objective="cli hitl resume",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.waiting_human
+    state = str(settings.state_dir)
+
+    # resume without decision must refuse (no silent auto-approve)
+    rc = main(["task", "resume", "cli7", "--state-dir", state])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "waiting_human" in err
+    assert "--approve" in err or "--reject" in err
+
+    # still waiting
+    assert engine.load("cli7").status == TaskStatus.waiting_human
+
+    # approve continues to completed
+    rc = main(
+        [
+            "task",
+            "resume",
+            "cli7",
+            "--approve",
+            "--feedback",
+            "ship it",
+            "--state-dir",
+            state,
+        ]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "resume cli7" in out
+    assert "completed" in out
+    assert "ship it" in out or "human:" in out
+    assert engine.load("cli7").status == TaskStatus.completed
+
+    # reject path on a second task
+    engine2 = DurableEngine(settings=settings, auto_approve=False)
+    t2 = Task(
+        task_id="cli8",
+        objective="cli hitl reject",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    t2 = engine2.run(t2)
+    assert t2.status == TaskStatus.waiting_human
+    rc = main(["task", "resume", "cli8", "--reject", "--state-dir", state])
+    assert rc == 1  # failed after reject
+    out = capsys.readouterr().out
+    assert "failed" in out or "reject" in out.lower()
+    assert engine2.load("cli8").status == TaskStatus.failed
+
+    # both flags → usage error
+    rc = main(
+        ["task", "resume", "cli7", "--approve", "--reject", "--state-dir", state]
+    )
+    assert rc == 2
+
+    # missing task
+    rc = main(["task", "resume", "missing", "--state-dir", state])
+    assert rc == 1
+
+    # crash-resume (partial run, not waiting) still works
+    engine3 = DurableEngine(settings=settings, auto_approve=True)
+    t3 = Task(
+        task_id="cli9",
+        objective="cli crash resume",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    t3 = engine3.run(t3, max_steps=3)
+    assert t3.status == TaskStatus.running
+    rc = main(["task", "resume", "cli9", "--state-dir", state])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "completed" in out
+    assert engine3.load("cli9").status == TaskStatus.completed

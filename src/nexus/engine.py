@@ -34,6 +34,12 @@ Evidence pack + norms (P6):
   mission-control export / AssetOpsBench eval shape).
 - ``task_norms(task)`` — constraints/meta as structured norms (NorMAS /
   constitutional multi-agent governance light).
+
+HITL resume (P7):
+- ``resume(task_id, approve=…, feedback=…)`` — human-in-the-loop gate for
+  ``waiting_human`` (rojak Temporal resume / mission-control operator shape).
+- CLI: ``nexus task resume <id> --approve|--reject`` records a ``human_decision``
+  journal event and continues or fail-closes.
 """
 
 from __future__ import annotations
@@ -602,23 +608,65 @@ class DurableEngine:
         )
         return task
 
-    def resume(self, task_id: str, *, approve: Optional[bool] = None) -> Task:
+    def resume(
+        self,
+        task_id: str,
+        *,
+        approve: Optional[bool] = None,
+        feedback: Optional[str] = None,
+    ) -> Task:
+        """Continue a checkpointed task; optionally resolve a human gate.
+
+        When status is ``waiting_human``:
+        - ``approve=True`` records the human decision and continues the pipeline
+        - ``approve=False`` fail-closes with ``rejected by human``
+        - ``approve=None`` leaves the decision unset (caller / CLI should refuse
+          silent auto-approve for HITL tasks)
+
+        Crash-resume (status ``running`` / partial) ignores ``approve`` and
+        continues from the last completed step.
+        """
         task = self.load(task_id)
+        fb = (feedback or "").strip() or ("cli" if approve is not None else "")
         self.record_event(
             task_id, "resume",
             step=task.current_step, status=task.status.value,
-            detail="approve" if approve is not None else "continue",
-            extra={"approve": approve} if approve is not None else None,
+            detail=(
+                "approve" if approve is True
+                else "reject" if approve is False
+                else "continue"
+            ),
+            extra=(
+                {"approve": approve, "feedback": fb}
+                if approve is not None
+                else ({"feedback": fb} if fb else None)
+            ),
         )
         if task.status == TaskStatus.waiting_human and approve is not None:
             step_n = int(task.meta.get("waiting_step") or 9)
             task.outputs[step_n] = {
                 "approved": bool(approve),
-                "feedback": "cli",
+                "feedback": fb or "cli",
+            }
+            task.meta["human_decision"] = {
+                "approved": bool(approve),
+                "feedback": fb or "cli",
+                "step": step_n,
+                "ts": time.time(),
             }
             # do NOT advance current_step yet — run() consumes approval at gate
             task.status = TaskStatus.running
             self.save(task)
+            self.record_event(
+                task_id, "human_decision",
+                step=step_n, status=task.status.value,
+                detail="approve" if approve else "reject",
+                extra={
+                    "approve": bool(approve),
+                    "feedback": fb or "cli",
+                    "decision": "approve" if approve else "reject",
+                },
+            )
             if not approve:
                 task.status = TaskStatus.failed
                 task.meta["error"] = "rejected by human"
@@ -692,7 +740,7 @@ class DurableEngine:
             }
             for k in (
                 "from_agent", "to_agent", "decision", "why", "verdict", "approve",
-                "score", "tokens", "thresholds",
+                "score", "tokens", "thresholds", "feedback",
             ):
                 if r.get(k) not in (None, ""):
                     entry[k] = r[k]
@@ -844,6 +892,16 @@ class DurableEngine:
             for e in events
             if e.get("event") == "failed"
         ]
+        human_decisions = [
+            {
+                "step": e.get("step"),
+                "decision": e.get("decision") or e.get("detail") or "",
+                "approve": e.get("approve"),
+                "feedback": e.get("feedback") or "",
+            }
+            for e in events
+            if e.get("event") == "human_decision"
+        ]
 
         # Per-step causal chain: prefer journal why/decision, fall back to outputs
         by_step: dict[int, dict[str, Any]] = {}
@@ -905,12 +963,19 @@ class DurableEngine:
             if s.get("decision"):
                 bit += f"→{s['decision']}"
             story_bits.append(bit)
+        if human_decisions:
+            hd = human_decisions[-1]
+            story_bits.append(
+                f"human@{hd.get('step')}→{hd.get('decision') or ('approve' if hd.get('approve') else 'reject')}"
+            )
         if vetoes:
             story_bits.append(f"veto@{vetoes[-1].get('step')}")
         if failures and task.status == TaskStatus.failed:
             story_bits.append("FAILED")
         elif task.status == TaskStatus.completed:
             story_bits.append("COMPLETED")
+        elif task.status == TaskStatus.waiting_human:
+            story_bits.append("WAITING_HUMAN")
 
         cost_sum = self.cost(task_id)
         cost_brief = {
@@ -932,9 +997,11 @@ class DurableEngine:
             "handoffs": handoffs,
             "vetoes": vetoes,
             "failures": failures,
+            "human_decisions": human_decisions,
             "steps": steps,
             "story": " | ".join(story_bits) if story_bits else "(no steps recorded)",
             "cost": cost_brief,
+            "waiting_step": task.meta.get("waiting_step"),
         }
 
     def provenance(self, task_id: str) -> dict[str, Any]:
@@ -1654,8 +1721,11 @@ class DurableEngine:
         n_vetoes = len(explained.get("vetoes") or [])
         n_failures = len(explained.get("failures") or [])
         completed = status == TaskStatus.completed.value
+        waiting_human = status == TaskStatus.waiting_human.value
         # Ready to treat as delivered evidence: completed + integrity + budget
-        ready = bool(completed and integrity_ok and budget_ok and has_timeline)
+        ready = bool(
+            completed and integrity_ok and budget_ok and has_timeline and not waiting_human
+        )
         gates = {
             "integrity_ok": integrity_ok,
             "budget_ok": budget_ok,
@@ -1663,6 +1733,7 @@ class DurableEngine:
             "terminal": terminal,
             "completed": completed,
             "no_veto": n_vetoes == 0,
+            "not_waiting_human": not waiting_human,
             "ready": ready,
         }
         gate_failures = [k for k, v in gates.items() if k != "ready" and not v]

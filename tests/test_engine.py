@@ -395,6 +395,57 @@ def test_task_norms_parse():
     assert any(r.get("key") == "max_tokens" for r in n2["rules"])
 
 
+def test_hitl_resume_approve_and_reject(tmp_path: Path):
+    """P7: auto_approve=False pauses at human gate; resume approve/reject."""
+    settings = Settings(state_dir=tmp_path / "state", autonomy=False)
+
+    # --- approve path ---
+    engine = DurableEngine(settings=settings, auto_approve=False)
+    task = Task(
+        task_id="hitl1",
+        objective="hitl approve",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.waiting_human
+    waiting = int(task.meta.get("waiting_step") or 0)
+    assert waiting >= 1
+    events = engine.events("hitl1")
+    assert any(e.get("event") == "waiting_human" for e in events)
+
+    task = engine.resume("hitl1", approve=True, feedback="lgtm")
+    assert task.status == TaskStatus.completed
+    assert task.current_step == 10
+    assert task.outputs[waiting].get("approved") is True
+    assert task.outputs[waiting].get("feedback") == "lgtm"
+    events2 = engine.events("hitl1")
+    assert any(e.get("event") == "human_decision" and e.get("approve") is True for e in events2)
+    exp = engine.explain("hitl1")
+    assert exp["human_decisions"]
+    assert "human@" in exp["story"] or "COMPLETED" in exp["story"]
+
+    # --- reject path ---
+    engine2 = DurableEngine(settings=settings, auto_approve=False)
+    task2 = Task(
+        task_id="hitl2",
+        objective="hitl reject",
+        success_criteria=["artifact contains DEMO_OK"],
+    )
+    task2 = engine2.run(task2)
+    assert task2.status == TaskStatus.waiting_human
+    task2 = engine2.resume("hitl2", approve=False, feedback="needs work")
+    assert task2.status == TaskStatus.failed
+    assert "rejected by human" in (task2.meta.get("error") or "")
+    events3 = engine2.events("hitl2")
+    assert any(e.get("event") == "human_decision" and e.get("approve") is False for e in events3)
+    assert any(e.get("event") == "failed" for e in events3)
+
+    pack = engine2.evidence("hitl2")
+    assert pack["ready"] is False
+    assert pack["gates"].get("not_waiting_human") is True  # failed, not waiting
+    assert pack["gates"]["completed"] is False
+
+
 def test_evidence_pack(tmp_path: Path):
     """P6: evidence() unifies timeline/cost/prov/verify/graph + readiness gates."""
     settings = Settings(state_dir=tmp_path / "state", autonomy=False)

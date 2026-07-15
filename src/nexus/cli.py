@@ -1214,8 +1214,8 @@ def _task_settings(args: argparse.Namespace):
 
 
 def cmd_task(args: argparse.Namespace) -> int:
-    """Operator surface: list/show/events + replay/explain/cost/prov/verify/graph/evidence."""
-    from .engine import DurableEngine
+    """Operator surface: list/show/events/resume + replay/explain/cost/prov/verify/graph/evidence."""
+    from .engine import DurableEngine, TaskStatus
     from .persist import atomic_write_json
 
     settings = _task_settings(args)
@@ -1346,6 +1346,8 @@ def cmd_task(args: argparse.Namespace) -> int:
         print(f"objective:    {rep.get('objective', '')}")
         if rep.get("last_agent"):
             print(f"last_agent:   {rep['last_agent']}")
+        if rep.get("waiting_step") is not None and rep.get("status") == "waiting_human":
+            print(f"waiting_step: {rep['waiting_step']}")
         if rep.get("error"):
             print(f"error:        {rep['error']}")
         print(f"story:        {rep.get('story', '')}")
@@ -1367,6 +1369,13 @@ def cmd_task(args: argparse.Namespace) -> int:
                 print(
                     f"  step {h.get('step')}: "
                     f"{h.get('from_agent')} -> {h.get('to_agent')}"
+                )
+        if rep.get("human_decisions"):
+            print("human_decisions:")
+            for h in rep["human_decisions"]:
+                print(
+                    f"  step {h.get('step')}: {h.get('decision')}  "
+                    f"approve={h.get('approve')}  feedback={h.get('feedback')!r}"
                 )
         if rep.get("vetoes"):
             print("vetoes:")
@@ -1608,6 +1617,77 @@ def cmd_task(args: argparse.Namespace) -> int:
         else:
             print("issues:       (none)")
         return 0 if rep.get("ok") else 1
+
+    if sub == "resume":
+        # P7 HITL / crash-resume (rojak Temporal resume + mission-control operator)
+        approve_flag = bool(getattr(args, "approve", False))
+        reject_flag = bool(getattr(args, "reject", False))
+        if approve_flag and reject_flag:
+            print("use only one of --approve or --reject", file=sys.stderr)
+            return 2
+        approve: Optional[bool]
+        if approve_flag:
+            approve = True
+        elif reject_flag:
+            approve = False
+        else:
+            approve = None
+        feedback = getattr(args, "feedback", None)
+        try:
+            task = engine.load(args.task_id)
+        except FileNotFoundError:
+            print(f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if task.status == TaskStatus.waiting_human and approve is None:
+            waiting = task.meta.get("waiting_step")
+            print(
+                f"task {args.task_id!r} is waiting_human"
+                + (f" at step {waiting}" if waiting is not None else "")
+                + " — pass --approve or --reject",
+                file=sys.stderr,
+            )
+            return 2
+        if task.status in (TaskStatus.completed, TaskStatus.failed) and approve is None:
+            # still allow re-run? No — report terminal unless explicit force later
+            print(
+                f"task {args.task_id!r} is already {task.status.value} "
+                f"(step={task.current_step}); nothing to resume",
+                file=sys.stderr,
+            )
+            return 1
+        # HITL: keep auto_approve off so a pending gate is only resolved via flags
+        if approve is not None:
+            engine.auto_approve = False
+        try:
+            task = engine.resume(
+                args.task_id,
+                approve=approve,
+                feedback=feedback,
+            )
+        except FileNotFoundError:
+            print(f"task not found: {args.task_id}", file=sys.stderr)
+            return 1
+        if getattr(args, "json", False):
+            print(json.dumps(task.to_dict(), indent=2, default=str))
+        else:
+            print(f"# resume {task.task_id}")
+            print(f"status:       {task.status.value}")
+            print(f"step:         {task.current_step}")
+            if task.meta.get("waiting_step") and task.status == TaskStatus.waiting_human:
+                print(f"waiting_step: {task.meta.get('waiting_step')}")
+            if task.meta.get("error"):
+                print(f"error:        {task.meta.get('error')}")
+            if task.meta.get("human_decision"):
+                hd = task.meta["human_decision"]
+                print(
+                    f"human:        approved={hd.get('approved')}  "
+                    f"feedback={hd.get('feedback')!r}  step={hd.get('step')}"
+                )
+            print(f"objective:    {task.objective[:120]}")
+        # exit 0 when completed/running/waiting; 1 when failed after resume
+        if task.status == TaskStatus.failed:
+            return 1
+        return 0
 
     if sub == "evidence":
         # routa / mission-control portable evidence pack (P6)
@@ -2669,6 +2749,29 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     tk_evd.add_argument("--state-dir", default=None)
     tk_evd.set_defaults(func=cmd_task)
+    tk_resume = tk_sub.add_parser(
+        "resume",
+        help="continue a checkpointed task; HITL --approve/--reject when waiting_human",
+    )
+    tk_resume.add_argument("task_id")
+    tk_resume.add_argument(
+        "--approve",
+        action="store_true",
+        help="approve a waiting_human gate and continue",
+    )
+    tk_resume.add_argument(
+        "--reject",
+        action="store_true",
+        help="reject a waiting_human gate (fail-closed)",
+    )
+    tk_resume.add_argument(
+        "--feedback",
+        default=None,
+        help="optional human feedback stored on the approval step",
+    )
+    tk_resume.add_argument("--json", action="store_true", help="emit task checkpoint JSON")
+    tk_resume.add_argument("--state-dir", default=None)
+    tk_resume.set_defaults(func=cmd_task)
 
     args = ap.parse_args(raw)
     return int(args.func(args))
