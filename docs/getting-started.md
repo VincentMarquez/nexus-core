@@ -1,6 +1,16 @@
 # Getting started
 
-## Zero config (recommended)
+## Start console (website)
+
+Open the public **Start** page (same look as the local JS dashboard):
+
+**https://vincentmarquez.github.io/nexus-core/**
+
+- Copy-ready `./run` command  
+- GitHub job builder (`nexus do …`)  
+- Detects a **local bus** on this machine and links to the live dashboard  
+
+## Zero config (terminal)
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core
@@ -8,9 +18,11 @@ cd nexus-core
 ./run
 ```
 
-This creates `.venv`, installs the package, starts the bus + dashboard, auto-starts Ollama (and pulls a small model if needed), and **enables real CLI agents when they are installed** (claude / codex / gemini). Missing tools get safe **mock** bridges so demos still work.
+This creates `.venv`, installs the package, starts the bus + **start console dashboard**, auto-starts Ollama (and pulls a small model if needed), and **enables real CLI agents when they are installed** (claude / codex / gemini). Missing tools get safe **mock** bridges so demos still work.
 
 Requires: **Python 3.10+** and **Node 18+**. Ollama and AI CLIs are optional.
+
+After start, the browser opens `http://127.0.0.1:<port>/dashboard` — agents, tasks, SSE events, and copy-paste job builders.
 
 ## Manual install
 

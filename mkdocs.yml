@@ -1,5 +1,5 @@
 site_name: NEXUS Core
-site_description: Multi-agent tasks that resume after a crash — with a real success-criteria judge
+site_description: Many LLMs talk and reason together — durable multi-agent start console
 site_url: https://vincentmarquez.github.io/nexus-core/
 repo_url: https://github.com/VincentMarquez/nexus-core
 repo_name: VincentMarquez/nexus-core
@@ -25,9 +25,14 @@ theme:
     - navigation.sections
     - content.code.copy
     - toc.integrate
+  font:
+    text: Inter
+    code: JetBrains Mono
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - tables
@@ -35,7 +40,7 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home: index.md
+  - Start: index.md
   - Get started:
       - Install & demo: getting-started.md
       - Cookbooks: cookbooks.md
@@ -71,9 +76,14 @@ nav:
       - Video script: VIDEO_SCRIPT.md
       - Launch checklist: LAUNCH_CHECKLIST.md
 
-
 plugins:
   - search
+
+extra_css:
+  - stylesheets/nexus.css
+
+extra_javascript:
+  - javascripts/console.js
 
 extra:
   social:

@@ -1,0 +1,310 @@
+/* NEXUS public site — match bridge/dashboard aesthetic */
+
+:root,
+[data-md-color-scheme="slate"] {
+  --nx-bg: #0f1115;
+  --nx-panel: #1a1d24;
+  --nx-border: #2a2f3a;
+  --nx-text: #e8eaed;
+  --nx-muted: #9aa0a6;
+  --nx-link: #8ab4f8;
+  --nx-cyan: #22d3ee;
+  --nx-green: #7ddea5;
+  --nx-green-bg: #0d3b2e;
+  --nx-amber: #f0d77d;
+  --nx-amber-bg: #3b2f0d;
+  --nx-red: #f5a8a8;
+  --nx-red-bg: #3b1515;
+  --nx-radius: 10px;
+  --md-default-bg-color: var(--nx-bg);
+  --md-default-fg-color: var(--nx-text);
+  --md-default-fg-color--light: var(--nx-muted);
+  --md-primary-fg-color: #1e1b4b;
+  --md-accent-fg-color: var(--nx-cyan);
+  --md-code-bg-color: #12151c;
+  --md-typeset-a-color: var(--nx-link);
+  --md-footer-bg-color: #0a0c10;
+}
+
+/* Body denser, dashboard-like */
+.md-main__inner {
+  margin-top: 0.5rem;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35em;
+}
+
+.md-typeset h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--nx-muted);
+  border: none;
+  margin-top: 1.75rem;
+}
+
+/* Start console */
+.nx-console {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  color: var(--nx-text);
+  max-width: 100%;
+}
+
+.nx-hero {
+  background: linear-gradient(145deg, #12151c 0%, #1a1d24 45%, #15122a 100%);
+  border: 1px solid var(--nx-border);
+  border-radius: 14px;
+  padding: 1.35rem 1.5rem 1.5rem;
+  margin: 0 0 1.25rem;
+}
+
+.nx-hero h1 {
+  font-size: 1.55rem !important;
+  margin: 0 0 0.4rem !important;
+  border: none !important;
+}
+
+.nx-hero .nx-sub {
+  color: var(--nx-muted);
+  font-size: 0.95rem;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.nx-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.nx-pill {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #12151c;
+  border: 1px solid var(--nx-border);
+  color: var(--nx-muted);
+}
+
+.nx-pill.on {
+  background: var(--nx-green-bg);
+  color: var(--nx-green);
+  border-color: #1a5c45;
+}
+
+.nx-pill.busy {
+  background: var(--nx-amber-bg);
+  color: var(--nx-amber);
+  border-color: #5c4a14;
+}
+
+.nx-pill.off {
+  background: var(--nx-red-bg);
+  color: var(--nx-red);
+  border-color: #5c2a2a;
+}
+
+.nx-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 720px) {
+  .nx-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nx-card {
+  background: var(--nx-panel);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  padding: 1rem 1.1rem;
+}
+
+.nx-card h2,
+.nx-card h3 {
+  font-size: 0.8rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nx-muted) !important;
+  margin: 0 0 0.75rem !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.nx-cmd {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.nx-cmd code,
+.nx-cmd pre {
+  flex: 1;
+  margin: 0 !important;
+  background: #0c0e13 !important;
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem !important;
+  font-size: 0.82rem !important;
+  line-height: 1.4;
+  overflow-x: auto;
+  color: #d7dbe0 !important;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.nx-btn {
+  appearance: none;
+  border: 1px solid var(--nx-border);
+  background: #12151c;
+  color: var(--nx-text);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.nx-btn:hover {
+  border-color: var(--nx-cyan);
+  background: #151a24;
+}
+
+.nx-btn.primary {
+  background: linear-gradient(135deg, #0e7490, #4f46e5);
+  border-color: transparent;
+  color: #fff;
+}
+
+.nx-btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+.nx-btn.ghost {
+  background: transparent;
+}
+
+.nx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.nx-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0c0e13;
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+  color: var(--nx-text);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.nx-input:focus {
+  outline: none;
+  border-color: var(--nx-cyan);
+}
+
+.nx-label {
+  font-size: 0.75rem;
+  color: var(--nx-muted);
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.nx-steps {
+  counter-reset: nxstep;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nx-steps li {
+  counter-increment: nxstep;
+  position: relative;
+  padding: 0.55rem 0 0.55rem 2.4rem;
+  border-bottom: 1px solid var(--nx-border);
+  font-size: 0.9rem;
+}
+
+.nx-steps li:last-child {
+  border-bottom: none;
+}
+
+.nx-steps li::before {
+  content: counter(nxstep);
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: #12151c;
+  border: 1px solid var(--nx-border);
+  color: var(--nx-cyan);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nx-status {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--nx-muted);
+  min-height: 1.2rem;
+}
+
+.nx-status.ok {
+  color: var(--nx-green);
+}
+
+.nx-status.err {
+  color: var(--nx-red);
+}
+
+.nx-links a {
+  display: inline-block;
+  margin: 0.2rem 0.65rem 0.2rem 0;
+  font-size: 0.88rem;
+}
+
+/* Hide default h1 from markdown title when using console hero */
+.nx-console + * {
+  /* no-op */
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: var(--nx-radius);
+  border-color: var(--nx-border);
+  background: var(--nx-panel);
+}
+
+/* Tighter nav for app feel */
+.md-header {
+  background: #0a0c10 !important;
+  box-shadow: none;
+  border-bottom: 1px solid var(--nx-border);
+}
+
+.md-tabs {
+  background: #0a0c10 !important;
+  border-bottom: 1px solid var(--nx-border);
+}

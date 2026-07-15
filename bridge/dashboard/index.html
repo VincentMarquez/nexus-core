@@ -3,101 +3,299 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NEXUS Core — dashboard</title>
+  <title>NEXUS — start console</title>
   <style>
-    :root { font-family: ui-sans-serif, system-ui, sans-serif; color: #e8eaed; background: #0f1115; }
-    body { margin: 0; padding: 1.25rem; max-width: 960px; margin-inline: auto; }
-    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; }
-    .sub { color: #9aa0a6; font-size: 0.9rem; margin-bottom: 1.25rem; }
+    :root {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      color: #e8eaed;
+      background: #0f1115;
+      --panel: #1a1d24;
+      --border: #2a2f3a;
+      --muted: #9aa0a6;
+      --link: #8ab4f8;
+      --cyan: #22d3ee;
+      --green: #7ddea5;
+      --green-bg: #0d3b2e;
+      --amber: #f0d77d;
+      --amber-bg: #3b2f0d;
+      --red: #f5a8a8;
+      --red-bg: #3b1515;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 1.25rem; max-width: 1040px; margin-inline: auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.1rem; line-height: 1.45; }
+    .hero {
+      background: linear-gradient(145deg, #12151c 0%, #1a1d24 50%, #15122a 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.15rem 1.25rem 1.25rem;
+      margin-bottom: 1rem;
+    }
     .grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
     @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
-    section { background: #1a1d24; border: 1px solid #2a2f3a; border-radius: 10px; padding: 1rem; }
-    h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9aa0a6; margin: 0 0 0.75rem; }
-    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; margin: 0.15rem; }
-    .online { background: #0d3b2e; color: #7ddea5; }
-    .offline { background: #3b1515; color: #f5a8a8; }
-    .busy { background: #3b2f0d; color: #f0d77d; }
+    section, .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    h2 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+    }
+    .pill {
+      display: inline-block;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin: 0.12rem;
+      border: 1px solid var(--border);
+      background: #12151c;
+      color: var(--muted);
+    }
+    .online { background: var(--green-bg); color: var(--green); border-color: #1a5c45; }
+    .offline { background: var(--red-bg); color: var(--red); border-color: #5c2a2a; }
+    .busy { background: var(--amber-bg); color: var(--amber); border-color: #5c4a14; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    td, th { text-align: left; padding: 0.35rem 0.25rem; border-bottom: 1px solid #2a2f3a; vertical-align: top; }
-    #log { font-family: ui-monospace, monospace; font-size: 0.75rem; max-height: 220px; overflow: auto; white-space: pre-wrap; color: #bdc1c6; }
-    a { color: #8ab4f8; }
-    .err { color: #f28b82; }
+    td, th { text-align: left; padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    #log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      max-height: 200px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #bdc1c6;
+      background: #0c0e13;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem;
+    }
+    a { color: var(--link); }
+    .err { color: var(--red); }
+    .ok { color: var(--green); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #12151c;
+      color: #e8eaed;
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--cyan); }
+    .btn.primary {
+      background: linear-gradient(135deg, #0e7490, #4f46e5);
+      border-color: transparent;
+      color: #fff;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    input[type="text"] {
+      width: 100%;
+      background: #0c0e13;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #e8eaed;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.88rem;
+      margin: 0.3rem 0 0.5rem;
+    }
+    input:focus { outline: none; border-color: var(--cyan); }
+    label { font-size: 0.75rem; color: var(--muted); }
+    .cmd {
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+      background: #0c0e13;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      color: #d7dbe0;
+      margin: 0.4rem 0;
+      word-break: break-all;
+    }
+    .statline { font-family: ui-monospace, monospace; font-size: 0.78rem; color: var(--muted); }
+    .mt { margin-top: 1rem; }
   </style>
 </head>
 <body>
-  <h1>NEXUS Core dashboard</h1>
-  <p class="sub">Local stub UI — no cloud keys. Polls <code>/api/status</code> + <code>/api/tasks</code>, streams <code>/api/events</code>.</p>
+  <div class="hero">
+    <h1>NEXUS start console</h1>
+    <p class="sub">
+      Local control plane — no cloud keys. Agents online below.
+      Stack was started with <code>./run</code> or <code>nexus start</code>.
+    </p>
+    <div id="agent-pills">loading…</div>
+    <p class="statline" id="bus-line">bus: …</p>
+    <div class="row">
+      <button type="button" class="btn primary" id="btn-refresh">Refresh</button>
+      <button type="button" class="btn" id="btn-ping-local">Ping local agent</button>
+      <a class="btn" href="https://vincentmarquez.github.io/nexus-core/" target="_blank" rel="noopener">Docs site</a>
+      <a class="btn" href="https://github.com/VincentMarquez/nexus-core" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <p class="statline" id="action-status"></p>
+  </div>
 
   <div class="grid">
     <section>
-      <h2>Agents</h2>
-      <div id="agents">loading…</div>
+      <h2>Quick start (terminal)</h2>
+      <div class="cmd" id="cmd-run">./run</div>
+      <div class="cmd" id="cmd-demo">make demo</div>
+      <div class="cmd" id="cmd-stop">nexus stop</div>
+      <div class="row">
+        <button type="button" class="btn" data-copy="cmd-run">Copy ./run</button>
+        <button type="button" class="btn" data-copy="cmd-demo">Copy demo</button>
+      </div>
     </section>
     <section>
-      <h2>Bus</h2>
-      <div id="bus">loading…</div>
+      <h2>GitHub job builder</h2>
+      <label for="repo">owner/repo or URL</label>
+      <input id="repo" type="text" placeholder="owner/repo" />
+      <label for="goal">goal (optional)</label>
+      <input id="goal" type="text" placeholder="make tests pass" />
+      <div class="cmd" id="cmd-do">nexus do owner/repo</div>
+      <div class="row">
+        <button type="button" class="btn primary" data-copy="cmd-do">Copy command</button>
+      </div>
     </section>
   </div>
 
-  <section style="margin-top:1rem">
-    <h2>Tasks <small style="font-weight:normal;color:#9aa0a6">(from NEXUS_STATE_DIR)</small></h2>
+  <section class="mt">
+    <h2>Tasks <small style="font-weight:normal;color:var(--muted)">(from NEXUS_STATE_DIR)</small></h2>
     <table>
       <thead><tr><th>id</th><th>status</th><th>step</th><th>objective</th></tr></thead>
       <tbody id="tasks"></tbody>
     </table>
   </section>
 
-  <section style="margin-top:1rem">
+  <section class="mt">
     <h2>Live events (SSE)</h2>
     <div id="log"></div>
   </section>
 
   <script>
-    const logEl = document.getElementById('log');
+    const logEl = document.getElementById("log");
+    const statusEl = document.getElementById("action-status");
+
     function log(line) {
-      logEl.textContent = `[${new Date().toISOString().slice(11,19)}] ${line}\n` + logEl.textContent;
+      logEl.textContent =
+        `[${new Date().toISOString().slice(11, 19)}] ${line}\n` + logEl.textContent;
     }
+
+    function setStatus(msg, ok) {
+      statusEl.textContent = msg || "";
+      statusEl.className = "statline " + (ok === true ? "ok" : ok === false ? "err" : "");
+    }
+
+    function copyId(id) {
+      const el = document.getElementById(id);
+      const text = el ? el.textContent : "";
+      navigator.clipboard.writeText(text).then(
+        () => setStatus("copied", true),
+        () => setStatus("copy failed", false)
+      );
+    }
+
+    document.querySelectorAll("[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", () => copyId(btn.getAttribute("data-copy")));
+    });
+
+    function rebuildDo() {
+      const r = (document.getElementById("repo").value || "owner/repo").trim() || "owner/repo";
+      const g = (document.getElementById("goal").value || "").trim();
+      let cmd = "nexus do " + r;
+      if (g) cmd += " --goal " + JSON.stringify(g);
+      document.getElementById("cmd-do").textContent = cmd;
+    }
+    document.getElementById("repo").addEventListener("input", rebuildDo);
+    document.getElementById("goal").addEventListener("input", rebuildDo);
+    rebuildDo();
 
     async function refresh() {
       try {
-        const st = await fetch('/api/status').then(r => r.json());
-        const ag = document.getElementById('agents');
-        ag.innerHTML = (st.agents || []).map(a => {
-          const cls = a.status === 'online' ? 'online' : a.status === 'busy' ? 'busy' : 'offline';
-          return `<span class="pill ${cls}">${a.agent}: ${a.status}</span>`;
-        }).join(' ') || '<span class="err">no agents</span>';
-        document.getElementById('bus').innerHTML =
-          `<div>bridge_dir: <code>${st.bridge_dir || ''}</code></div>` +
-          `<div>task files seen: ${st.tasks ?? '?'}</div>`;
+        const st = await fetch("/api/status").then((r) => r.json());
+        const pills = document.getElementById("agent-pills");
+        pills.innerHTML = (st.agents || [])
+          .map((a) => {
+            const cls =
+              a.status === "online" ? "online" : a.status === "busy" ? "busy" : "offline";
+            return `<span class="pill ${cls}">${a.agent}: ${a.status}</span>`;
+          })
+          .join(" ") || '<span class="pill offline">no agents</span>';
+        document.getElementById("bus-line").textContent =
+          `bridge_dir: ${st.bridge_dir || "—"}  ·  tasks: ${st.tasks ?? "?"}  ·  sse: live`;
       } catch (e) {
-        document.getElementById('agents').innerHTML = `<span class="err">${e}</span>`;
+        document.getElementById("agent-pills").innerHTML =
+          `<span class="pill offline">status error: ${e}</span>`;
       }
       try {
-        const t = await fetch('/api/tasks').then(r => r.json());
-        const tb = document.getElementById('tasks');
+        const t = await fetch("/api/tasks").then((r) => r.json());
+        const tb = document.getElementById("tasks");
         const rows = t.tasks || [];
-        tb.innerHTML = rows.length ? rows.map(x =>
-          `<tr><td>${x.task_id}</td><td>${x.status}</td><td>${x.current_step ?? ''}</td><td>${(x.objective||'').replace(/</g,'&lt;')}${x.error ? ' <span class="err">'+x.error+'</span>' : ''}</td></tr>`
-        ).join('') : '<tr><td colspan="4">No tasks yet — run <code>python examples/run_demo_task.py</code></td></tr>';
+        tb.innerHTML = rows.length
+          ? rows
+              .map(
+                (x) =>
+                  `<tr><td>${x.task_id}</td><td>${x.status}</td><td>${x.current_step ?? ""}</td><td>${(x.objective || "").replace(/</g, "&lt;")}${
+                    x.error ? ' <span class="err">' + x.error + "</span>" : ""
+                  }</td></tr>`
+              )
+              .join("")
+          : '<tr><td colspan="4" style="color:var(--muted)">No tasks yet — <code>make demo</code> or <code>nexus do owner/repo</code></td></tr>';
       } catch (e) {
-        document.getElementById('tasks').innerHTML = `<tr><td colspan="4" class="err">${e}</td></tr>`;
+        document.getElementById("tasks").innerHTML =
+          `<tr><td colspan="4" class="err">${e}</td></tr>`;
       }
     }
+
+    document.getElementById("btn-refresh").addEventListener("click", () => {
+      refresh();
+      setStatus("refreshed", true);
+    });
+
+    document.getElementById("btn-ping-local").addEventListener("click", async () => {
+      setStatus("pinging local…");
+      try {
+        const res = await fetch("/api/message", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            agent: "local",
+            prompt: "Reply with exactly: NEXUS_READY",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        const text = data.text || JSON.stringify(data);
+        setStatus("local: " + String(text).slice(0, 120), true);
+        log("ping local → " + String(text).slice(0, 200));
+      } catch (e) {
+        setStatus(String(e), false);
+        log("ping failed: " + e);
+      }
+    });
 
     refresh();
     setInterval(refresh, 2000);
 
     try {
-      const es = new EventSource('/api/events');
-      es.addEventListener('hello', ev => log('hello ' + ev.data.slice(0, 120)));
-      es.addEventListener('ping', () => {});
-      es.addEventListener('message_queued', ev => log('queued ' + ev.data));
-      es.addEventListener('message_done', ev => log('done ' + ev.data));
-      es.addEventListener('message_timeout', ev => log('timeout ' + ev.data));
-      es.addEventListener('bus_started', ev => log('bus_started ' + ev.data));
-      es.onerror = () => log('SSE connection issue (is the bus up?)');
+      const es = new EventSource("/api/events");
+      es.addEventListener("hello", (ev) => log("hello " + ev.data.slice(0, 120)));
+      es.addEventListener("ping", () => {});
+      es.addEventListener("message_queued", (ev) => log("queued " + ev.data));
+      es.addEventListener("message_done", (ev) => log("done " + ev.data));
+      es.addEventListener("message_timeout", (ev) => log("timeout " + ev.data));
+      es.addEventListener("bus_started", (ev) => log("bus_started " + ev.data));
+      es.onerror = () => log("SSE issue (is the bus up?)");
     } catch (e) {
-      log('SSE failed: ' + e);
+      log("SSE failed: " + e);
     }
   </script>
 </body>
