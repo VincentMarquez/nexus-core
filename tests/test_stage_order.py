@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from nexus.stages import (
+    APPLY_STAGES,
     DEFAULT_STAGES,
     SMOKE_STAGES,
     StageOrderError,
@@ -21,6 +22,21 @@ def test_default_and_smoke_orders():
     assert DEFAULT_STAGES[0] == "scout"
     assert "claim_verify" in DEFAULT_STAGES
     assert SMOKE_STAGES == ("mine", "grade", "claim_verify")
+    assert APPLY_STAGES == (
+        "mine",
+        "grade",
+        "claim_verify",
+        "plan_apply",
+        "apply",
+    )
+
+
+def test_apply_slice_runner():
+    r = StageRunner.apply_slice()
+    assert r.next() == "mine"
+    for s in APPLY_STAGES:
+        r.mark_complete(s)
+    assert r.is_done()
 
 
 def test_refuse_out_of_order():

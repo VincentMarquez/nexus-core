@@ -2544,7 +2544,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 
 def cmd_improve(args: argparse.Namespace) -> int:
-    """Self-improve smoke / ledger helpers (First apply slice P0)."""
+    """Self-improve smoke / apply / ledger helpers (First apply slice P0)."""
     from . import improve_smoke as ism
 
     sub = getattr(args, "improve_cmd", None) or "smoke"
@@ -2567,6 +2567,38 @@ def cmd_improve(args: argparse.Namespace) -> int:
             print(json.dumps(report, indent=2, default=str))
         else:
             print(ism.format_report(report))
+        return 0 if report.get("ok") else 1
+
+    if sub in ("apply", "worktree"):
+        from . import worktree_apply as wta
+
+        if getattr(args, "list_patterns", False):
+            rows = wta.list_patterns()
+            if getattr(args, "json", False):
+                print(json.dumps(rows, indent=2, default=str))
+            else:
+                for r in rows:
+                    print(f"{r['id']}: {r.get('repo')} — {r.get('description')}")
+            return 0
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        report = wta.run_apply(
+            root,
+            fixture=fixture,
+            repo=getattr(args, "repo", None),
+            pattern_id=getattr(args, "pattern", None) or wta.DEFAULT_PATTERN,
+            run_id=getattr(args, "run_id", None),
+            mode=getattr(args, "mode", None) or "auto",
+            cleanup=not bool(getattr(args, "keep", False)),
+            require_path_exists=bool(getattr(args, "require_path_exists", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(wta.format_report(report))
         return 0 if report.get("ok") else 1
 
     if sub == "ledger":
@@ -2592,7 +2624,7 @@ def cmd_improve(args: argparse.Namespace) -> int:
                 )
         return 0
 
-    print("usage: nexus improve smoke|ledger", file=sys.stderr)
+    print("usage: nexus improve smoke|apply|ledger", file=sys.stderr)
     return 2
 
 
@@ -3929,10 +3961,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         ep.set_defaults(func=cmd_eval)
     ev.set_defaults(func=cmd_eval, eval_cmd="smoke")
 
-    # First apply slice: mine → grade → claim_verify smoke + ledger tail
+    # First apply slice: mine → grade → claim_verify smoke + worktree apply + ledger
     imp = sub.add_parser(
         "improve",
-        help="self-improve smoke (mine→grade→claim_verify) + decision ledger",
+        help="self-improve smoke/apply (mine→…→worktree) + decision ledger",
     )
     imp.add_argument("--path", default=".", help="project workdir")
     imp_sub = imp.add_subparsers(dest="improve_cmd")
@@ -3955,6 +3987,46 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     imp_sm.add_argument("--json", action="store_true")
     imp_sm.set_defaults(func=cmd_improve, improve_cmd="smoke")
+    imp_ap = imp_sub.add_parser(
+        "apply",
+        help="P0.5 worktree-isolated apply of Markdown skill SoT pattern",
+    )
+    imp_ap.add_argument("--path", default=".", help="project workdir")
+    imp_ap.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    imp_ap.add_argument("--repo", default=None, help="select repo from digests/fixture")
+    imp_ap.add_argument("--run-id", default=None, dest="run_id")
+    imp_ap.add_argument(
+        "--pattern",
+        default="markdown-skill-sot-validator",
+        help="pattern id from catalog (default: markdown-skill-sot-validator)",
+    )
+    imp_ap.add_argument(
+        "--mode",
+        default="sandbox",
+        choices=["auto", "sandbox", "git"],
+        help="isolation mode (default: sandbox)",
+    )
+    imp_ap.add_argument(
+        "--keep",
+        action="store_true",
+        help="keep worktree after apply (no cleanup)",
+    )
+    imp_ap.add_argument(
+        "--list-patterns",
+        action="store_true",
+        help="list available apply patterns",
+    )
+    imp_ap.add_argument(
+        "--require-path-exists",
+        action="store_true",
+        help="fail if grade.path is not on disk",
+    )
+    imp_ap.add_argument("--json", action="store_true")
+    imp_ap.set_defaults(func=cmd_improve, improve_cmd="apply")
     imp_led = imp_sub.add_parser("ledger", help="show decision ledger tail")
     imp_led.add_argument("--path", default=".")
     imp_led.add_argument("--run-id", default=None, dest="run_id")

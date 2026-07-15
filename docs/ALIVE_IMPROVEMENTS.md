@@ -532,3 +532,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-3b40f6266f.md`
+
+## Cycle 2026-07-15 hard-apply P0.5 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: wshobson/agents (16.0 primary pattern) + cas/forge worktree isolation; plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT ordered stages **2510.13343**, Thucy claim-verify **2512.03278**, fault-tolerant checkpoint **2310.12670**, deterministic audit **2511.15755** (notes `improve-rx-fb9207372a` + priors)
+- apply slice (P0.5 worktree-isolated apply — **First apply slice** this session):
+  - `src/nexus/worktree_apply.py` — sandbox/git isolation under `.nexus_workspaces/apply_worktrees/`; pattern catalog `markdown-skill-sot-validator` (wshobson shape); skillpack validate in-worktree; main fingerprint isolation proof; ledger plan_apply+apply
+  - `src/nexus/stages.py` — `APPLY_STAGES` + `StageRunner.apply_slice()`
+  - `src/nexus/cli.py` — `nexus improve apply` (+ `--mode` / `--pattern` / `--keep` / `--list-patterns`)
+  - tests: `tests/test_worktree_apply.py`, `tests/test_stage_order.py` apply runner
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: cas/forge worktree isolation; wshobson Markdown SoT validate; soul/lumen ledger (pattern only, no tree vendor)
+- non-goals kept: no promote-to-main yet; no nested git worktree required (sandbox default); no vendored trees
+- next open: promote verified pack from worktree → main; more pattern catalog entries; wire apply into alive self_approve
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 376 passed; `nexus improve apply --mode sandbox` → pass YES for wshobson/agents
+
+## Cycle 2026-07-15 22:12:59Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fb9207372a.md`

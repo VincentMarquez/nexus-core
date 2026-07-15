@@ -38,6 +38,15 @@ SMOKE_STAGES: tuple[str, ...] = (
     "claim_verify",
 )
 
+# P0.5 worktree-isolated apply slice (claim-verified + ordered apply).
+APPLY_STAGES: tuple[str, ...] = (
+    "mine",
+    "grade",
+    "claim_verify",
+    "plan_apply",
+    "apply",
+)
+
 
 class StageOrderError(RuntimeError):
     """Stage requested out of order or unknown."""
@@ -145,6 +154,11 @@ class StageRunner:
     def smoke(cls) -> "StageRunner":
         """Runner for the first-apply mine→grade→claim_verify slice."""
         return cls(stages=SMOKE_STAGES)
+
+    @classmethod
+    def apply_slice(cls) -> "StageRunner":
+        """Runner for P0.5: mine→grade→claim_verify→plan_apply→apply."""
+        return cls(stages=APPLY_STAGES)
 
     def can_run(self, name: str) -> bool:
         return can_run(self.stages, name, self.completed)
