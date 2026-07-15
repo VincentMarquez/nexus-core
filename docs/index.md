@@ -1,8 +1,8 @@
 # NEXUS Core
 
-**Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
+![NEXUS Core banner](assets/banner.svg)
 
-![CLI multi-agent + resume + judge](assets/arch-cli-judge-resume.svg)
+**Multi-agent tasks that resume after a crash — with a judge that checks real success criteria, not “the model said OK.”**
 
 ## 60-second start
 
