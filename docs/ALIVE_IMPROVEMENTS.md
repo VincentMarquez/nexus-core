@@ -447,3 +447,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-b6536eed67.md`
+
+## Cycle 2026-07-15 hard-apply P2.4 + P2.5 + P3.1 (Grok 4.5 CLI worker)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IBM/AssetOpsBench (primary) + zenith / cycgraph promote + IMPROVE_OURS top repos plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-0a75f9514d.md`; communication **2203.08975**, deterministic audit **2511.15755**, checkpoint **2310.12670**)
+- apply slice (P2.4 JSON packs + P2.5 llm_judge + P3.1 improve_apply promote — **First apply slice** this session):
+  - `src/nexus/mcp_eval.py` — `nexus.scenario_pack/v1` load/write/merge/discover; pack aliases; `heuristic_judge` / `llm_judge` (pluggable, offline fallback); `static_json` alias
+  - `src/nexus/cli.py` — `nexus eval packs`; `--pack` / `--no-builtin` / `--discover-packs`
+  - `src/nexus/mcp_server.py` — `mcp_eval` pack args + action `packs`
+  - `src/nexus/improve_apply.py` — `_promote_gate()` before done (`promote_on_done` / `promote_require`); timeline promote events
+  - tests: `tests/test_mcp_eval.py`, `tests/test_improve_apply.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: IBM/AssetOpsBench scenario JSON packs + static/judge scorers; zenith/cycgraph independent verify-before-promote (pattern only, no tree vendor)
+- next open: scenario pack fixtures under `.nexus_state/mcp_eval/packs/` in-repo sample · wire promote_on_done from alive cycle · optional real LLM judge adapter
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 323 passed
+
+
+## Cycle 2026-07-15 21:30:48Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-0a75f9514d.md`

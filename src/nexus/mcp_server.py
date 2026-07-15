@@ -449,16 +449,16 @@ TOOLS = [
     {
         "name": "mcp_eval",
         "description": (
-            "P2.3 domain MCP eval smoke (AssetOpsBench-shaped): list scenarios or "
-            "run offline code-based scorers against live MCP tools; optional export "
-            "under .nexus_state/mcp_eval/."
+            "P2.3/P2.4 domain MCP eval smoke (AssetOpsBench-shaped): list/run "
+            "built-in + JSON scenario packs; offline code-based scorers; optional "
+            "export under .nexus_state/mcp_eval/."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "list | run | smoke (default: smoke)",
+                    "description": "list | run | smoke | packs (default: smoke)",
                     "default": "smoke",
                 },
                 "domain": {
@@ -468,6 +468,20 @@ TOOLS = [
                 "max_privilege": {
                     "type": "string",
                     "description": "read|write|ops|admin — skip higher-priv scenarios",
+                },
+                "pack": {
+                    "type": "string",
+                    "description": "JSON scenario pack path(s), comma-separated (P2.4)",
+                },
+                "no_builtin": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, skip built-in suite (packs only)",
+                },
+                "discover_packs": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Also load *.json under .nexus_state/mcp_eval/packs",
                 },
                 "export": {
                     "type": "boolean",
@@ -1048,16 +1062,46 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 if domain_raw
                 else None
             )
+            pack_raw = str(args.get("pack") or "").strip()
+            pack_paths: list[str] = []
+            root = _root()
+            for part in pack_raw.split(",") if pack_raw else []:
+                part = part.strip()
+                if not part:
+                    continue
+                pp = Path(part)
+                pack_paths.append(str(pp if pp.is_absolute() else (root / pp)))
+            include_builtin = not bool(args.get("no_builtin", False))
+            discover = bool(args.get("discover_packs", False))
             try:
+                if action == "packs":
+                    found = me.discover_packs(root)
+                    return _tool_result(
+                        json.dumps(
+                            {
+                                "schema": me.SCENARIO_PACK_SCHEMA,
+                                "count": len(found),
+                                "packs": [str(p) for p in found],
+                            },
+                            indent=2,
+                            default=str,
+                        )
+                    )
                 if action == "list":
                     rows = me.list_scenarios(
-                        domains=domains, max_privilege=max_priv
+                        workdir=root,
+                        packs=pack_paths or None,
+                        include_builtin=include_builtin,
+                        discover_packs_flag=discover,
+                        domains=domains,
+                        max_privilege=max_priv,
                     )
                     return _tool_result(
                         json.dumps(
                             {
                                 "schema": me.SCHEMA_VERSION,
                                 "count": len(rows),
+                                "packs": pack_paths,
                                 "scenarios": rows,
                             },
                             indent=2,
@@ -1074,11 +1118,14 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                             "out_dir escapes project root", is_error=True
                         )
                     report = me.run_and_export(
-                        _root(),
+                        root,
                         domains=domains,
                         max_privilege=max_priv,
                         out_dir=out_dir,
                         export=do_export,
+                        packs=pack_paths or None,
+                        include_builtin=include_builtin,
+                        discover_packs_flag=discover,
                     )
                     # Keep MCP payload bounded (drop full trajectories)
                     slim = {
@@ -1096,7 +1143,7 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             except Exception as e:
                 return _tool_result(f"mcp_eval error: {e}", is_error=True)
             return _tool_result(
-                f"unknown mcp_eval action: {action} (list|run|smoke)",
+                f"unknown mcp_eval action: {action} (list|run|smoke|packs)",
                 is_error=True,
             )
 

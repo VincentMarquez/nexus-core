@@ -285,3 +285,80 @@ def test_cli_demo_self_improve_slice(tmp_path: Path, monkeypatch):
     assert state.is_file()
     data = json.loads(state.read_text(encoding="utf-8"))
     assert data["phase"] == "done"
+
+
+# ---------------------------------------------------------------------------
+# P3.1 improve_apply promote gate
+# ---------------------------------------------------------------------------
+
+
+def test_promote_gate_skipped_by_default(tmp_path: Path):
+    run = ia.start_run(tmp_path, grade=ia.default_lumen_grade(), run_id="pg-skip")
+    st = run.run_to_done()
+    assert st["phase"] == "done"
+    assert "promote" not in run.meta or run.meta.get("promote", {}).get("skipped")
+
+
+def test_promote_gate_pass_and_journal(tmp_path: Path):
+    run = ia.start_run(
+        tmp_path,
+        grade=ia.default_lumen_grade(),
+        run_id="pg-pass",
+        meta={
+            "promote_on_done": True,
+            "promote_implementer": "worker",
+            "promote_verifier": "reviewer",
+            "promote_score": 0.9,
+            "promote_decision": "pass",
+        },
+    )
+    st = run.run_to_done()
+    assert st["phase"] == "done"
+    assert run.meta.get("verified") is True
+    blob = run.meta.get("promote") or {}
+    assert blob.get("ok") is True
+    events = [t.get("event") for t in run.timeline]
+    assert "promote" in events
+
+
+def test_promote_gate_fail_closed(tmp_path: Path):
+    run = ia.start_run(
+        tmp_path,
+        grade=ia.default_lumen_grade(),
+        run_id="pg-deny",
+        meta={
+            "promote_on_done": True,
+            "promote_require": True,
+            "promote_implementer": "worker",
+            "promote_verifier": "reviewer",
+            "promote_score": 0.1,  # below PASS_THRESHOLD
+            "promote_decision": "pass",
+        },
+    )
+    with pytest.raises(ia.PhaseGuardError, match="promote denied"):
+        run.run_to_done()
+    # left at audited (fail-closed before done)
+    assert run.phase == "audited"
+    assert (run.meta.get("promote") or {}).get("ok") is False
+    events = [t.get("event") for t in run.timeline]
+    assert "promote_denied" in events
+
+
+def test_promote_gate_soft_deny_still_completes(tmp_path: Path):
+    """promote_on_done without promote_require logs deny but reaches done."""
+    run = ia.start_run(
+        tmp_path,
+        grade=ia.default_lumen_grade(),
+        run_id="pg-soft",
+        meta={
+            "promote_on_done": True,
+            "promote_require": False,
+            "promote_implementer": "worker",
+            "promote_verifier": "reviewer",
+            "promote_score": 0.05,
+        },
+    )
+    st = run.run_to_done()
+    assert st["phase"] == "done"
+    assert (run.meta.get("promote") or {}).get("ok") is False
+    assert "promote_denied" in [t.get("event") for t in run.timeline]

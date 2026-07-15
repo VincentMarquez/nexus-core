@@ -2,51 +2,39 @@
 
 _Generated 2026-07-15 · hard-apply session_
 
-Model: `grok-4.5` · repos≥10 · arXiv≥10
+Model: `grok-4.5` · repos from IMPROVE_OURS (≥10) · arXiv under `.nexus_state/arxiv_improve/`
 
 ---
 
 ## Reasoning plan (this cycle)
 
-1. **Mine** — IMPROVE_OURS top clones under `.nexus_workspaces/scout_repos/` (no follow/star; no tree vendor).
-2. **Research** — arXiv improve notes under `.nexus_state/arxiv_improve/` (communication, context, audit).
-3. **Grade** — offline grades via `nexus.grade/v1` / IMPROVE_OURS scores.
-4. **Plan** — `docs/LATEST_IMPROVE_PLAN.md` priority table + First apply slice.
-5. **Apply** — smallest PR-sized change with tests; keep pytest green.
-6. **Log** — append `docs/ALIVE_IMPROVEMENTS.md`.
+1. **Read evidence** — `docs/SELF_IMPROVE_CYCLE.md`, `docs/LATEST_IMPROVE_PLAN.md`,
+   `.nexus_state/repo_mine/IMPROVE_OURS.md`, latest arXiv improve notes
+   (`improve-rx-0a75f9514d` + prior).
+2. **Grade backlog** — Prefer next open items from prior cycle, not re-ports of done work.
+3. **First apply slice** — Small, tested modules; patterns only from
+   `.nexus_workspaces/scout_repos/`; no tree vendor; no secrets; no force-push.
+4. **Verify** — `PYTHONPATH=src python3 -m pytest -q` green.
+5. **Document** — Update `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`.
 
-## This session (First apply slice)
+## Prior cycle next-open (source of this apply)
 
-| Item | Status |
-|------|--------|
-| P2.3 Domain MCP eval smoke (AssetOpsBench shape) | **landed** |
-| P3 Optional review→promote hook (zenith/cycgraph) | **landed (opt-in)** |
+From hard-apply P2.3 + P3:
 
-### Deliverables
+- JSON scenario packs
+- optional LLM-as-judge scorer
+- improve_apply promote gate wiring
 
-- `src/nexus/mcp_eval.py` — scenarios → trajectories → code scorers → `nexus.mcp_eval/v1` report
-- `nexus eval list|smoke|run` CLI
-- MCP tool `mcp_eval`
-- `engine._maybe_promote_after_review` (meta.promote_on_review)
-- Tests: `tests/test_mcp_eval.py`, promote cases in `tests/test_engine.py`
+## This session First apply slice
 
-### Patterns (shape only)
+| Item | Module | Pattern source |
+|------|--------|----------------|
+| P2.4 JSON scenario packs | `mcp_eval.py` + CLI/MCP | IBM/AssetOpsBench `scenarios/*.json` |
+| P2.5 pluggable llm_judge | `mcp_eval.py` scorers | AssetOpsBench static_json / judge; offline fallback |
+| P3.1 improve_apply promote | `improve_apply.py` | zenith IndependentVerify + cycgraph promote gate |
 
-- **IBM/AssetOpsBench** — scenario / trajectory / scorer / pass-rate
-- **mission-control** — CLI + MCP + export parity
-- **zenith / cycgraph** — independent verify before promote
-- **arXiv 2203.08975 / 2511.15755** — communication surface health + deterministic audit
+## Guardrails
 
-### Commands
-
-```bash
-nexus eval smoke
-nexus eval list --domain catalog
-PYTHONPATH=src python3 -m pytest -q
-```
-
-### Next open
-
-- Optional LLM-as-judge scorer family (still offline-default)
-- Domain scenario packs loaded from JSON (AssetOpsBench groundtruth shape)
-- Wire promote into improve_apply audited→done gate when meta requests it
+- Prefer small, tested changes; keep make test / pytest green.
+- Do **not** force-push; do **not** commit secrets; do **not** vendor whole upstream trees.
+- Port **patterns** from local clones under `.nexus_workspaces/scout_repos/`.

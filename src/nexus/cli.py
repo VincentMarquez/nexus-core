@@ -2391,7 +2391,7 @@ def cmd_tools(args: argparse.Namespace) -> int:
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
-    """P2.3 domain MCP eval smoke (AssetOpsBench-shaped)."""
+    """P2.3/P2.4 domain MCP eval smoke + JSON scenario packs."""
     from . import mcp_eval as me
 
     root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
@@ -2410,10 +2410,27 @@ def cmd_eval(args: argparse.Namespace) -> int:
         if tag_raw
         else None
     )
+    pack_raw = getattr(args, "pack", None) or ""
+    packs: list[str] = []
+    if pack_raw:
+        packs = [p.strip() for p in str(pack_raw).split(",") if p.strip()]
+    # resolve relative packs against project root
+    pack_paths = []
+    for p in packs:
+        pp = Path(p)
+        pack_paths.append(str(pp if pp.is_absolute() else (root / pp)))
+    include_builtin = not bool(getattr(args, "no_builtin", False))
+    discover = bool(getattr(args, "discover_packs", False))
 
     if sub == "list":
         rows = me.list_scenarios(
-            domains=domains, tags=tags, max_privilege=max_priv
+            workdir=root,
+            packs=pack_paths or None,
+            include_builtin=include_builtin,
+            discover_packs_flag=discover,
+            domains=domains,
+            tags=tags,
+            max_privilege=max_priv,
         )
         if as_json:
             print(
@@ -2421,6 +2438,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
                     {
                         "schema": me.SCHEMA_VERSION,
                         "count": len(rows),
+                        "packs": pack_paths,
                         "scenarios": rows,
                     },
                     indent=2,
@@ -2429,12 +2447,34 @@ def cmd_eval(args: argparse.Namespace) -> int:
             )
         else:
             print(f"schema: {me.SCHEMA_VERSION}  count={len(rows)}")
+            if pack_paths:
+                print(f"packs:  {', '.join(pack_paths)}")
             print(f"{'ID':28} {'DOMAIN':12} {'TOOL':24} METHOD")
             for r in rows:
                 print(
                     f"{r.get('id', ''):28} {r.get('domain', ''):12} "
                     f"{r.get('tool', ''):24} {r.get('scoring_method', '')}"
                 )
+        return 0
+
+    if sub == "packs":
+        found = me.discover_packs(root)
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "schema": me.SCENARIO_PACK_SCHEMA,
+                        "pack_dir": me.DEFAULT_PACK_DIR,
+                        "count": len(found),
+                        "packs": [str(p) for p in found],
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"pack_dir: {root / me.DEFAULT_PACK_DIR}  count={len(found)}")
+            for p in found:
+                print(f"  {p.relative_to(root)}")
         return 0
 
     if sub in ("run", "smoke"):
@@ -2449,6 +2489,9 @@ def cmd_eval(args: argparse.Namespace) -> int:
             max_privilege=max_priv,
             out_dir=str(out_dir),
             export=do_export,
+            packs=pack_paths or None,
+            include_builtin=include_builtin,
+            discover_packs_flag=discover,
         )
         if as_json:
             slim = {
@@ -2463,9 +2506,11 @@ def cmd_eval(args: argparse.Namespace) -> int:
                     f"export: {exp.get('out_dir')}  "
                     f"report={exp.get('report')}"
                 )
+            if pack_paths:
+                print(f"packs:  {', '.join(pack_paths)}")
         return 0 if report.get("ok") else 1
 
-    print("usage: nexus eval list|smoke|run", file=sys.stderr)
+    print("usage: nexus eval list|smoke|run|packs", file=sys.stderr)
     return 2
 
 
@@ -3706,50 +3751,64 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     ev = sub.add_parser(
         "eval",
-        help="domain MCP eval smoke: list / run scenarios (P2.3 AssetOpsBench shape)",
+        help="domain MCP eval smoke + JSON packs (P2.3/P2.4 AssetOpsBench shape)",
     )
     ev_sub = ev.add_subparsers(dest="eval_cmd")
-    ev_list = ev_sub.add_parser("list", help="list built-in domain scenarios")
-    ev_list.add_argument("--path", default=None, help="project root (default: cwd)")
-    ev_list.add_argument(
-        "--domain",
-        default=None,
-        help="filter domain(s), comma-separated",
+
+    def _eval_common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--path", default=None, help="project root (default: cwd)")
+        p.add_argument(
+            "--domain",
+            default=None,
+            help="filter domain(s), comma-separated",
+        )
+        p.add_argument(
+            "--tag",
+            default=None,
+            help="filter tag(s), comma-separated",
+        )
+        p.add_argument(
+            "--max-privilege",
+            default=None,
+            choices=["read", "write", "ops", "admin"],
+            help="skip scenarios above this privilege",
+        )
+        p.add_argument(
+            "--pack",
+            default=None,
+            help="JSON scenario pack path(s), comma-separated (P2.4)",
+        )
+        p.add_argument(
+            "--no-builtin",
+            action="store_true",
+            help="run/list pack scenarios only (skip built-in suite)",
+        )
+        p.add_argument(
+            "--discover-packs",
+            action="store_true",
+            help="also load *.json under .nexus_state/mcp_eval/packs",
+        )
+        p.add_argument("--json", action="store_true")
+
+    ev_list = ev_sub.add_parser(
+        "list", help="list built-in and/or pack scenarios"
     )
-    ev_list.add_argument(
-        "--tag",
-        default=None,
-        help="filter tag(s), comma-separated",
-    )
-    ev_list.add_argument(
-        "--max-privilege",
-        default=None,
-        choices=["read", "write", "ops", "admin"],
-        help="skip scenarios above this privilege",
-    )
-    ev_list.add_argument("--json", action="store_true")
+    _eval_common(ev_list)
     ev_list.set_defaults(func=cmd_eval)
+
+    ev_packs = ev_sub.add_parser(
+        "packs", help="list discovered JSON packs under default pack dir"
+    )
+    ev_packs.add_argument("--path", default=None, help="project root (default: cwd)")
+    ev_packs.add_argument("--json", action="store_true")
+    ev_packs.set_defaults(func=cmd_eval)
+
     for name, help_s in (
         ("smoke", "run full offline MCP smoke suite (default)"),
         ("run", "alias for smoke"),
     ):
         ep = ev_sub.add_parser(name, help=help_s)
-        ep.add_argument("--path", default=None, help="project root (default: cwd)")
-        ep.add_argument(
-            "--domain",
-            default=None,
-            help="filter domain(s), comma-separated",
-        )
-        ep.add_argument(
-            "--tag",
-            default=None,
-            help="filter tag(s), comma-separated",
-        )
-        ep.add_argument(
-            "--max-privilege",
-            default=None,
-            choices=["read", "write", "ops", "admin"],
-        )
+        _eval_common(ep)
         ep.add_argument(
             "--out",
             default=None,
@@ -3760,7 +3819,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             action="store_true",
             help="do not write report files",
         )
-        ep.add_argument("--json", action="store_true")
         ep.set_defaults(func=cmd_eval)
     ev.set_defaults(func=cmd_eval, eval_cmd="smoke")
 

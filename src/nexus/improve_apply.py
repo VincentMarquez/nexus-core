@@ -602,11 +602,99 @@ class ImproveApplyRun:
         self.save()
         return self.phase
 
+    def _promote_gate(self) -> dict[str, Any]:
+        """P3.1 independent verify before marking done (zenith / cycgraph).
+
+        Enabled when ``meta.promote_on_done`` is truthy (or grade sets it).
+        Fail-closed when ``meta.promote_require`` is truthy and verify denies.
+        Records timeline events ``promote`` / ``promote_denied`` and
+        ``meta.promote`` audit blob.
+        """
+        flag = self.meta.get("promote_on_done", self.grade.get("promote_on_done"))
+        if not flag or str(flag).strip().lower() in {"0", "false", "no", "off"}:
+            return {"skipped": True, "ok": True, "reason": "promote_not_requested"}
+
+        from .durability import IndependentVerify
+
+        implementer = str(
+            self.meta.get("promote_implementer")
+            or self.meta.get("implementer")
+            or self.grade.get("method")
+            or "improve_apply"
+        ).strip()
+        verifier = str(
+            self.meta.get("promote_verifier")
+            or self.meta.get("verifier")
+            or "independent_verify"
+        ).strip()
+        # Score: explicit meta, else grade.score (Grok mine grade)
+        score_raw = self.meta.get("promote_score", self.grade.get("score"))
+        try:
+            score_f = None if score_raw is None else float(score_raw)
+        except (TypeError, ValueError):
+            score_f = None
+        decision = str(
+            self.meta.get("promote_decision")
+            or self.meta.get("decision")
+            or "pass"
+        ).strip().lower()
+        evidence: list[str] = []
+        if self.audit_path:
+            evidence.append(str(self.audit_path))
+        if self.context_pack_path:
+            evidence.append(str(self.context_pack_path))
+        for item in self.meta.get("promote_evidence") or []:
+            if item:
+                evidence.append(str(item))
+
+        gate = IndependentVerify.from_meta(self.meta)
+        # Default improve-apply path: allow same-agent degraded unless forced
+        if (
+            "verify_require_cross_agent" not in self.meta
+            and "verify" not in self.meta
+        ):
+            gate.require_cross_agent = True
+            # if implementer == verifier, still need degraded for dry demos
+            if implementer == verifier:
+                gate.allow_same_agent_degraded = bool(
+                    self.meta.get("verify_allow_same_agent_degraded", True)
+                )
+
+        result = gate.evaluate(
+            implementer=implementer,
+            verifier=verifier,
+            score=score_f,
+            decision=decision or "pass",
+            evidence=evidence or None,
+        )
+        blob = result.to_dict()
+        blob["gate"] = gate.to_dict()
+        blob["phase"] = self.phase
+        self.meta["promote"] = blob
+
+        if result.ok:
+            self.meta["verified"] = True
+            self._log("promote", result.reason, **{k: blob[k] for k in ("score", "verifier") if k in blob})
+            self.save()
+            return blob
+
+        self._log("promote_denied", result.reason)
+        self.save()
+        require = self.meta.get("promote_require", self.grade.get("promote_require"))
+        require_s = str(require).strip().lower() if require is not None else ""
+        if require is True or require_s in {"1", "true", "yes", "on"}:
+            raise PhaseGuardError(
+                f"promote denied before done: {result.reason}"
+            )
+        return blob
+
     def ensure_done(self) -> str:
-        """Phase 4: mark complete."""
+        """Phase 4: optional promote gate, then mark complete."""
         if self.phase == "done":
             return self.phase
         self.ensure_audited()
+        # Gate before transition so fail-closed leaves phase at audited
+        self._promote_gate()
         self.transition("done")
         self.meta["completed_at"] = time.time()
         self._log("done", self.audit_path or "")
@@ -703,6 +791,7 @@ def start_run(
     fixture: Optional[Path | str] = None,
     run_id: Optional[str] = None,
     dry_run: bool = True,
+    meta: Optional[dict[str, Any]] = None,
 ) -> ImproveApplyRun:
     """Create a new improve-apply run from grade dict or fixture path."""
     workdir = Path(workdir).resolve()
@@ -717,6 +806,7 @@ def start_run(
         run_id=rid,
         grade=dict(grade),
         dry_run=dry_run,
+        meta=dict(meta or {}),
     )
     run.run_dir.mkdir(parents=True, exist_ok=True)
     run._log("start", f"repo={run.grade.get('repo')} score={run.grade.get('score')}")
