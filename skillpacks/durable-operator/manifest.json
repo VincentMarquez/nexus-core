@@ -2,7 +2,8 @@
   "id": "durable-operator",
   "version": "0.1.0",
   "name": "Durable operator board",
-  "tags": ["nexus", "durability", "hitl", "audit", "production"],
+  "tags": ["nexus", "durability", "hitl", "audit", "production", "ops"],
+  "privilege": "ops",
   "entrypoints": {
     "skill": "SKILL.md",
     "demo": "examples/demo_hitl_resume.py",
