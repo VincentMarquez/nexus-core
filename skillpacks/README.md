@@ -20,7 +20,7 @@ skillpacks/
 |------|---------|
 | [`durable-operator/`](durable-operator/) | Operator audit + HITL resume |
 | [`gemma-local-tools/`](gemma-local-tools/) | **Small/local LLM cheat sheet** — how Gemma (or any small model) uses Grok’s full tool belt + coding skills |
-| [`swe-pro-group-review/`](swe-pro-group-review/) | **SWE-bench Pro multi-AI group review** — Claude/Codex/Grok line-by-line; Gemini web/arXiv; local files |
+| [`swe-pro-group-review/`](swe-pro-group-review/) | **SWE-bench Pro multi-AI group review** — Grok implements; Claude + Codex review; Gemini web/arXiv; local files |
 
 ## Small models + full tools
 

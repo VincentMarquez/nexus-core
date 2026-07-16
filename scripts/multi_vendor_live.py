@@ -14,8 +14,8 @@ tasks in a loop (or once).
 
 Roles (default):
   planner/reviewer → Claude
-  implementer      → GPT (Codex)
-  adversary        → Grok 4.5
+  implementer      → Grok
+  adversary        → GPT (Codex / ChatGPT)
   tester           → local Ollama
   logger           → Gemini (research / external notes) when bridge is up
 
@@ -148,8 +148,8 @@ def workspace_handoff_demo() -> None:
     chat.parent.mkdir(parents=True, exist_ok=True)
     for agent, msg in (
         ("claude", "Claude: planning multi-vendor durable task"),
-        ("gpt", "Codex/GPT: ready to implement artifacts"),
-        ("grok", "Grok: ready to challenge plan and hard-grade"),
+        ("grok", "Grok: ready to implement artifacts"),
+        ("gpt", "Codex/GPT: ready to challenge plan and hard-grade"),
         ("local", "Ollama local: ready for test/log light turns"),
     ):
         entry = {

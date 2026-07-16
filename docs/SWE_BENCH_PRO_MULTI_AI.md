@@ -20,8 +20,8 @@ Your goal should be: **maximize official Pro resolve rate** with a human-like gr
 | Agent | Bus / CLI slot | Job on SWE-Pro |
 |-------|----------------|----------------|
 | **Claude** | `claude` | Plan, structure approach, **line-by-line review** pass 1 |
-| **ChatGPT (Codex)** | `gpt` | Implement patches, iterate on failing tests |
-| **Grok** | `grok` | Adversary / hard challenge, **review pass 2**, catch overfit |
+| **Grok** | `grok` | **Implement** patches, iterate on failing tests |
+| **ChatGPT (Codex)** | `gpt` | Adversary / hard challenge, **review pass 2**, catch overfit |
 | **Gemini** | `gemini` | **Web + arXiv** research (related bugs, papers, API docs) |
 | **Local LLM** (Gemma NVFP / Ollama light) | `local` or Grok model `gemma4` | **Local files**, search repo, logs, prior patches under `.nexus_state` |
 | **Official SWE-bench / Pro harness** | Docker | **Only** FAIL→PASS grader that counts |
@@ -30,12 +30,12 @@ Your goal should be: **maximize official Pro resolve rate** with a human-like gr
 
 For every candidate patch:
 
-1. **Codex** posts patch + summary  
+1. **Grok** posts patch + summary  
 2. **Claude** reviews line-by-line (correctness, edge cases, style)  
-3. **Grok** adversarial review (security, missed tests, “looks green but wrong”)  
+3. **Codex/ChatGPT** adversarial review (security, missed tests, “looks green but wrong”)  
 4. **Gemini** searches web/arXiv for known pitfalls on that library/issue class  
 5. **Local** greps the workspace for related fixes, prior failures, flaky tests  
-6. **Implementer** revises until **all reviewers** approve *or* tests prove pass  
+6. **Grok** revises until **all reviewers** approve *or* tests prove pass  
 7. **Harness** runs official Pro evaluation — not “we think it’s good”
 
 Nexus tools for handoff: `send_to_workspace` / `read_workspace_chat` with distinct `agent` ids.
@@ -46,8 +46,8 @@ Nexus tools for handoff: `send_to_workspace` / `read_workspace_chat` with distin
 
 ```text
                     ┌─ Claude  (plan + review L1)
-Issue / Pro task ───┼─ Codex   (implement)
-                    ├─ Grok    (adversary + review L2)
+Issue / Pro task ───┼─ Grok    (implement)
+                    ├─ Codex   (adversary + review L2)
                     ├─ Gemini  (arXiv + web)
                     └─ Local   (files / logs / prior runs)
                               │

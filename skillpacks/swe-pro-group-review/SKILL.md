@@ -1,6 +1,6 @@
 ---
 name: swe-pro-group-review
-description: Human-style multi-AI group code review for SWE-bench Pro. Claude + Codex + Grok review line-by-line; Gemini does web/arXiv; local checks files. Use when running multi-vendor SWE-Pro campaigns or PR-style ensemble review.
+description: Human-style multi-AI group code review for SWE-bench Pro. Grok implements; Claude + Codex/ChatGPT review line-by-line; Gemini does web/arXiv; local checks files. Use when running multi-vendor SWE-Pro campaigns or PR-style ensemble review.
 ---
 
 # SWE-Pro group review (human PR team)
@@ -11,9 +11,9 @@ You are one reviewer in a **multi-vendor review board**. Goal: maximize **offici
 
 | Agent id | Role |
 |----------|------|
-| `claude` | Structure, correctness, API contracts, missing edge cases |
-| `gpt` / Codex | Implementation quality, tests, incremental fixes |
-| `grok` | Adversarial: “how does this still fail in production?” |
+| `claude` | Structure, correctness, API contracts, missing edge cases (review L1) |
+| `grok` | **Implement** patches, tests, incremental fixes |
+| `gpt` / Codex | Adversarial review L2: “how does this still fail in production?” |
 | `gemini` | External evidence: docs, GitHub issues, arXiv |
 | `local` / gemma4 | Local search: repo files, logs, prior patches in `.nexus_state` |
 

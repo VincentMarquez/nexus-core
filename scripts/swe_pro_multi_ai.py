@@ -117,15 +117,15 @@ def campaign_brief() -> dict:
         "aspiration": "maximize resolve rate; 100% is not currently realistic on Pro",
         "roles": {
             "claude": "plan + line-by-line review L1",
-            "gpt": "Codex implement patches",
-            "grok": "adversary + review L2",
+            "grok": "implement patches",
+            "gpt": "Codex/ChatGPT adversary + review L2",
             "gemini": "web + arXiv research",
             "local": "local files, logs, prior failures under .nexus_state",
         },
         "protocol": [
-            "Codex implements",
+            "Grok implements",
             "Claude reviews line-by-line",
-            "Grok adversarial review",
+            "Codex/ChatGPT adversarial review",
             "Gemini posts external evidence",
             "Local greps repo/logs",
             "Revise until reviews clear",
@@ -144,8 +144,8 @@ def announce_roles(brief: dict) -> None:
     post_workspace(
         "nexus",
         "SWE-bench Pro multi-AI campaign started. Official Pro harness = only score. "
-        "Skill: swe-pro-group-review. Roles: Claude plan/review, Codex implement, "
-        "Grok adversary/review, Gemini arXiv/web, local files.",
+        "Skill: swe-pro-group-review. Roles: Claude plan/review, Grok implement, "
+        "Codex/ChatGPT adversary/review, Gemini arXiv/web, local files.",
         "campaign",
     )
     for agent, job in brief["roles"].items():
