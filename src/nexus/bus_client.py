@@ -19,7 +19,7 @@ class BusClient:
     """Thin client for the public bridge stub (or any compatible bus)."""
 
     base_url: str = "http://127.0.0.1:3099"
-    timeout_s: float = 300.0
+    timeout_s: float = 360.0  # match bus NEXUS_MSG_TIMEOUT_MS default (6 min)
     circuits: CircuitBreaker = field(default_factory=CircuitBreaker)
 
     def _url(self, path: str) -> str:

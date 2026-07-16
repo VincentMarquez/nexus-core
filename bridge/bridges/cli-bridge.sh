@@ -24,7 +24,7 @@ mkdir -p "$BRIDGE_DIR"
 PROMPT="$BRIDGE_DIR/${AGENT}-prompt.json"
 RESPONSE="$BRIDGE_DIR/${AGENT}-response.json"
 STATUS="$BRIDGE_DIR/${AGENT}-status.json"
-TIMEOUT_S="${NEXUS_CLI_TIMEOUT_S:-180}"
+TIMEOUT_S="${NEXUS_CLI_TIMEOUT_S:-360}"
 
 cleanup() {
   echo "{\"status\":\"offline\",\"ts\":$(date +%s000)}" >"$STATUS"

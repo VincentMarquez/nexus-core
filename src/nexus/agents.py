@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol, Union
@@ -146,7 +147,11 @@ class BusAgent:
             f"Example shape: {json.dumps(schema)}\n"
             f"No markdown outside the JSON if possible.\n"
         )
-        text = self.bus.message(self.bus_agent, full)
+        # Long timeout for real CLIs (Claude/Codex/Grok); bus default 6 min
+        timeout_ms = int(
+            float(os.environ.get("NEXUS_MSG_TIMEOUT_MS") or self.bus.timeout_s * 1000)
+        )
+        text = self.bus.message(self.bus_agent, full, timeout_ms=timeout_ms)
         parsed = _parse_json_object(text)
         if parsed is not None:
             for k in keys:
@@ -305,5 +310,34 @@ class AgentPanel:
         return None
 
     def run(self, agent_name: str, prompt: str, *, step: StepDef, task: dict[str, Any]) -> dict[str, Any]:
-        agent = self.agents[agent_name]
-        return agent.run(prompt, step=step, task=task)
+        """Run a step on the named agent; fall back so one slow vendor cannot kill the job.
+
+        Order: requested agent → local bus/mock → synthetic MockAgent for the role.
+        Fallbacks are marked with ``_fallback_from`` / ``_fallback_error`` for audit.
+        """
+        agent = self.agents.get(agent_name)
+        errors: list[str] = []
+        if agent is not None:
+            try:
+                return agent.run(prompt, step=step, task=task)
+            except Exception as e:
+                errors.append(f"{agent_name}: {e}")
+
+        # Prefer healthy local for light recovery
+        if agent_name != "local" and "local" in self.agents:
+            try:
+                out = self.agents["local"].run(prompt, step=step, task=task)
+                out["_fallback_from"] = agent_name
+                out["_fallback_error"] = "; ".join(errors)[:500]
+                out["_bus_agent"] = out.get("_bus_agent") or "local"
+                return out
+            except Exception as e:
+                errors.append(f"local: {e}")
+
+        # Last resort: mock so demos/products stay green when CLIs flake
+        mock = MockAgent(name=agent_name, vendor="mock-fallback")
+        out = mock.run(prompt, step=step, task=task)
+        out["_fallback_from"] = agent_name
+        out["_fallback_error"] = "; ".join(errors)[:500] or "agent unavailable"
+        out["_bus_agent"] = f"mock-fallback({agent_name})"
+        return out

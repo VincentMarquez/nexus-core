@@ -29,7 +29,9 @@ const AGENTS = (process.env.NEXUS_AGENTS || "claude,gpt,gemini,local")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-const DEFAULT_TIMEOUT_MS = Number(process.env.NEXUS_MSG_TIMEOUT_MS || 120_000);
+// Real CLIs (Claude / Codex / Grok) often need several minutes per step.
+// 120s caused mass 504s and failed multi-vendor demos for end users.
+const DEFAULT_TIMEOUT_MS = Number(process.env.NEXUS_MSG_TIMEOUT_MS || 360_000);
 
 if (!existsSync(BRIDGE_DIR)) mkdirSync(BRIDGE_DIR, { recursive: true });
 

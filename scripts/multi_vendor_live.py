@@ -35,8 +35,9 @@ os.chdir(ROOT)
 os.environ.setdefault("NEXUS_PROJECT_ROOT", str(ROOT))
 os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
 os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
-# CLI bridges need long timeouts for real Claude/Codex/Grok turns
-os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "300")
+# Product-grade timeouts: real Claude/Codex/Grok often exceed 2 minutes
+os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "360")
+os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "360000")
 os.environ.setdefault("NEXUS_GROK_BRIDGE_TURNS", "8")
 
 from nexus import DurableEngine, Settings, Task  # noqa: E402
@@ -162,11 +163,12 @@ def run_multi_vendor_task(port: int, cycle: int) -> dict:
     role_map.update({
         "planner": "claude",
         "adversary": "grok",
-        "implementer": "gpt",
+        "implementer": "gpt",  # Codex / ChatGPT CLI; falls back via panel if offline
         "tester": "local",
         "reviewer": "claude",
         "logger": "local",
     })
+    # deliver step is implementer — keep gpt but logger/local can finish light work
     base = f"http://127.0.0.1:{port}"
     bus = BusClient(base_url=base)
     if not bus.is_reachable():

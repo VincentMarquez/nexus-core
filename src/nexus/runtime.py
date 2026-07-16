@@ -242,6 +242,8 @@ class RuntimeManager:
             "NEXUS_BRIDGE_DIR": str(self.bridge_dir),
             "NEXUS_STATE_DIR": str(self.state_dir),
             "NEXUS_AGENTS": ",".join(agents),
+            # Product default: 6 minutes per real-CLI turn (was 2m → mass 504s)
+            "NEXUS_MSG_TIMEOUT_MS": os.environ.get("NEXUS_MSG_TIMEOUT_MS") or "360000",
         }
         pid = self.start_process(
             "bus",
@@ -278,7 +280,11 @@ class RuntimeManager:
 
     def start_cli_bridge(self, agent: str, cli_cmd: list[str]) -> int:
         script = self.root / "bridge" / "bridges" / "cli-bridge.sh"
-        env = {"NEXUS_BRIDGE_DIR": str(self.bridge_dir)}
+        env = {
+            "NEXUS_BRIDGE_DIR": str(self.bridge_dir),
+            # Real CLIs need several minutes; short timeouts → 504 → failed tasks
+            "NEXUS_CLI_TIMEOUT_S": os.environ.get("NEXUS_CLI_TIMEOUT_S") or "360",
+        }
         return self.start_process(
             f"bridge-{agent}",
             ["bash", str(script), agent, *cli_cmd],
