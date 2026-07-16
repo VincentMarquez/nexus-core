@@ -43,11 +43,24 @@ def default_model() -> str:
     explicit = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
     if explicit:
         return explicit
-    # Config default is grok-4.5; do not inherit invalid XAI_MODEL env pins.
+    # Latest cloud Grok for product work (subscription preferred over API).
     return "grok-4.5"
 
 
+def default_effort() -> str:
+    """Reasoning effort: none|minimal|low|medium|high|xhigh (max → xhigh)."""
+    raw = (os.environ.get("NEXUS_GROK_EFFORT") or "xhigh").strip().lower() or "xhigh"
+    if raw in ("max", "ultra", "highest"):
+        return "xhigh"
+    return raw
+
+
 def _child_env() -> dict[str, str]:
+    """Env for headless grok.
+
+    Default: **subscription (OIDC)** — strip XAI_API_KEY so CLI uses grok.com login.
+    Set NEXUS_GROK_USE_API=1 to keep API key billing instead.
+    """
     env = os.environ.copy()
     # Avoid child inheriting a broken model pin when we pass -m ourselves.
     bad = env.get("XAI_MODEL") or ""
@@ -55,6 +68,16 @@ def _child_env() -> dict[str, str]:
         "NEXUS_GROK_MODEL"
     ):
         env.pop("XAI_MODEL", None)
+    # Prefer subscription over API unless explicitly requested
+    use_api = (os.environ.get("NEXUS_GROK_USE_API") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "api",
+    )
+    if not use_api:
+        env.pop("XAI_API_KEY", None)
+        env.pop("XAI_API_BASE", None)
     return env
 
 
@@ -113,6 +136,7 @@ def grok_prompt(
         return {"ok": False, "error": "grok CLI not on PATH", "text": ""}
 
     model = model or default_model()
+    effort = default_effort()
     est = usage_mod.estimate_tokens(prompt) + 1024
     try:
         usage_mod.check_budget(est, raise_on_exceed=enforce_budget)
@@ -125,6 +149,8 @@ def grok_prompt(
         prompt,
         "-m",
         model,
+        "--reasoning-effort",
+        effort,
         "--max-turns",
         str(max_turns),
         "--disable-web-search",
@@ -176,6 +202,8 @@ def grok_prompt(
             "returncode": p.returncode,
             "stderr": (p.stderr or "")[-500:],
             "model": model,
+            "effort": effort,
+            "auth": "api" if (os.environ.get("NEXUS_GROK_USE_API") or "").strip() else "subscription",
             "max_turns": max_turns,
             "timeout_s": timeout_s,
         }
