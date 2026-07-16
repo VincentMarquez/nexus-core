@@ -8,6 +8,7 @@ First apply slice (docs/LATEST_IMPROVE_PLAN.md next PR after grade claims/FTS):
     → role gate: grader ≠ implementer ≠ verifier (anti-collusion)
     → budget check (Network-AI / mission-control)
     → decision package (2511.15755) before apply
+        (spine method/run_id on evidence_refs when durable grade present)
     → routa-lite board CLI/MCP
     → board signal → PrincipledStop gaps (sync_signal_to_stop)
 
@@ -359,6 +360,54 @@ def _spine_index(
     return out
 
 
+def spine_evidence_refs(candidate: dict[str, Any]) -> list[str]:
+    """Stable evidence_refs strings for durable improve_spine metadata.
+
+    Decision packages (2511.15755) and Thucy-style audits should cite *how*
+    a grade was produced when it came from the spine (method + run_id), not
+    only filesystem claim paths. Shape::
+
+        spine:method:{method}
+        spine:run:{run_id}
+        spine:grade:{grade_id}   # optional
+        spine:score:{score}      # optional float
+
+    Empty / missing spine fields yield no refs (fixtures stay path-only).
+    """
+    if not isinstance(candidate, dict):
+        return []
+    on_spine = bool(candidate.get("on_spine"))
+    spine_method = str(candidate.get("spine_method") or "").strip()
+    run_id = str(candidate.get("spine_run_id") or "").strip()
+    grade_id = str(candidate.get("spine_grade_id") or "").strip()
+    # Emit only when we have at least one durable spine signal
+    if not on_spine and not spine_method and not run_id and not grade_id:
+        return []
+
+    refs: list[str] = []
+    method = spine_method or str(candidate.get("method") or "").strip()
+    if method and (on_spine or spine_method):
+        refs.append(f"spine:method:{method}")
+    if run_id:
+        refs.append(f"spine:run:{run_id}")
+    if grade_id:
+        refs.append(f"spine:grade:{grade_id}")
+    ss = candidate.get("spine_score")
+    if ss is not None and on_spine:
+        try:
+            refs.append(f"spine:score:{float(ss)}")
+        except (TypeError, ValueError):
+            pass
+    # De-dupe preserve order
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in refs:
+        if r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
 def spine_rank_delta(
     grade: dict[str, Any],
     spine_row: Optional[dict[str, Any]],
@@ -566,6 +615,7 @@ def select_candidates(
             "spine_boost": 0.0,
             "spine_run_id": None,
             "spine_method": None,
+            "spine_grade_id": None,
         }
         if use_spine and repo:
             spine_delta, spine_meta = spine_rank_delta(g, spine_by_repo.get(repo))
@@ -580,12 +630,14 @@ def select_candidates(
             rs = round(rs + 1.0, 4)
 
         claim_check = verify_or_report(g)
+        # Prefer durable spine method over offline fixture method when present
+        method_out = spine_meta.get("spine_method") or g.get("method")
         row = {
             "repo": repo,
             "score": float(g.get("score") or 0),
             "idea": g.get("idea"),
             "skill": g.get("skill"),
-            "method": g.get("method"),
+            "method": method_out,
             "path": g.get("path"),
             "pattern": g.get("pattern") or "",
             "rank": rs,
@@ -594,6 +646,8 @@ def select_candidates(
             "spine_score": spine_meta.get("spine_score"),
             "spine_boost": float(spine_meta.get("spine_boost") or 0.0),
             "spine_run_id": spine_meta.get("spine_run_id"),
+            "spine_method": spine_meta.get("spine_method"),
+            "spine_grade_id": spine_meta.get("spine_grade_id"),
             "evidence_hits": len(hits),
             "evidence": [
                 {
@@ -768,6 +822,20 @@ def gate_apply(
         conf = max(0.0, min(1.0, score_f / 20.0))
     # bump confidence with evidence density
     conf = min(1.0, conf + 0.05 * min(int(candidate.get("evidence_hits") or 0), 4))
+    # modest bump when durable spine method is cited
+    spine_refs = spine_evidence_refs(candidate)
+    if spine_refs:
+        conf = min(1.0, conf + 0.03)
+
+    # Path/claim refs first, then spine method/run (2511.15755 evidence package)
+    refs: list[str] = []
+    for p in evidence_paths:
+        s = str(p or "").strip()
+        if s and s not in refs:
+            refs.append(s)
+    for sref in spine_refs:
+        if sref not in refs:
+            refs.append(sref)
 
     return {
         "schema": DECISION_SCHEMA,
@@ -783,12 +851,19 @@ def gate_apply(
             "score": candidate.get("score"),
             "idea": candidate.get("idea"),
             "skill": candidate.get("skill"),
+            "method": candidate.get("method") or candidate.get("spine_method"),
             "path": candidate.get("path"),
             "pattern": candidate.get("pattern"),
             "rank": candidate.get("rank"),
             "evidence_hits": candidate.get("evidence_hits"),
+            "on_spine": bool(candidate.get("on_spine")),
+            "spine_method": candidate.get("spine_method"),
+            "spine_run_id": candidate.get("spine_run_id"),
+            "spine_score": candidate.get("spine_score"),
+            "spine_boost": candidate.get("spine_boost"),
+            "spine_grade_id": candidate.get("spine_grade_id"),
         },
-        "evidence_refs": evidence_paths[:10],
+        "evidence_refs": refs[:12],
         "claims_summary": [
             e.get("statement")
             for e in (candidate.get("evidence") or [])[:5]
@@ -847,12 +922,14 @@ def candidate_from_grade(grade: dict[str, Any]) -> dict[str, Any]:
             }
         )
     hits = len(evidence)
+    method = grade.get("method") or grade.get("spine_method")
+    on_spine = bool(grade.get("on_spine") or grade.get("spine_run_id") or grade.get("spine_method"))
     row = {
         "repo": repo,
         "score": score,
         "idea": grade.get("idea"),
         "skill": grade.get("skill"),
-        "method": grade.get("method"),
+        "method": method,
         "path": grade.get("path"),
         "pattern": grade.get("pattern") or "",
         "rank": rank_score({"score": score}, evidence),
@@ -861,6 +938,14 @@ def candidate_from_grade(grade: dict[str, Any]) -> dict[str, Any]:
         "claims": len(claims) if isinstance(claims, list) else 0,
         "claim_ok": bool(evidence),
         "source": grade.get("source") or "",
+        "on_spine": on_spine,
+        "spine_method": grade.get("spine_method") or (method if on_spine else None),
+        "spine_run_id": grade.get("spine_run_id") or grade.get("run_id"),
+        "spine_score": grade.get("spine_score") if grade.get("spine_score") is not None else (
+            score if on_spine else None
+        ),
+        "spine_grade_id": grade.get("spine_grade_id") or grade.get("id"),
+        "spine_boost": grade.get("spine_boost"),
     }
     return row
 
@@ -909,6 +994,12 @@ def decision_for_grade(
         "evidence_hits": cand.get("evidence_hits"),
         "pattern": cand.get("pattern"),
         "path": cand.get("path"),
+        "method": cand.get("method") or cand.get("spine_method"),
+        "on_spine": cand.get("on_spine"),
+        "spine_method": cand.get("spine_method"),
+        "spine_run_id": cand.get("spine_run_id"),
+        "spine_score": cand.get("spine_score"),
+        "spine_grade_id": cand.get("spine_grade_id"),
     }
     return gate
 
@@ -1702,6 +1793,7 @@ __all__ = [
     "format_selection",
     "rank_score",
     "spine_rank_delta",
+    "spine_evidence_refs",
     "SPINE_BOOST",
     "smoke_board_sync",
 ]

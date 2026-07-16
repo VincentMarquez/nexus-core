@@ -849,3 +849,22 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fa89506430.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — spine method + MisterSmith/solace + gated Grok (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI 17 / wshobson 16 / MisterSmith / solace-agent-mesh / cas / soul / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: decision package **2511.15755**, Thucy **2512.03278**, multi-LLM tools **2401.07324**, communication **2203.08975**, AOAD-MAT **2510.13343** (notes `improve-rx-997436d67e` + priors)
+- apply slice (**First apply slice** — close prior open: spine method on evidence_refs · MisterSmith/solace patterns · gated live Grok judge):
+  - `src/nexus/apply_select.py` — `spine_evidence_refs()`; select rows carry `spine_method`/`spine_grade_id`; `gate_apply` cites `spine:method:`/`spine:run:` on decision_package; candidate method from durable spine
+  - `src/nexus/worktree_apply.py` — patterns `mistersmith-runtime-ops` (hard caps) + `solace-mesh-events-ops` (journal/handoff/eval)
+  - tests: `tests/test_apply_select.py` (spine refs + gate), `test_worktree_apply.py` (new patterns), `test_mcp_eval.py` (`test_live_grok_judge_gated_integration` skips offline)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: MisterSmith supervised runtime; solace-agent-mesh events; cas/soul durable method on audit; 2511.15755 decision package (pattern only, no tree vendor)
+- non-goals kept: no live Grok in default CI; no vendored trees; no auto-promote without flags
+- next open: decision_package `use_spine` CLI flag · spine method on board text lines · optional nightly live judge · more pattern catalog (agent-fleet / zenith)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **498 passed, 1 skipped**
+
+## Cycle 2026-07-16 01:01:26Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-997436d67e.md`

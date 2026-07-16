@@ -639,6 +639,51 @@ def test_make_grok_judge_falls_back_offline(monkeypatch):
     assert "grok_unavailable" in r2.reason
 
 
+def test_live_grok_judge_gated_integration():
+    """Opt-in live Grok judge (skipped unless NEXUS_LIVE_GROK_JUDGE=1 + CLI).
+
+    Unit suite stays offline. Operators enable with::
+
+        NEXUS_LIVE_GROK_JUDGE=1 PYTHONPATH=src python3 -m pytest \\
+          tests/test_mcp_eval.py::test_live_grok_judge_gated_integration -q
+    """
+    import os
+
+    import pytest
+
+    import nexus.grok_worker as gw
+
+    if (os.environ.get("NEXUS_LIVE_GROK_JUDGE") or "").strip().lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        pytest.skip("set NEXUS_LIVE_GROK_JUDGE=1 to run live Grok judge")
+    if not gw.grok_available():
+        pytest.skip("grok CLI not on PATH")
+
+    judge = me.make_grok_judge(fallback_heuristic=False, timeout=90.0, max_turns=1)
+    sc = me.Scenario(
+        id="live-gj",
+        domain="ops",
+        text="Does the answer confirm project_root and server name?",
+        tool="workspace_info",
+        scoring_method="llm_judge",
+        expected="project_root must be present; server must mention nexus",
+    )
+    traj = _traj(
+        "project_root=/path/to/nexus-core server=nexus-workspace status=ok"
+    )
+    r = judge(sc, traj)
+    assert r.method == "llm_judge"
+    assert isinstance(r.score, (int, float))
+    assert 0.0 <= float(r.score) <= 1.0
+    assert r.reason  # non-empty justification
+    # Criteria are satisfied; allow borderline scores but require not hard-fail
+    assert r.ok or float(r.score) >= 0.5, r
+
+
 def test_make_grok_judge_parses_json_response(monkeypatch):
     """Grok adapter maps structured ok/score/reason into ScorerResult."""
     import nexus.grok_worker as gw

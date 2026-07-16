@@ -131,6 +131,46 @@ def test_pattern_catalog_has_openrouter_research(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_mistersmith_runtime(tmp_path: Path):
+    """MattMagg/MisterSmith supervised runtime + hard caps skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "mistersmith-runtime-ops" for r in rows)
+    p = wta.get_pattern("mistersmith-runtime-ops")
+    assert p["repo"] == "MattMagg/MisterSmith"
+    assert p["pack_id"] == "mistersmith-runtime-ops"
+    meta = wta.create_worktree(tmp_path, job_id="ms-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "mistersmith-runtime-ops", job_id="ms-1")
+    assert any("mistersmith-runtime-ops" in f for f in applied["files_written"])
+    skill = (
+        wt / "skillpacks" / "mistersmith-runtime-ops" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "budget" in skill.lower() or "hard" in skill.lower()
+    assert "cap" in skill.lower() or "max_steps" in skill.lower() or "max_tokens" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "mistersmith-runtime-ops")
+    assert ver["ok"] is True, ver
+
+
+def test_pattern_catalog_has_solace_mesh_events(tmp_path: Path):
+    """SolaceLabs/solace-agent-mesh event journal + eval skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "solace-mesh-events-ops" for r in rows)
+    p = wta.get_pattern("solace-mesh-events-ops")
+    assert p["repo"] == "SolaceLabs/solace-agent-mesh"
+    assert p["pack_id"] == "solace-mesh-events-ops"
+    meta = wta.create_worktree(tmp_path, job_id="sol-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "solace-mesh-events-ops", job_id="sol-1")
+    assert any("solace-mesh-events-ops" in f for f in applied["files_written"])
+    skill = (
+        wt / "skillpacks" / "solace-mesh-events-ops" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "event" in skill.lower() or "journal" in skill.lower()
+    assert "handoff" in skill.lower() or "eval" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "solace-mesh-events-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")

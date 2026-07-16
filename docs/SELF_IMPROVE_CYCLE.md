@@ -8,29 +8,36 @@ Model: `grok-4.5` · repos from IMPROVE_OURS (≥10.0) · arXiv research notes u
 
 ## Reasoning plan (this cycle)
 
-1. **Read** `IMPROVE_OURS.md`, latest arXiv improve notes, and `ALIVE_IMPROVEMENTS.md` “next open”.
+1. **Read** `IMPROVE_OURS.md`, latest arXiv improve notes (`improve-rx-997436d67e`), and `ALIVE_IMPROVEMENTS.md` “next open”.
 2. **Prioritize** small, tested ports — no vendored trees, no force-push, no secrets.
-3. **First apply slice** (landed): spine-aware board ranking + openrouter research pattern.
-4. **Verify** with `pytest`; update `LATEST_IMPROVE_PLAN.md` + this log’s companion `ALIVE_IMPROVEMENTS.md`.
+3. **First apply slice** (landed): spine method on decision_package evidence_refs + MisterSmith/solace patterns + gated live Grok judge test.
+4. **Verify** with `pytest`; update `LATEST_IMPROVE_PLAN.md` + companion `ALIVE_IMPROVEMENTS.md`.
 
-## Why spine-aware ranking
+## Why spine method on evidence_refs
 
-Improve spine already gates hard apply (`require_spine`). Without board awareness, operators still rank stale fixture digests above durable Grok grades. Porting cas/soul “durable context on the board” makes select/board prefer checkpointed grades (papers 2604.03350 / 2510.13343).
+Spine-aware ranking already boosts select/board, but decision packages only cited filesystem claim paths. Operators and dual-control gates need to know *which durable method/run* produced the grade (papers 2511.15755 decision package, Thucy 2512.03278). Porting soul/cas “method on the ledger surface” into `evidence_refs` closes that audit gap without network calls.
 
-## Why openrouter research pattern
+## Why MisterSmith + Solace patterns
 
-`wheattoast11/openrouter-deep-research-mcp` (score 15) contributes circuit-breaker research loops. Nexus already has `circuits.CircuitBreaker`; the skillpack pattern documents operator usage without vendoring the MCP tree.
+- **MattMagg/MisterSmith** — supervised multi-agent runtime with hard token/step caps; maps to Nexus `RunBudget` + task cost/graph inspect.
+- **SolaceLabs/solace-agent-mesh** — event-driven mesh + eval matrix; maps to task journal handoff events + offline MCP eval smoke.
+
+Both land as skillpack catalog entries (validate offline); no tree vendoring.
+
+## Why gated live Grok judge
+
+`make_grok_judge` already falls back offline. A single integration test, skipped unless `NEXUS_LIVE_GROK_JUDGE=1` and `grok` is on PATH, proves the live path without breaking default CI (arXiv 2401.07324 multi-LLM tooling).
 
 ## Apply order
 
 ```
-P0 spine board rank  →  P0 openrouter pattern  →  (next) gated live judge
+P0 spine evidence_refs  →  P0 MisterSmith/solace patterns  →  P0 gated live judge test
 ```
 
 ## Evidence commands
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli improve select --no-preference
 PYTHONPATH=src python3 -m nexus.cli improve board
+PYTHONPATH=src python3 -m nexus.cli improve apply --list-patterns
 ```

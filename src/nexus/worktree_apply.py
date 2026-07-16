@@ -337,6 +337,112 @@ nexus eval smoke --llm-judge auto
 """
 
 
+# MattMagg/MisterSmith shape: supervised multi-agent runtime + hard caps
+_MISTERSMITH_RUNTIME_MANIFEST = {
+    "id": "mistersmith-runtime-ops",
+    "version": "0.1.0",
+    "name": "MisterSmith Runtime Ops",
+    "description": (
+        "Supervised multi-agent runtime ops: hard token/step caps, actor "
+        "supervision, CLI inspect (MattMagg/MisterSmith shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": [
+        "runtime",
+        "supervision",
+        "budget",
+        "hard-cap",
+        "mistersmith",
+        "actors",
+    ],
+}
+
+_MISTERSMITH_RUNTIME_SKILL_MD = """# MisterSmith Runtime Ops
+
+## When to use
+
+- Enforce hard max_steps / max_tokens caps on improve and engine runs
+- Supervise multi-agent workers with fail-closed budget gates
+- Inspect task cost / graph / evidence after a supervised cycle
+
+## Commands
+
+```bash
+nexus task cost --task-id <id>
+nexus task graph --task-id <id> --mermaid
+nexus task evidence --task-id <id>
+nexus improve board
+nexus improve apply --pattern mistersmith-runtime-ops
+```
+
+## Rules
+
+- Prefer `RunBudget` + engine `task_max_tokens` / `task_max_steps` hard stops
+- Actor/role separation: grader ≠ implementer ≠ verifier (anti-collusion)
+- Journal budget events on exhaust; never silent continue past hard cap
+- No vendored MisterSmith crates — patterns only
+
+## Success
+
+- Skillpack validates offline
+- Cost board shows budget remaining when meta.max_tokens set
+- Hard-stop fails closed (status failed + budget event)
+"""
+
+
+# SolaceLabs/solace-agent-mesh shape: event-driven mesh + eval matrix
+_SOLACE_MESH_MANIFEST = {
+    "id": "solace-mesh-events-ops",
+    "version": "0.1.0",
+    "name": "Solace Mesh Events Ops",
+    "description": (
+        "Event-driven multi-agent mesh ops: journal events, handoff, "
+        "eval matrix smoke (SolaceLabs/solace-agent-mesh shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": [
+        "events",
+        "mesh",
+        "handoff",
+        "journal",
+        "eval",
+        "solace",
+    ],
+}
+
+_SOLACE_MESH_SKILL_MD = """# Solace Mesh Events Ops
+
+## When to use
+
+- Emit / inspect append-only task journals (`*.events.jsonl`)
+- Handoff between scout → grade → apply agents with event audit
+- Run offline MCP eval smoke as a mesh quality gate
+
+## Commands
+
+```bash
+nexus task events --task-id <id>
+nexus task replay --task-id <id>
+nexus improve work-ledger --tail 20
+nexus eval smoke --tag sample
+nexus improve apply --pattern solace-mesh-events-ops
+```
+
+## Rules
+
+- Prefer journal `handoff` / `step_complete` events over ad-hoc chat logs
+- Eval matrix runs offline (fixtures); live LLM judge is env-gated
+- Mesh topology is logical (agent roles), not a Solace broker dependency
+- No vendored solace-agent-mesh trees — patterns only
+
+## Success
+
+- Skillpack validates offline
+- Task events CLI returns tail of journal
+- Sample eval packs PASS under `make eval-samples`
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -445,6 +551,42 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "openrouter-research-ops",
+    },
+    "mistersmith-runtime-ops": {
+        "id": "mistersmith-runtime-ops",
+        "repo": "MattMagg/MisterSmith",
+        "description": (
+            "Supervised multi-agent runtime + hard caps skill "
+            "(MisterSmith shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/mistersmith-runtime-ops/manifest.json": json.dumps(
+                _MISTERSMITH_RUNTIME_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/mistersmith-runtime-ops/SKILL.md": _MISTERSMITH_RUNTIME_SKILL_MD,
+            "skillpacks/mistersmith-runtime-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "mistersmith-runtime-ops",
+    },
+    "solace-mesh-events-ops": {
+        "id": "solace-mesh-events-ops",
+        "repo": "SolaceLabs/solace-agent-mesh",
+        "description": (
+            "Event-driven mesh journal + eval matrix skill "
+            "(solace-agent-mesh shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/solace-mesh-events-ops/manifest.json": json.dumps(
+                _SOLACE_MESH_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/solace-mesh-events-ops/SKILL.md": _SOLACE_MESH_SKILL_MD,
+            "skillpacks/solace-mesh-events-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "solace-mesh-events-ops",
     },
 }
 
