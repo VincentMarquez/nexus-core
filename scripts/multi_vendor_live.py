@@ -38,12 +38,30 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 os.chdir(ROOT)
 os.environ.setdefault("NEXUS_PROJECT_ROOT", str(ROOT))
+# Load max-tier model pins if present
+_envf = ROOT / "config" / "max_models.env"
+if _envf.is_file():
+    for _line in _envf.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "export " not in _line:
+            continue
+        _kv = _line.replace("export ", "", 1).strip()
+        if "=" in _kv:
+            _k, _v = _kv.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
 os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
+os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
+os.environ.setdefault("NEXUS_CLAUDE_MODEL", "fable")
+os.environ.setdefault("NEXUS_CLAUDE_EFFORT", "max")
+os.environ.setdefault("NEXUS_CODEX_MODEL", "gpt-5.6-sol")
+os.environ.setdefault("NEXUS_CODEX_REASONING", "ultra")
+os.environ.setdefault("NEXUS_CODEX_SERVICE_TIER", "fast")
 os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
-# Product-grade timeouts: real Claude/Codex/Grok often exceed 2 minutes
-os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "360")
-os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "360000")
-os.environ.setdefault("NEXUS_GROK_BRIDGE_TURNS", "8")
+# Product-grade timeouts: max-tier Claude/Codex/Grok need headroom
+os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "600")
+os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "600000")
+os.environ.setdefault("NEXUS_GROK_BRIDGE_TURNS", "12")
 
 from nexus import DurableEngine, Settings, Task  # noqa: E402
 from nexus.agents import AgentPanel, DEFAULT_ROLE_TO_BUS  # noqa: E402
@@ -167,13 +185,13 @@ def run_multi_vendor_task(port: int, cycle: int) -> dict:
     # force multi-vendor map
     role_map.update({
         "planner": "claude",
-        "adversary": "grok",
-        "implementer": "gpt",  # Codex / ChatGPT CLI; falls back via panel if offline
+        "adversary": "gpt",  # Codex / ChatGPT — challenge / hard-grade
+        "implementer": "grok",  # Grok writes the code
         "tester": "local",
         "reviewer": "claude",
         "logger": "gemini",  # web/arXiv style notes when gemini bridge is up
     })
-    # deliver step is implementer — keep gpt but logger/local can finish light work
+    # deliver step is implementer (Grok); logger/local can finish light work
     base = f"http://127.0.0.1:{port}"
     bus = BusClient(base_url=base)
     if not bus.is_reachable():
@@ -199,8 +217,8 @@ def run_multi_vendor_task(port: int, cycle: int) -> dict:
     task = Task(
         task_id=tid,
         objective=(
-            "Multi-vendor durable pipeline: Claude plans, Grok challenges, "
-            "Codex/GPT implements a DEMO_OK artifact, local Ollama tests. "
+            "Multi-vendor durable pipeline: Claude plans, Codex/GPT challenges, "
+            "Grok implements a DEMO_OK artifact, local Ollama tests. "
             "Prove crash-safe multi-agent collaboration."
         ),
         success_criteria=["artifact contains DEMO_OK"],

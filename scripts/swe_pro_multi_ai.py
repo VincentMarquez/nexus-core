@@ -27,10 +27,28 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 os.chdir(ROOT)
 os.environ.setdefault("NEXUS_PROJECT_ROOT", str(ROOT))
+_envf = ROOT / "config" / "max_models.env"
+if _envf.is_file():
+    for _line in _envf.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "export " not in _line:
+            continue
+        _kv = _line.replace("export ", "", 1).strip()
+        if "=" in _kv:
+            _k, _v = _kv.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
 os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
+os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
+os.environ.setdefault("NEXUS_CLAUDE_MODEL", "fable")
+os.environ.setdefault("NEXUS_CLAUDE_EFFORT", "max")
+os.environ.setdefault("NEXUS_CODEX_MODEL", "gpt-5.6-sol")
+os.environ.setdefault("NEXUS_CODEX_REASONING", "ultra")
+os.environ.setdefault("NEXUS_CODEX_SERVICE_TIER", "fast")
 os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
-os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "360")
-os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "360000")
+os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "600")
+os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "600000")
+os.environ.setdefault("NEXUS_GROK_BRIDGE_TURNS", "12")
 
 from nexus import DurableEngine, Settings, Task  # noqa: E402
 from nexus.agents import AgentPanel, DEFAULT_ROLE_TO_BUS  # noqa: E402
@@ -159,8 +177,8 @@ def run_group_task(port: int) -> dict:
     role_map.update(
         {
             "planner": "claude",
-            "adversary": "grok",
-            "implementer": "gpt",
+            "adversary": "gpt",  # Codex / ChatGPT challenge + review L2
+            "implementer": "grok",  # Grok writes patches
             "tester": "local",
             "reviewer": "claude",
             "logger": "gemini",  # research/logger slot → Gemini when bridge is up
@@ -193,8 +211,8 @@ def run_group_task(port: int) -> dict:
         task_id=tid,
         objective=(
             "SWE-bench Pro multi-AI dry-run collaboration: "
-            "Claude plans a rigorous fix strategy; Grok challenges it; "
-            "Codex implements a DEMO_OK artifact proving multi-file discipline; "
+            "Claude plans a rigorous fix strategy; Codex/ChatGPT challenges it; "
+            "Grok implements a DEMO_OK artifact proving multi-file discipline; "
             "local verifies tests; Gemini records external research notes. "
             "Practice group review like a human PR team. "
             "Real Pro scoring requires official Docker harness + predictions.jsonl."

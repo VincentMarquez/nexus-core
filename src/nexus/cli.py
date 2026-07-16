@@ -126,12 +126,46 @@ def enable_agent_bridges(
 
     # Agent slots the bus expects — real CLIs when installed
     # Claude (Anthropic), gpt via Codex, Grok (xAI), Gemini
+    # Max-tier defaults (override via NEXUS_*_MODEL / *_EFFORT env — see docs/MAX_MODELS.md)
     root = Path(getattr(rt, "root", None) or Path.cwd())
     grok_wrap = root / "bridge" / "bridges" / "stdin_to_grok.py"
+    claude_model = (os.environ.get("NEXUS_CLAUDE_MODEL") or "fable").strip()
+    claude_effort = (os.environ.get("NEXUS_CLAUDE_EFFORT") or "max").strip()
+    codex_model = (os.environ.get("NEXUS_CODEX_MODEL") or "gpt-5.6-sol").strip()
+    codex_effort = (os.environ.get("NEXUS_CODEX_REASONING") or "ultra").strip()
+    codex_tier = (os.environ.get("NEXUS_CODEX_SERVICE_TIER") or "fast").strip()
+    gemini_model = (os.environ.get("NEXUS_GEMINI_MODEL") or "").strip()
+    # Grok model for bus is set inside stdin_to_grok.py via NEXUS_GROK_MODEL (default grok-4.5)
+    os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
+    os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
+
+    claude_cmd = [
+        "claude",
+        "--print",
+        "--model",
+        claude_model,
+        "--effort",
+        claude_effort,
+    ]
+    codex_cmd = [
+        "codex",
+        "exec",
+        "--skip-git-repo-check",
+        "-c",
+        f'model="{codex_model}"',
+        "-c",
+        f'model_reasoning_effort="{codex_effort}"',
+        "-c",
+        f'service_tier="{codex_tier}"',
+    ]
+    gemini_cmd = ["gemini"]
+    if gemini_model:
+        gemini_cmd.extend(["-m", gemini_model])
+
     cli_specs = [
-        ("claude", "claude", ["claude", "--print"]),
-        ("gpt", "codex", ["codex", "exec", "--skip-git-repo-check"]),
-        ("gemini", "gemini", ["gemini"]),
+        ("claude", "claude", claude_cmd),
+        ("gpt", "codex", codex_cmd),
+        ("gemini", "gemini", gemini_cmd),
         (
             "grok",
             "grok",
@@ -140,7 +174,7 @@ def enable_agent_bridges(
                 str(grok_wrap),
             ]
             if grok_wrap.is_file()
-            else ["grok", "-p"],  # fallback; wrapper preferred
+            else ["grok", "-p", "-m", os.environ.get("NEXUS_GROK_MODEL", "grok-4.5")],
         ),
     ]
 

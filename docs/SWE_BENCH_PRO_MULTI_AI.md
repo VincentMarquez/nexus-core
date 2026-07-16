@@ -123,7 +123,7 @@ Skill for reviewers: [`skillpacks/swe-pro-group-review/`](../skillpacks/swe-pro-
 ## Path toward “as high as possible” on Pro
 
 1. **Official harness only** for the score.  
-2. **Ensemble implement:** Codex primary; Claude/Grok propose alternate patches on hard fails.  
+2. **Ensemble implement:** Grok primary; Claude/Codex propose alternate patches on hard fails.  
 3. **Group review gate** before accepting a prediction.  
 4. **Gemini** feeds related papers/issues into workspace before implement.  
 5. **Local** maintains a failure bank under `.nexus_state/swe_pro/` (what failed, why).  
@@ -139,3 +139,8 @@ Skill for reviewers: [`skillpacks/swe-pro-group-review/`](../skillpacks/swe-pro-
 - [ALIVE.md](ALIVE.md) — self-improve under a goal  
 - `scripts/multi_vendor_live.py` — Claude + GPT + Grok + local durable runs  
 - `scripts/swe_pro_multi_ai.py` — Pro-oriented campaign + Gemini research role  
+
+## Max models
+
+See [MAX_MODELS.md](MAX_MODELS.md) — Claude Fable max, Codex gpt-5.6-sol ultra+fast, Grok 4.5 max.
+
