@@ -53,6 +53,7 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "index_workspace": "ops",
     "search_evidence": "read",
     "apply_select": "read",
+    "mine_eval_slice": "read",
     "improve_board": "read",
     "work_ledger": "ops",
     "ledger_append": "write",

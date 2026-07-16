@@ -2703,6 +2703,32 @@ def cmd_improve(args: argparse.Namespace) -> int:
             print(ism.format_report(report))
         return 0 if report.get("ok") else 1
 
+    # Plan §5 First apply slice: MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE
+    if sub in ("plan-slice", "plan_slice", "first-apply-slice", "first_apply_slice"):
+        from . import mine_eval_slice as mes
+
+        fixture = getattr(args, "fixture", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        report = mes.run_demo_slice(
+            root,
+            fixture=fixture,
+            repo=getattr(args, "repo", None) or "wshobson/agents",
+            run_id=getattr(args, "run_id", None),
+            min_score=float(
+                getattr(args, "min_score", None) or mes.DEFAULT_MIN_SCORE
+            ),
+            test_exit_code=int(getattr(args, "test_exit_code", None) or 0),
+            dry_run=not bool(getattr(args, "no_dry_run", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(mes.format_demo_report(report))
+        return 0 if report.get("ok") else 1
+
     if sub in ("apply", "worktree"):
         from . import worktree_apply as wta
 
@@ -5034,6 +5060,48 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     imp_ing.add_argument("--json", action="store_true")
     imp_ing.set_defaults(func=cmd_improve, improve_cmd="ingest")
+
+    imp_ps = imp_sub.add_parser(
+        "plan-slice",
+        help=(
+            "First apply slice (plan §5): durable grade ledger + claim gate + "
+            "MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE smoke (offline, dry-run)"
+        ),
+    )
+    imp_ps.add_argument("--path", default=".", help="project workdir")
+    imp_ps.add_argument(
+        "--fixture",
+        default=None,
+        help="grade JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    imp_ps.add_argument(
+        "--repo",
+        default="wshobson/agents",
+        help="repo_or_paper_id to load (default: wshobson/agents)",
+    )
+    imp_ps.add_argument("--run-id", default=None, dest="run_id")
+    imp_ps.add_argument(
+        "--min-score",
+        type=float,
+        default=14.0,
+        dest="min_score",
+        help="apply-candidate score threshold (default: 14.0)",
+    )
+    imp_ps.add_argument(
+        "--test-exit-code",
+        type=int,
+        default=0,
+        dest="test_exit_code",
+        help="simulated test exit code for claim gate (default: 0)",
+    )
+    imp_ps.add_argument(
+        "--no-dry-run",
+        action="store_true",
+        dest="no_dry_run",
+        help="mark dry_run=false (still no hard apply in this slice)",
+    )
+    imp_ps.add_argument("--json", action="store_true")
+    imp_ps.set_defaults(func=cmd_improve, improve_cmd="plan-slice")
 
     imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 

@@ -889,3 +889,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-4e382a3fbf.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — mine_eval_slice (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (wshobson 16 primary fixture / cas / soul / lumen / mission-control / …) plan=`docs/LATEST_IMPROVE_PLAN.md` §5 + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT order **2510.13343**, Thucy claims **2512.03278**, CEMA causal **2302.10809**, interleaved invariants **1301.6431**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN §5 — prove mine→grade→claim→ledger→smoke):
+  - `src/nexus/mine_eval_slice.py` — append-only SQLite under `.nexus_workspaces/mine_eval/slice/`; fields `repo_or_paper_id/score/idea/skill/method/causal_note/created_at/artifact_path`; migration guard; `ClaimResult`; stages `MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE`; `run_demo_slice` + kanban line
+  - `src/nexus/cli.py` — `nexus improve plan-slice` (+ `--repo` / `--min-score` / `--test-exit-code` / `--json`)
+  - `src/nexus/mcp_server.py` — tool `mine_eval_slice`; `apply_select` now honors `use_spine`/`use_preference`/`run_id` + spine/method text prefix
+  - `src/nexus/tool_catalog.py` — privilege `read` for `mine_eval_slice`
+  - tests: `tests/test_mine_eval_slice.py` (immutable ledger, claims, illegal transition, migrate twice, wshobson demo, 16/15/13 classify, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` landed table; this log
+- patterns: soul immutable ledger; lumen migration guard; wshobson smoke adapter; Thucy claim gate; AOAD-MAT ordered stages (pattern only, no tree vendor)
+- non-goals kept: no live Grok in unit tests; no hard apply (dry-run candidate only); no vendored trees
+- next open: plan-slice APPLY_CANDIDATE → worktree_apply dry-run · plan-reuse cache · more sample packs
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **509 passed, 1 skipped**; `nexus improve plan-slice --repo wshobson/agents` → pass YES
+
+## Cycle 2026-07-16 01:21:59Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-00eb6c8e07.md`

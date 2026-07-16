@@ -512,6 +512,45 @@ TOOLS = [
                 "verifier": {"type": "string", "default": "judge:verify"},
                 "require_evidence": {"type": "boolean", "default": True},
                 "auto_index": {"type": "boolean", "default": True},
+                "use_spine": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Merge durable improve_spine grades + method into rank",
+                },
+                "use_preference": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Apply offline preference boost to rank",
+                },
+                "run_id": {
+                    "type": "string",
+                    "description": "Optional improve_spine run id for spine grades",
+                },
+            },
+        },
+    },
+    {
+        "name": "mine_eval_slice",
+        "description": (
+            "First apply slice (plan §5): load offline grade → append-only ledger "
+            "with causal_note → claim verify → MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE "
+            "dry-run. No network."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "default": "wshobson/agents",
+                    "description": "repo_or_paper_id from fixture",
+                },
+                "fixture": {
+                    "type": "string",
+                    "description": "Optional path to mine_eval JSON fixture",
+                },
+                "run_id": {"type": "string"},
+                "min_score": {"type": "number", "default": 14.0},
+                "test_exit_code": {"type": "integer", "default": 0},
             },
         },
     },
@@ -1285,6 +1324,9 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
 
             root = _root()
             try:
+                use_spine = bool(args.get("use_spine", True))
+                use_preference = bool(args.get("use_preference", True))
+                run_id = args.get("run_id") or None
                 if bool(args.get("decide")):
                     res = asel.decision_package(
                         root,
@@ -1300,6 +1342,9 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                         ),
                         require_evidence=bool(args.get("require_evidence", True)),
                         auto_index=bool(args.get("auto_index", True)),
+                        use_spine=use_spine,
+                        use_preference=use_preference,
+                        run_id=run_id,
                     )
                 else:
                     res = asel.select_candidates(
@@ -1309,10 +1354,62 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                         limit=int(args.get("limit") or 5),
                         require_evidence=bool(args.get("require_evidence", True)),
                         auto_index=bool(args.get("auto_index", True)),
+                        use_spine=use_spine,
+                        use_preference=use_preference,
+                        run_id=run_id,
                     )
+                # Surface spine method on the JSON payload (keeps parseable MCP text)
+                if isinstance(res, dict):
+                    rows = (
+                        (res.get("selection") or {}).get("candidates")
+                        if isinstance(res.get("selection"), dict)
+                        else res.get("candidates")
+                    ) or []
+                    methods = [
+                        {
+                            "repo": c.get("repo"),
+                            "method": c.get("spine_method") or c.get("method"),
+                            "spine_method": c.get("spine_method"),
+                            "on_spine": c.get("on_spine"),
+                        }
+                        for c in rows
+                        if isinstance(c, dict)
+                        and (c.get("spine_method") or c.get("method") or c.get("on_spine"))
+                    ]
+                    if methods:
+                        res["spine_methods"] = methods[:12]
+                        res["spine_method_text"] = "; ".join(
+                            f"{m.get('repo')}:{m.get('method')}"
+                            for m in methods[:8]
+                            if m.get("method")
+                        )
+                    res["use_spine"] = use_spine
+                    res["use_preference"] = use_preference
+                    if run_id:
+                        res["run_id"] = run_id
             except Exception as e:
                 return _tool_result(f"apply_select error: {e}", is_error=True)
             return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name == "mine_eval_slice":
+            from . import mine_eval_slice as mes
+
+            root = _root()
+            try:
+                res = mes.run_demo_slice(
+                    root,
+                    fixture=args.get("fixture") or None,
+                    repo=args.get("repo") or "wshobson/agents",
+                    run_id=args.get("run_id") or None,
+                    min_score=float(args.get("min_score") or mes.DEFAULT_MIN_SCORE),
+                    test_exit_code=int(args.get("test_exit_code") or 0),
+                )
+            except Exception as e:
+                return _tool_result(f"mine_eval_slice error: {e}", is_error=True)
+            body = mes.format_demo_report(res) + "\n\n" + json.dumps(
+                res, indent=2, default=str
+            )[:12000]
+            return _tool_result(body, is_error=not bool(res.get("ok")))
 
         if name == "improve_board":
             from . import apply_select as asel
