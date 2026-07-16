@@ -3064,9 +3064,63 @@ def cmd_improve(args: argparse.Namespace) -> int:
                 )
         return 0
 
+    # First apply slice (LATEST_IMPROVE_PLAN §5): spine status / ingest
+    if sub in ("status", "spine-status"):
+        from . import improve_spine as spine
+
+        run_id = getattr(args, "run_id", None) or getattr(args, "run", None)
+        if not run_id:
+            print(
+                "error: improve status requires --run / --run-id",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            report = spine.status(
+                root,
+                run_id=str(run_id),
+                limit=int(getattr(args, "limit", 20) or 20),
+            )
+        except spine.SpineError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(spine.format_status(report))
+        # exit 0 even when empty so operators can poll; smoke checks score separately
+        return 0
+
+    if sub in ("ingest", "spine-ingest", "spine"):
+        from . import improve_spine as spine
+
+        fixture = getattr(args, "fixture", None) or getattr(args, "source", None)
+        if not fixture:
+            candidate = root / "tests" / "fixtures" / "mine_eval_sample.json"
+            if candidate.is_file():
+                fixture = str(candidate)
+        try:
+            report = spine.ingest_mine_eval(
+                root,
+                run_id=getattr(args, "run_id", None) or getattr(args, "run", None),
+                source=fixture,
+                repo=getattr(args, "repo", None),
+                advance_to_apply_pending=not bool(
+                    getattr(args, "stop_after_grade", False)
+                ),
+            )
+        except spine.SpineError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        if getattr(args, "json", False):
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(spine.format_ingest_report(report))
+        return 0 if report.get("ok") else 1
+
     print(
         "usage: nexus improve smoke|apply|promote|ledger|demo-loop|"
-        "select|board|decide|prefer|work-loop|work-ledger",
+        "select|board|decide|prefer|work-loop|work-ledger|status|ingest",
         file=sys.stderr,
     )
     return 2
@@ -4867,6 +4921,56 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     imp_wled.add_argument("--json", action="store_true")
     imp_wled.set_defaults(func=cmd_improve, improve_cmd="work-ledger")
+
+    imp_st = imp_sub.add_parser(
+        "status",
+        help=(
+            "First apply slice status: stage, last grade, ledger events "
+            "(nexus.improve_spine/v1)"
+        ),
+    )
+    imp_st.add_argument("--path", default=".", help="project workdir")
+    imp_st.add_argument(
+        "--run",
+        "--run-id",
+        dest="run_id",
+        default=None,
+        required=True,
+        help="run id to inspect",
+    )
+    imp_st.add_argument("--limit", type=int, default=20)
+    imp_st.add_argument("--json", action="store_true")
+    imp_st.set_defaults(func=cmd_improve, improve_cmd="status")
+
+    imp_ing = imp_sub.add_parser(
+        "ingest",
+        help=(
+            "Ingest one offline mine_eval grade into work_ledger + grade_records "
+            "with scouted→graded→apply_pending checkpoint"
+        ),
+    )
+    imp_ing.add_argument("--path", default=".", help="project workdir")
+    imp_ing.add_argument("--run-id", default=None, dest="run_id")
+    imp_ing.add_argument(
+        "--repo",
+        default="codingagentsystem/cas",
+        help="repo_or_paper_id to ingest (default: codingagentsystem/cas)",
+    )
+    imp_ing.add_argument(
+        "--fixture",
+        "--source",
+        dest="fixture",
+        default=None,
+        help="mine_eval JSON fixture (default: tests/fixtures/mine_eval_sample.json)",
+    )
+    imp_ing.add_argument(
+        "--stop-after-grade",
+        action="store_true",
+        dest="stop_after_grade",
+        help="leave checkpoint at graded (for resume tests)",
+    )
+    imp_ing.add_argument("--json", action="store_true")
+    imp_ing.set_defaults(func=cmd_improve, improve_cmd="ingest")
 
     imp.set_defaults(func=cmd_improve, improve_cmd="smoke")
 

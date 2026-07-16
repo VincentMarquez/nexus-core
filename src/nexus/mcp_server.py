@@ -539,6 +539,65 @@ TOOLS = [
         },
     },
     {
+        "name": "ledger_append",
+        "description": (
+            "Append one immutable work_ledger row (nexus.improve_spine/v1). "
+            "Plan MCP tool ledger.append — no update/delete."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "stage": {
+                    "type": "string",
+                    "description": "scouted|graded|apply_pending",
+                },
+                "agent": {"type": "string"},
+                "action": {"type": "string"},
+                "payload": {"type": "object"},
+                "parent_id": {"type": "string", "default": ""},
+            },
+            "required": ["run_id", "stage", "agent", "action"],
+        },
+    },
+    {
+        "name": "ledger_list",
+        "description": (
+            "List append-only work_ledger events for a run "
+            "(nexus.improve_spine/v1 — plan MCP tool ledger.list)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "stage": {"type": "string"},
+                "limit": {"type": "integer", "default": 50},
+            },
+        },
+    },
+    {
+        "name": "grade_get",
+        "description": (
+            "Get one durable grade_records row by repo_or_paper_id "
+            "(nexus.improve_spine/v1 — plan MCP tool grade.get)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_or_paper_id": {
+                    "type": "string",
+                    "description": "e.g. codingagentsystem/cas or arXiv id",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "alias for repo_or_paper_id",
+                },
+                "run_id": {"type": "string"},
+                "method": {"type": "string"},
+            },
+        },
+    },
+    {
         "name": "work_ledger",
         "description": (
             "Append-only work ledger (nexus.work_ledger/v1): dual-control "
@@ -1281,6 +1340,63 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             except Exception as e:
                 return _tool_result(f"improve_board error: {e}", is_error=True)
             return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name in ("ledger_append", "ledger.append"):
+            from . import improve_spine as spine
+
+            root = _root()
+            try:
+                row = spine.mcp_ledger_append(
+                    root,
+                    run_id=str(args.get("run_id") or "").strip(),
+                    stage=str(args.get("stage") or "").strip(),
+                    agent=str(args.get("agent") or "").strip(),
+                    action=str(args.get("action") or "").strip(),
+                    payload=args.get("payload")
+                    if isinstance(args.get("payload"), dict)
+                    else None,
+                    parent_id=str(args.get("parent_id") or ""),
+                )
+            except Exception as e:
+                return _tool_result(f"ledger_append error: {e}", is_error=True)
+            return _tool_result(json.dumps(row, indent=2, default=str))
+
+        if name in ("ledger_list", "ledger.list"):
+            from . import improve_spine as spine
+
+            root = _root()
+            try:
+                res = spine.mcp_ledger_list(
+                    root,
+                    run_id=str(args.get("run_id") or "").strip() or None,
+                    limit=int(args.get("limit") or 50),
+                    stage=str(args.get("stage") or "").strip() or None,
+                )
+            except Exception as e:
+                return _tool_result(f"ledger_list error: {e}", is_error=True)
+            return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name in ("grade_get", "grade.get"):
+            from . import improve_spine as spine
+
+            root = _root()
+            rid = str(
+                args.get("repo_or_paper_id") or args.get("repo") or ""
+            ).strip()
+            if not rid:
+                return _tool_result(
+                    "repo_or_paper_id (or repo) required", is_error=True
+                )
+            try:
+                res = spine.mcp_grade_get(
+                    root,
+                    repo_or_paper_id=rid,
+                    run_id=str(args.get("run_id") or "").strip() or None,
+                    method=str(args.get("method") or "").strip() or None,
+                )
+            except Exception as e:
+                return _tool_result(f"grade_get error: {e}", is_error=True)
+            return _tool_result(json.dumps(res, indent=2, default=str))
 
         if name == "work_ledger":
             from . import work_ledger as wl

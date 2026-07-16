@@ -788,3 +788,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f993cb901b.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — improve_spine (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (cas / soul / lumen / mission-control / wshobson / …) plan=`docs/LATEST_IMPROVE_PLAN.md` §5 + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: AOAD-MAT order **2510.13343**, multi-stage checkpoints **2604.03350**, CEMA status **2302.10809**
+- apply slice (**First apply slice** from LATEST_IMPROVE_PLAN — prove mine→grade→ledger→resume→status):
+  - `src/nexus/improve_spine.py` — append-only SQLite `work_ledger` + `grade_records` (`nexus.improve_spine/v1`); stages `scouted→graded→apply_pending`; JSON checkpoint resume without re-ingest; offline fixture ingest
+  - `src/nexus/cli.py` — `nexus improve status --run <id>` · `nexus improve ingest`
+  - `src/nexus/mcp_server.py` — tools `ledger_append`, `ledger_list`, `grade_get` (plan names ledger.append / ledger.list / grade.get)
+  - `src/nexus/tool_catalog.py` — privilege map for new tools
+  - tests: `tests/test_improve_spine.py` (immutable append, grade round-trip, checkpoint resume, fixture ingest, MCP, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md` landed table; this log
+- patterns: soul immutable ledger; cas SQLite MCP context; lumen phase checkpoints; mission-control/routa status surface (pattern only, no tree vendor)
+- non-goals kept: no full worktree apply engine rewrite, no OpenRouter research backend, no NATS, no vendored trees
+- next open: wire spine grades into worktree_apply / alive self_approve · dual-write to grade_ledger · P0.2 worktree isolation on spine
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 485 passed; `improve ingest|status --run demo-cas` → cas score=15.0 stage=apply_pending
+
+## Cycle 2026-07-16 00:28:40Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-253098a619.md`
