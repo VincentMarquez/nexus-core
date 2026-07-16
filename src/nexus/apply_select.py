@@ -1333,11 +1333,16 @@ def decision_package(
     max_steps: Optional[int] = None,
     max_tokens: Optional[int] = None,
     auto_index: bool = True,
+    use_preference: bool = True,
+    use_spine: bool = True,
+    run_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Build a terminal decision package for the top (or named) candidate.
 
     Combines select_candidates + gate_apply into one auditable artifact
-    (2511.15755 decision package shape).
+    (2511.15755 decision package shape). When *use_spine* is True (default),
+    durable improve_spine grades boost ranking and method/run_id appear on
+    evidence_refs (``spine:method:…`` / ``spine:run:…``).
     """
     root = _root(workdir)
     sel = select_candidates(
@@ -1348,6 +1353,9 @@ def decision_package(
         fixture=fixture,
         require_evidence=require_evidence,
         auto_index=auto_index,
+        use_preference=use_preference,
+        use_spine=use_spine,
+        run_id=run_id,
     )
     cands = list(sel.get("candidates") or [])
     chosen: Optional[dict[str, Any]] = None
@@ -1413,7 +1421,13 @@ def decision_package(
         "count": sel.get("count"),
         "rank": chosen.get("rank"),
         "index": sel.get("index"),
+        "use_spine": sel.get("use_spine"),
+        "use_preference": sel.get("use_preference"),
+        "spine_repos": sel.get("spine_repos"),
+        "run_id": run_id,
     }
+    gate["use_spine"] = bool(sel.get("use_spine"))
+    gate["use_preference"] = bool(sel.get("use_preference"))
     gate["goal"] = (
         f"apply pattern from {chosen.get('repo')} "
         f"(score={chosen.get('score')}, evidence={chosen.get('evidence_hits')})"
@@ -1581,10 +1595,15 @@ def format_board(board: dict[str, Any]) -> str:
             spine_s = f"  spine={ss}"
             if sb not in (None, 0, 0.0):
                 spine_s += f"(+{sb})"
+        # Durable grade method (improve_spine / Grok re-grade audit trail)
+        method = c.get("spine_method") or (
+            c.get("method") if c.get("on_spine") else None
+        )
+        method_s = f"  method={method}" if method else ""
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
             f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}  "
-            f"claims={c.get('claims')}{pref_s}{spine_s}"
+            f"claims={c.get('claims')}{pref_s}{spine_s}{method_s}"
         )
         for e in (c.get("evidence") or [])[:2]:
             st = (e.get("statement") or "")[:70]
@@ -1642,10 +1661,14 @@ def format_selection(sel: dict[str, Any]) -> str:
         pref = c.get("preference_boost")
         pref_s = f"  pref={pref:+.2f}" if pref not in (None, 0, 0.0) else ""
         spine_s = "  spine=yes" if c.get("on_spine") else ""
+        method = c.get("spine_method") or (
+            c.get("method") if c.get("on_spine") else None
+        )
+        method_s = f"  method={method}" if method else ""
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
             f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}"
-            f"{pref_s}{spine_s}"
+            f"{pref_s}{spine_s}{method_s}"
         )
     skipped = sel.get("skipped") or []
     if skipped:

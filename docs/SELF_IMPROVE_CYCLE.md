@@ -1,43 +1,48 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-16_
+_Generated 2026-07-16 · hard-apply worker session_
 
-Model: `grok-4.5` · repos from IMPROVE_OURS (≥10.0) · arXiv research notes under `.nexus_state/arxiv_improve/`
+Model: `grok-4.5` · repos from `.nexus_state/repo_mine/IMPROVE_OURS.md` · arXiv notes under `.nexus_state/arxiv_improve/`
 
 ---
 
-## Reasoning plan (this cycle)
+## Reasoning plan (this session)
 
-1. **Read** `IMPROVE_OURS.md`, latest arXiv improve notes (`improve-rx-997436d67e`), and `ALIVE_IMPROVEMENTS.md` “next open”.
-2. **Prioritize** small, tested ports — no vendored trees, no force-push, no secrets.
-3. **First apply slice** (landed): spine method on decision_package evidence_refs + MisterSmith/solace patterns + gated live Grok judge test.
-4. **Verify** with `pytest`; update `LATEST_IMPROVE_PLAN.md` + companion `ALIVE_IMPROVEMENTS.md`.
+1. **Read** `IMPROVE_OURS.md`, prior `ALIVE_IMPROVEMENTS` open items, latest arXiv brief (`improve-rx-4e382a3fbf` durable multi-agent workflow / checkpoint).
+2. **Select First apply slice** from last cycle’s open list (small, testable, no tree vendor):
+   - decide CLI spine flags
+   - board spine method lines
+   - zenith + agent-fleet pattern catalog
+   - optional live Grok judge Makefile target
+3. **Port patterns only** from scout clones (zenith stop discipline; agent-fleet dual-control/DAG) — do not vendor upstream trees.
+4. **Test** offline fixtures; keep live Grok opt-in (`NEXUS_LIVE_GROK_JUDGE=1`).
+5. **Document** in `docs/LATEST_IMPROVE_PLAN.md` + append `docs/ALIVE_IMPROVEMENTS.md`.
 
-## Why spine method on evidence_refs
+## Constraints
 
-Spine-aware ranking already boosts select/board, but decision packages only cited filesystem claim paths. Operators and dual-control gates need to know *which durable method/run* produced the grade (papers 2511.15755 decision package, Thucy 2512.03278). Porting soul/cas “method on the ledger surface” into `evidence_refs` closes that audit gap without network calls.
+- Prefer small, tested changes; keep `make test` / pytest green
+- Do **not** force-push; do **not** commit secrets; do **not** vendor whole upstream trees
+- Port patterns from `.nexus_workspaces/scout_repos/` when useful
 
-## Why MisterSmith + Solace patterns
+## First apply slice
 
-- **MattMagg/MisterSmith** — supervised multi-agent runtime with hard token/step caps; maps to Nexus `RunBudget` + task cost/graph inspect.
-- **SolaceLabs/solace-agent-mesh** — event-driven mesh + eval matrix; maps to task journal handoff events + offline MCP eval smoke.
+See **First apply slice** in [`docs/LATEST_IMPROVE_PLAN.md`](LATEST_IMPROVE_PLAN.md).
 
-Both land as skillpack catalog entries (validate offline); no tree vendoring.
+Landed modules:
 
-## Why gated live Grok judge
+| Module | Change |
+|--------|--------|
+| `src/nexus/apply_select.py` | `decision_package(use_spine, use_preference, run_id)`; board/select text `method=` |
+| `src/nexus/cli.py` | `improve decide --no-spine|--no-preference|--run-id` |
+| `src/nexus/worktree_apply.py` | patterns `zenith-principled-stop-ops`, `agent-fleet-ops` |
+| `Makefile` | `eval-live-judge` (opt-in nightly) |
+| tests | `test_apply_select`, `test_worktree_apply` |
 
-`make_grok_judge` already falls back offline. A single integration test, skipped unless `NEXUS_LIVE_GROK_JUDGE=1` and `grok` is on PATH, proves the live path without breaking default CI (arXiv 2401.07324 multi-LLM tooling).
-
-## Apply order
-
-```
-P0 spine evidence_refs  →  P0 MisterSmith/solace patterns  →  P0 gated live judge test
-```
-
-## Evidence commands
+## Verify
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli improve board
-PYTHONPATH=src python3 -m nexus.cli improve apply --list-patterns
+PYTHONPATH=src python3 -m nexus.cli improve board --limit 3
+PYTHONPATH=src python3 -m nexus.cli improve decide --repo wshobson/agents --json | head
+make eval-samples
 ```

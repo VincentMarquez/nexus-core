@@ -1,4 +1,4 @@
-.PHONY: all install test smoke eval-samples demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean grade-validate mcp-smoke board-sync-gaps test-quality
+.PHONY: all install test smoke eval-samples eval-live-judge demo demo-all demo-all-quick demo-resume demo-judge scoreboard bus dashboard start stop status doctor release-check clean grade-validate mcp-smoke board-sync-gaps test-quality
 
 # Default: zero-config bootstrap + automatic start with agents
 all: run
@@ -50,6 +50,14 @@ test-quality: grade-validate mcp-smoke board-sync-gaps
 eval-samples:
 	. .venv/bin/activate && PYTHONPATH=src python -m nexus.cli eval smoke \
 		--install-samples --tag sample --no-builtin --no-export
+
+# Optional nightly / manual live Grok judge (NOT in default CI).
+# Requires grok CLI + network. Skips cleanly when NEXUS_LIVE_GROK_JUDGE unset.
+#   NEXUS_LIVE_GROK_JUDGE=1 make eval-live-judge
+eval-live-judge:
+	. .venv/bin/activate && NEXUS_LIVE_GROK_JUDGE=$${NEXUS_LIVE_GROK_JUDGE:-1} \
+		PYTHONPATH=src python -m pytest -q \
+		tests/test_mcp_eval.py::test_live_grok_judge_gated_integration
 
 # Classic: crash → resume only
 demo:

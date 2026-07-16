@@ -2979,17 +2979,27 @@ def cmd_improve(args: argparse.Namespace) -> int:
             max_steps=int(max_steps) if max_steps is not None else None,
             max_tokens=int(max_tokens) if max_tokens is not None else None,
             auto_index=not bool(getattr(args, "no_index", False)),
+            use_preference=not bool(getattr(args, "no_preference", False)),
+            use_spine=not bool(getattr(args, "no_spine", False)),
+            run_id=getattr(args, "run_id", None),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
         else:
             status = "ALLOW" if report.get("ok") else "DENY"
             print(f"decision: {status}  reason={report.get('reason')}")
+            if report.get("use_spine") is not None:
+                print(
+                    f"  use_spine={report.get('use_spine')}  "
+                    f"use_preference={report.get('use_preference')}"
+                )
             cand = report.get("candidate") or {}
             if cand:
+                method = cand.get("spine_method") or cand.get("method")
+                method_s = f"  method={method}" if method else ""
                 print(
                     f"  repo={cand.get('repo')}  score={cand.get('score')}  "
-                    f"rank={cand.get('rank')}"
+                    f"rank={cand.get('rank')}{method_s}"
                 )
             if report.get("confidence") is not None:
                 print(f"  confidence={report.get('confidence')}")
@@ -4884,6 +4894,24 @@ def main(argv: Optional[list[str]] = None) -> int:
     imp_dec.add_argument("--max-steps", type=int, default=None, dest="max_steps")
     imp_dec.add_argument("--max-tokens", type=int, default=None, dest="max_tokens")
     imp_dec.add_argument("--no-index", action="store_true", dest="no_index")
+    imp_dec.add_argument(
+        "--no-preference",
+        action="store_true",
+        dest="no_preference",
+        help="disable offline preference_boost when ranking decide candidates",
+    )
+    imp_dec.add_argument(
+        "--no-spine",
+        action="store_true",
+        dest="no_spine",
+        help="disable improve_spine durable-grade boost on decide (no spine:method refs)",
+    )
+    imp_dec.add_argument(
+        "--run-id",
+        default=None,
+        dest="run_id",
+        help="prefer spine grades for this improve run id when deciding",
+    )
     imp_dec.add_argument("--json", action="store_true")
     imp_dec.set_defaults(func=cmd_improve, improve_cmd="decide")
 

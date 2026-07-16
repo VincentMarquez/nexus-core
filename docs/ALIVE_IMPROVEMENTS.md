@@ -868,3 +868,24 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-997436d67e.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — decide spine + zenith/fleet patterns (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI 17 / wshobson 16 / zenith / agent-fleet-o / cas / soul / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: multi-stage **2604.03350**, AOAD-MAT **2510.13343**, decision package **2511.15755**, PROV **2508.02866**, checkpoint **2310.12670** (notes `improve-rx-4e382a3fbf` + priors)
+- apply slice (**First apply slice** — close prior open: decide use_spine · board method lines · pattern catalog · nightly live judge):
+  - `src/nexus/apply_select.py` — `decision_package(use_spine, use_preference, run_id)`; selection cites spine; `format_board`/`format_selection` show `method=`
+  - `src/nexus/cli.py` — `improve decide --no-spine|--no-preference|--run-id`; human output shows method + spine flags
+  - `src/nexus/worktree_apply.py` — patterns `zenith-principled-stop-ops` + `agent-fleet-ops` (pattern only)
+  - `Makefile` — `eval-live-judge` (opt-in `NEXUS_LIVE_GROK_JUDGE`; not default CI)
+  - tests: `tests/test_apply_select.py` (decide spine flag + board method text), `tests/test_worktree_apply.py` (zenith + fleet)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: zenith gap/stop/verify-before-done; agent-fleet-o dual-control DAG; cas/soul durable method on board; 2511.15755 decision package (pattern only, no tree vendor)
+- non-goals kept: no live Grok in default CI; no vendored trees; no auto-promote without flags
+- next open: alive auto `record_from_ranked` · spine method on MCP apply_select text · more sample packs · plan-reuse cache (2512.21309)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **501 passed, 1 skipped**
+
+## Cycle 2026-07-16 01:11:20Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-4e382a3fbf.md`

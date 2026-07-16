@@ -171,6 +171,46 @@ def test_pattern_catalog_has_solace_mesh_events(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_zenith_principled_stop(tmp_path: Path):
+    """Intelligent-Internet/zenith gap board + stop discipline skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "zenith-principled-stop-ops" for r in rows)
+    p = wta.get_pattern("zenith-principled-stop-ops")
+    assert p["repo"] == "Intelligent-Internet/zenith"
+    assert p["pack_id"] == "zenith-principled-stop-ops"
+    meta = wta.create_worktree(tmp_path, job_id="zen-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "zenith-principled-stop-ops", job_id="zen-1")
+    assert any("zenith-principled-stop-ops" in f for f in applied["files_written"])
+    skill = (
+        wt / "skillpacks" / "zenith-principled-stop-ops" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "gap" in skill.lower() or "stop" in skill.lower()
+    assert "verify" in skill.lower() or "replan" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "zenith-principled-stop-ops")
+    assert ver["ok"] is True, ver
+
+
+def test_pattern_catalog_has_agent_fleet_ops(tmp_path: Path):
+    """escapeboy/agent-fleet-o fleet DAG + dual-control skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "agent-fleet-ops" for r in rows)
+    p = wta.get_pattern("agent-fleet-ops")
+    assert p["repo"] == "escapeboy/agent-fleet-o"
+    assert p["pack_id"] == "agent-fleet-ops"
+    meta = wta.create_worktree(tmp_path, job_id="fleet-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "agent-fleet-ops", job_id="fleet-1")
+    assert any("agent-fleet-ops" in f for f in applied["files_written"])
+    skill = (
+        wt / "skillpacks" / "agent-fleet-ops" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "dual-control" in skill.lower() or "fleet" in skill.lower()
+    assert "dag" in skill.lower() or "hitl" in skill.lower() or "ledger" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "agent-fleet-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")

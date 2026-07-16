@@ -17,7 +17,7 @@ _Rows: 109_
 | 2604.11028 | Federated Single-Agent Robotics: Multi-Robot Coordination Without Intr | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
 | 2605.11376 | LLM-X: A Scalable Negotiation-Oriented Exchange for Communication Amon | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
 | 2606.05868 | YouZhi: Towards High-Concurrency Financial LLMs via Adaptive GQA-to-ML | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 1905.11863 | MolSSI and BioExcel Workflow Workshop 2018 Report | 4 | 2026-07-16T00:23:26Z | durable multi agent workflow checkpoint  |
+| 1905.11863 | MolSSI and BioExcel Workflow Workshop 2018 Report | 5 | 2026-07-16T01:07:51Z | durable multi agent workflow checkpoint  |
 | 2201.04612 | Agent-Temporal Attention for Reward Redistribution in Episodic Multi-A | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2207.01222 | KubeAdaptor: A Docking Framework for Workflow Containerization on Kube | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2309.16263 | Cooperation Dynamics in Multi-Agent Systems: Exploring Game-Theoretic  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |

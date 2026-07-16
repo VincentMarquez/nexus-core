@@ -359,6 +359,76 @@ def test_select_candidates_spine_boost_and_board(work: Path):
     assert top.get("on_spine") is True
     text = asel.format_board(board)
     assert "spine=" in text
+    assert "method=grok:grok-4.5" in text
+    sel_text = asel.format_selection(sel)
+    assert "method=grok:grok-4.5" in sel_text
+
+
+def test_decision_package_use_spine_flag(work: Path):
+    """decide path honors use_spine / --no-spine (CLI parity with select/board)."""
+    from nexus import improve_spine as spine
+
+    fx = work / "fixtures" / "mine_eval" / "grades_with_claims.json"
+    with spine.ImproveSpine.open(work) as store:
+        store.record_grade(
+            repo_or_paper_id="wshobson/agents",
+            score=16.0,
+            idea=8.0,
+            skill=8.0,
+            method="grok:grok-4.5",
+            summary="Markdown skill marketplace",
+            path="fixtures/mine_eval/grades_with_claims.json",
+            run_id="decide-spine-1",
+        )
+        store.append(
+            run_id="decide-spine-1",
+            stage=spine.STAGE_GRADED,
+            agent="grok:grade",
+            action="grade",
+            payload={"repo": "wshobson/agents", "score": 16.0},
+        )
+
+    on = asel.decision_package(
+        work,
+        repo="wshobson/agents",
+        fixture=fx,
+        min_score=10.0,
+        require_evidence=True,
+        auto_index=True,
+        use_spine=True,
+        use_preference=False,
+        run_id="decide-spine-1",
+        grader="grok:grade",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    assert on.get("ok") is True
+    assert on.get("use_spine") is True
+    assert on["selection"].get("use_spine") is True
+    cand = on.get("candidate") or {}
+    assert cand.get("on_spine") is True
+    assert cand.get("spine_method") == "grok:grok-4.5"
+    assert any("spine:method:grok:grok-4.5" in r for r in (on.get("evidence_refs") or []))
+
+    off = asel.decision_package(
+        work,
+        repo="wshobson/agents",
+        fixture=fx,
+        min_score=10.0,
+        require_evidence=True,
+        auto_index=False,
+        use_spine=False,
+        use_preference=False,
+        grader="grok:grade",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    assert off.get("use_spine") is False
+    off_cand = off.get("candidate") or {}
+    assert off_cand.get("on_spine") is False
+    assert not any(
+        str(r).startswith("spine:method:") for r in (off.get("evidence_refs") or [])
+    )
 
 
 # ---------------------------------------------------------------------------

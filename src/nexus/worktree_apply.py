@@ -443,6 +443,110 @@ nexus improve apply --pattern solace-mesh-events-ops
 """
 
 
+# Intelligent-Internet/zenith shape: gap review + principled stop + verify-before-done
+_ZENITH_STOP_MANIFEST = {
+    "id": "zenith-principled-stop-ops",
+    "version": "0.1.0",
+    "name": "Zenith Principled Stop Ops",
+    "description": (
+        "Gap board + principled stop + independent verify-before-done "
+        "(Intelligent-Internet/zenith shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": [
+        "stop",
+        "gap",
+        "verify",
+        "replan",
+        "zenith",
+        "anti-premature",
+    ],
+}
+
+_ZENITH_STOP_SKILL_MD = """# Zenith Principled Stop Ops
+
+## When to use
+
+- Prevent premature completion of long-horizon improve loops
+- Sync board signal (continue|replan|stop) onto PrincipledStop gap board
+- Require independent verify before promote / done
+
+## Commands
+
+```bash
+nexus improve board --sync-gaps
+nexus alive gaps --seed
+nexus improve decide --repo <top>
+nexus improve apply --pattern zenith-principled-stop-ops
+```
+
+## Rules
+
+- Do not claim done without verified claim + grade (context_store gate)
+- replan/stop board signals open gaps; continue closes them
+- IndependentVerify before promote (fail-closed when promote_require set)
+- No vendored zenith trees — patterns only
+
+## Success
+
+- Skillpack validates offline
+- PrincipledStop records cycle progress / thrash / max_cycles
+- Board SIGNAL=STOP aborts when abort_on_board_stop is on
+"""
+
+
+# escapeboy/agent-fleet-o shape: fleet DAG + HITL audit + dual-control accept
+_AGENT_FLEET_MANIFEST = {
+    "id": "agent-fleet-ops",
+    "version": "0.1.0",
+    "name": "Agent Fleet Ops",
+    "description": (
+        "Fleet DAG + HITL dual-control audit for multi-agent apply "
+        "(escapeboy/agent-fleet-o shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": [
+        "fleet",
+        "dag",
+        "hitl",
+        "dual-control",
+        "audit",
+        "agent-fleet",
+    ],
+}
+
+_AGENT_FLEET_SKILL_MD = """# Agent Fleet Ops
+
+## When to use
+
+- Run multi-agent improve as a fleet with ordered stages (AOAD-MAT)
+- Enforce dual-control accept (grader ≠ applier) before hard apply
+- Export operator audit (work ledger + decision package + task DAG)
+
+## Commands
+
+```bash
+nexus improve work-loop --repo wshobson/agents
+nexus task dag --task-id <id> --mermaid
+nexus improve decide --repo <top>
+nexus improve apply --pattern agent-fleet-ops
+```
+
+## Rules
+
+- Prefer legal stage successors (mine→grade→decision→accept)
+- Dual-control: same agent/role cannot both grade and accept
+- Decision package must ALLOW before plan_apply
+- No vendored agent-fleet-o / Laravel trees — patterns only
+
+## Success
+
+- Skillpack validates offline
+- Work ledger shows apply_accepted with dual-control
+- Illegal transitions raise TransitionError
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -587,6 +691,42 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "solace-mesh-events-ops",
+    },
+    "zenith-principled-stop-ops": {
+        "id": "zenith-principled-stop-ops",
+        "repo": "Intelligent-Internet/zenith",
+        "description": (
+            "Gap board + principled stop + verify-before-done skill "
+            "(zenith shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/zenith-principled-stop-ops/manifest.json": json.dumps(
+                _ZENITH_STOP_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/zenith-principled-stop-ops/SKILL.md": _ZENITH_STOP_SKILL_MD,
+            "skillpacks/zenith-principled-stop-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "zenith-principled-stop-ops",
+    },
+    "agent-fleet-ops": {
+        "id": "agent-fleet-ops",
+        "repo": "escapeboy/agent-fleet-o",
+        "description": (
+            "Fleet DAG + HITL dual-control audit skill "
+            "(agent-fleet-o shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/agent-fleet-ops/manifest.json": json.dumps(
+                _AGENT_FLEET_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/agent-fleet-ops/SKILL.md": _AGENT_FLEET_SKILL_MD,
+            "skillpacks/agent-fleet-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "agent-fleet-ops",
     },
 }
 
