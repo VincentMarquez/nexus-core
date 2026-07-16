@@ -18,8 +18,19 @@ def main() -> int:
         return 2
     model = os.environ.get("NEXUS_GROK_MODEL") or "grok-4.5"
     max_turns = os.environ.get("NEXUS_GROK_BRIDGE_TURNS") or "12"
-    # max / high / medium / low — pin max for multi-vendor hard work
-    effort = (os.environ.get("NEXUS_GROK_REASONING_EFFORT") or "max").strip()
+    # Grok CLI accepts: high | medium | low  (map max/ultra/xhigh → high)
+    raw_effort = (os.environ.get("NEXUS_GROK_REASONING_EFFORT") or "high").strip().lower()
+    effort_map = {
+        "max": "high",
+        "ultra": "high",
+        "xhigh": "high",
+        "highest": "high",
+        "high": "high",
+        "medium": "medium",
+        "med": "medium",
+        "low": "low",
+    }
+    effort = effort_map.get(raw_effort, "high")
     cmd = [
         "grok",
         "-p",
@@ -32,9 +43,9 @@ def main() -> int:
         "plain",
         "--always-approve",
         "--no-plan",
+        "--reasoning-effort",
+        effort,
     ]
-    if effort:
-        cmd.extend(["--reasoning-effort", effort])
     # Web search on for research-grade reviews unless explicitly disabled
     if os.environ.get("NEXUS_GROK_DISABLE_WEB", "").strip() in ("1", "true", "yes"):
         cmd.append("--disable-web-search")

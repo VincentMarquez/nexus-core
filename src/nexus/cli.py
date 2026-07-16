@@ -137,21 +137,24 @@ def enable_agent_bridges(
     gemini_model = (os.environ.get("NEXUS_GEMINI_MODEL") or "").strip()
     # Grok model for bus is set inside stdin_to_grok.py via NEXUS_GROK_MODEL (default grok-4.5)
     os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
-    os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
+    os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "high")
 
+    # Note: do NOT use --bare — it drops claude.ai login ("Not logged in")
     claude_cmd = [
         "claude",
         "--print",
-        "--bare",  # headless bus: no hooks/sandbox fighting multi-agent prompts
         "--model",
         claude_model,
         "--effort",
         claude_effort,
     ]
+    # Codex: workspace-write so agents can edit/test; prompt passed as arg (see cli-bridge)
     codex_cmd = [
         "codex",
         "exec",
         "--skip-git-repo-check",
+        "-s",
+        "workspace-write",
         "-c",
         f'model="{codex_model}"',
         "-c",
@@ -159,6 +162,8 @@ def enable_agent_bridges(
         "-c",
         f'service_tier="{codex_tier}"',
     ]
+    # Prefer arg-mode for Codex (stdin is flaky with some exec versions)
+    os.environ.setdefault("NEXUS_CLI_PROMPT_MODE", "auto")
     gemini_cmd = ["gemini"]
     if gemini_model:
         gemini_cmd.extend(["-m", gemini_model])

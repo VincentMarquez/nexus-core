@@ -116,15 +116,22 @@ async function callAgent(agent, prompt, timeoutMs = DEFAULT_TIMEOUT_MS) {
   }
   const p = paths(agent);
   const st = agentStatus(agent);
-  if (st.status === "offline") {
-    const err = new Error(`agent offline: ${agent}`);
-    err.statusCode = 503;
-    throw err;
+  if (st.status === "offline" || st.status === "unknown") {
+    // offline if no status file or explicit offline
+    if (!st.ts || st.status === "offline") {
+      const err = new Error(`agent offline: ${agent}`);
+      err.statusCode = 503;
+      throw err;
+    }
   }
 
   const id = randomUUID();
+  // Clear stale prompt/response so we never match an old turn
   try {
     if (existsSync(p.response)) unlinkSync(p.response);
+  } catch {}
+  try {
+    if (existsSync(p.prompt)) unlinkSync(p.prompt);
   } catch {}
 
   writeJson(p.prompt, { id, prompt, ts: Date.now() });
@@ -133,20 +140,27 @@ async function callAgent(agent, prompt, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const resp = readJson(p.response);
-    // Prefer exact id match; also accept if bridge finished and prompt was removed
-    // (avoids rare id races when bridge rewrites response).
-    if (resp && typeof resp.text === "string") {
-      const idOk = !resp.id || resp.id === id;
+    if (resp && typeof resp.text === "string" && resp.text.length > 0) {
+      // Exact id match is preferred; also accept when prompt is gone (bridge done)
+      // and response is fresher than this request start (avoids stale reuse).
+      const idOk = resp.id === id;
       const promptGone = !existsSync(p.prompt);
-      if (idOk || (promptGone && resp.text.length > 0)) {
+      const fresh =
+        typeof resp.ts === "number" ? resp.ts * 1000 >= start - 1000 : promptGone;
+      if (idOk || (promptGone && fresh)) {
         try {
           unlinkSync(p.response);
         } catch {}
-        emit("message_done", { agent, id, ms: Date.now() - start, matched: resp.id });
+        emit("message_done", {
+          agent,
+          id,
+          ms: Date.now() - start,
+          matched: resp.id,
+        });
         return { id, agent, text: resp.text, ms: Date.now() - start };
       }
     }
-    await sleep(200);
+    await sleep(150);
   }
   emit("message_timeout", { agent, id });
   const err = new Error(`timeout waiting for agent ${agent}`);

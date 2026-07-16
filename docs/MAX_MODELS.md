@@ -6,8 +6,8 @@ Pins every bus agent to the **highest** model / effort settings for SWE-Pro and 
 |-------|------|--------------|--------|
 | **Claude** | `claude` (plan + review L1) | `fable` | `max` |
 | **ChatGPT / Codex** | `gpt` (adversary + review L2) | `gpt-5.6-sol` | `ultra` reasoning · service tier **`fast`** |
-| **Grok** | `grok` (implementer) | `grok-4.5` | reasoning **`max`** · more turns |
-| **Gemini** | `gemini` (research) | CLI default (set `NEXUS_GEMINI_MODEL` to pin) | — |
+| **Grok** | `grok` (implementer) | `grok-4.5` | reasoning **`high`** (CLI max; maps from max/ultra) · more turns |
+| **Gemini** | `gemini` (research) | CLI default | **Note:** current Gemini CLI may error (`IneligibleTierError` / Antigravity migration). Use `nexus research` / arXiv for research until CLI is fixed. |
 | **Local** | `local` | Ollama / NVFP via separate config | light tests only |
 
 ## Apply on this machine
@@ -36,7 +36,7 @@ PYTHONPATH=src python3 scripts/multi_vendor_live.py --once
 | `NEXUS_CODEX_REASONING` | `ultra` |
 | `NEXUS_CODEX_SERVICE_TIER` | `fast` |
 | `NEXUS_GROK_MODEL` | `grok-4.5` |
-| `NEXUS_GROK_REASONING_EFFORT` | `max` |
+| `NEXUS_GROK_REASONING_EFFORT` | `high` (max allowed by Grok CLI) |
 | `NEXUS_GROK_BRIDGE_TURNS` | `12` |
 | `NEXUS_GEMINI_MODEL` | (unset = CLI default) |
 | `NEXUS_CLI_TIMEOUT_S` | `600` |

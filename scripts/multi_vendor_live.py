@@ -51,12 +51,13 @@ if _envf.is_file():
             os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
-os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
+os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "high")
 os.environ.setdefault("NEXUS_CLAUDE_MODEL", "fable")
 os.environ.setdefault("NEXUS_CLAUDE_EFFORT", "max")
 os.environ.setdefault("NEXUS_CODEX_MODEL", "gpt-5.6-sol")
 os.environ.setdefault("NEXUS_CODEX_REASONING", "ultra")
 os.environ.setdefault("NEXUS_CODEX_SERVICE_TIER", "fast")
+os.environ.setdefault("NEXUS_CLI_PROMPT_MODE", "auto")
 os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
 # Product-grade timeouts: max-tier Claude/Codex/Grok need headroom
 os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "600")

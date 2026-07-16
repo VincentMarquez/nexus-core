@@ -283,8 +283,31 @@ class RuntimeManager:
         env = {
             "NEXUS_BRIDGE_DIR": str(self.bridge_dir),
             # Real CLIs need several minutes; short timeouts → 504 → failed tasks
-            "NEXUS_CLI_TIMEOUT_S": os.environ.get("NEXUS_CLI_TIMEOUT_S") or "360",
+            "NEXUS_CLI_TIMEOUT_S": os.environ.get("NEXUS_CLI_TIMEOUT_S") or "600",
+            # auto: Codex gets prompt as last arg; others use stdin
+            "NEXUS_CLI_PROMPT_MODE": os.environ.get("NEXUS_CLI_PROMPT_MODE") or "auto",
         }
+        # Forward max-model pins into the bridge process environment
+        for key in (
+            "NEXUS_CLAUDE_MODEL",
+            "NEXUS_CLAUDE_EFFORT",
+            "NEXUS_CODEX_MODEL",
+            "NEXUS_CODEX_REASONING",
+            "NEXUS_CODEX_SERVICE_TIER",
+            "NEXUS_GROK_MODEL",
+            "NEXUS_GROK_REASONING_EFFORT",
+            "NEXUS_GROK_BRIDGE_TURNS",
+            "NEXUS_GEMINI_MODEL",
+            "NEXUS_MSG_TIMEOUT_MS",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "XAI_API_KEY",
+            "GEMINI_API_KEY",
+            "HOME",
+            "PATH",
+        ):
+            if key in os.environ:
+                env[key] = os.environ[key]
         return self.start_process(
             f"bridge-{agent}",
             ["bash", str(script), agent, *cli_cmd],
