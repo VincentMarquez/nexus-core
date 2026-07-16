@@ -166,10 +166,20 @@ python -m nexus improve status --run demo-cas
 - One PR merges that: (a) persists a real Grok-graded mine hit, (b) resumes without re-grade, (c) exposes state via CLI + MCP, (d) green tests above.  
 - That PR is the **hard-apply proof** for the self-improve loop; P0.2–P0.5 and P1 stack on top.
 
+### Landed follow-on (2026-07-16 — spine wire)
+
+| Item | Status |
+|------|--------|
+| Dual-write spine grades → `grade_ledger` | ✅ `dual_write_to_grade_ledger` on ingest |
+| Wire spine into `worktree_apply` / alive self_approve | ✅ `require_spine` + `ensure_grade_for_apply` |
+| EDDI routing pattern catalog | ✅ `eddi-routing-ops` skillpack pattern |
+
+**Next open:** spine-aware board ranking · openrouter research pattern · live Grok judge (gated)
+
 ---
 
 ### Apply order after the first slice
-1. Worktree isolation (cas/forge) → real hard-apply  
+1. Worktree isolation (cas/forge) → real hard-apply ✅ (+ spine wire)  
 2. Decision audit + claim verifier (lumen/Thucy) → safe promote  
 3. Research MCP + skill validate (openrouter-deep-research-mcp / wshobson) → richer mine  
 4. Ops board + eval harness (mission-control / AssetOpsBench / EDDI discipline) → demos & CI bar  

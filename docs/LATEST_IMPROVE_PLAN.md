@@ -177,15 +177,30 @@ PYTHONPATH=src python3 -c "from nexus.cli import main; main(['improve','ingest',
 PYTHONPATH=src python3 -c "from nexus.cli import main; main(['improve','status','--run','demo-cas'])"
 ```
 
-**Next open (stack on this spine):**
-1. P0.2 worktree isolation apply of one skill SoT pattern (cas/forge) reading spine grades  
-2. Wire `improve_spine` into alive self_approve decision path  
-3. Optional: dual-write spine grades into existing `grade_ledger` / `work_ledger` for operator board parity  
+### Landed (2026-07-16 — spine wire + dual-write + EDDI pattern)
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Dual-write spine → `grade_ledger` | ✅ | `dual_write_to_grade_ledger` on ingest; operator `nexus grade` parity |
+| `ensure_grade_for_apply` / `require_spine_grade` | ✅ | auto-ensure before hard apply; min_score fail-closed |
+| Wire into `worktree_apply` | ✅ | `require_spine` (default=require_decision); ledger agent `improve_spine` |
+| Wire into alive self_approve | ✅ | `AliveConfig.require_spine`; gate after work_ledger |
+| Pattern catalog `eddi-routing-ops` | ✅ | labsai/EDDI routing/memory handoff skill (pattern only) |
+| Tests green | ✅ | full suite **490 passed** (`test_improve_spine` dual-write/ensure · `test_worktree_apply` spine+eddi · `test_usage_alive` knobs) |
+
+```bash
+PYTHONPATH=src python3 -m pytest tests/test_improve_spine.py tests/test_worktree_apply.py tests/test_usage_alive.py -q
+```
+
+**Next open (stack on this wire):**
+1. Prefer spine grades in `apply_select` / improve board ranking when present  
+2. openrouter-deep-research pattern catalog (circuit breaker research skill)  
+3. Optional live Grok judge gated integration (offline fallback remains default)  
 
 ---
 
 ### Apply order after the first slice
-1. Worktree isolation (cas/forge) → real hard-apply  
+1. Worktree isolation (cas/forge) → real hard-apply ✅ (prior + spine wire)  
 2. Decision audit + claim verifier (lumen/Thucy) → safe promote  
 3. Research MCP + skill validate (openrouter-deep-research-mcp / wshobson) → richer mine  
 4. Ops board + eval harness (mission-control / AssetOpsBench / EDDI discipline) → demos & CI bar  

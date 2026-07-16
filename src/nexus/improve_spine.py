@@ -920,6 +920,9 @@ def ingest_mine_eval(
                 extra={"grade_ids": [g["id"] for g in grade_rows]},
             )
 
+        # Dual-write to grade_ledger for operator board / nexus grade CLI parity
+        dual = dual_write_to_grade_ledger(root, grade_rows, run_id=rid)
+
         return {
             "schema": SCHEMA_VERSION,
             "ok": True,
@@ -931,6 +934,7 @@ def ingest_mine_eval(
             "ingested": len(grade_rows),
             "last_event": last_ev,
             "source": rows[0].get("_source"),
+            "dual_write": dual,
         }
 
 
@@ -1136,4 +1140,317 @@ def mcp_grade_get(
         "schema": SCHEMA_VERSION,
         "found": g is not None,
         "grade": g,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dual-write spine grades → grade_ledger (operator board parity)
+# Spine ensure gate for worktree_apply / alive self_approve
+# ---------------------------------------------------------------------------
+
+
+def grade_to_apply_shape(spine_grade: dict[str, Any]) -> dict[str, Any]:
+    """Map spine grade_records row → nexus.grade / load_mine_eval shape."""
+    return {
+        "repo": str(
+            spine_grade.get("repo_or_paper_id")
+            or spine_grade.get("repo")
+            or ""
+        ),
+        "score": float(spine_grade.get("score") or 0),
+        "idea": float(spine_grade.get("idea") or 0),
+        "skill": float(spine_grade.get("skill") or 0),
+        "method": str(spine_grade.get("method") or DEFAULT_METHOD),
+        "path": str(spine_grade.get("path") or ""),
+        "summary": str(spine_grade.get("summary") or ""),
+        "pattern": str(spine_grade.get("summary") or spine_grade.get("pattern") or ""),
+        "run_id": str(spine_grade.get("run_id") or ""),
+        "id": str(spine_grade.get("id") or ""),
+    }
+
+
+def dual_write_to_grade_ledger(
+    workdir: Optional[Path | str],
+    grades: Sequence[dict[str, Any]],
+    *,
+    run_id: str,
+) -> dict[str, Any]:
+    """Idempotent dual-write of spine grades into ``grade_ledger`` (operator parity).
+
+    Fail-open on import/write errors so spine ingest never blocks on the
+    secondary store; reports errors in the return dict.
+    """
+    root = _root(workdir)
+    rid = str(run_id or "").strip()
+    written: list[dict[str, Any]] = []
+    errors: list[str] = []
+    if not rid:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "run_id": rid,
+            "written": 0,
+            "error": "run_id required",
+        }
+    try:
+        from .grade_ledger import GradeLedger
+    except Exception as e:  # pragma: no cover - import surface
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "run_id": rid,
+            "written": 0,
+            "error": f"grade_ledger import: {e}",
+        }
+    try:
+        with GradeLedger.open(root) as led:
+            for raw in grades:
+                if not isinstance(raw, dict):
+                    continue
+                shape = grade_to_apply_shape(raw)
+                if not shape["repo"]:
+                    continue
+                try:
+                    row = led.append_from_grade(shape, run_id=rid)
+                    written.append(
+                        {
+                            "id": row.get("id"),
+                            "repo": row.get("repo"),
+                            "score": row.get("score"),
+                            "method": row.get("method"),
+                        }
+                    )
+                except Exception as e:
+                    errors.append(f"{shape.get('repo')}: {e}")
+    except Exception as e:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "run_id": rid,
+            "written": 0,
+            "error": str(e),
+        }
+    return {
+        "schema": SCHEMA_VERSION,
+        "ok": not errors,
+        "run_id": rid,
+        "written": len(written),
+        "grades": written,
+        "errors": errors or None,
+    }
+
+
+def ensure_grade_for_apply(
+    workdir: Optional[Path | str],
+    grade: dict[str, Any],
+    *,
+    run_id: Optional[str] = None,
+    agent: str = "worker:apply",
+    dual_write: bool = True,
+    min_score: Optional[float] = None,
+) -> dict[str, Any]:
+    """Ensure a candidate grade is on the improve spine (and optionally grade_ledger).
+
+    Used by ``worktree_apply`` and ``alive`` self_approve before hard apply so
+    grades from fixtures / board / IMPROVE_OURS share one durable spine record.
+
+    Returns::
+
+      {ok, accepted, run_id, spine_grade, dual_write, error?}
+    """
+    root = _root(workdir)
+    shape = grade_to_apply_shape(grade if isinstance(grade, dict) else {})
+    repo = shape["repo"]
+    if not repo:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "error": "grade missing repo",
+        }
+    try:
+        score_f = float(shape.get("score") or 0)
+    except (TypeError, ValueError):
+        score_f = 0.0
+    if min_score is not None and score_f < float(min_score):
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "repo": repo,
+            "score": score_f,
+            "error": f"score {score_f} < min_score {min_score}",
+        }
+
+    rid = str(
+        run_id
+        or shape.get("run_id")
+        or f"spine-apply-{repo.replace('/', '_')[:32]}"
+    ).strip()
+
+    with ImproveSpine.open(root) as store:
+        existing = store.get_grade(repo, run_id=rid)
+        if existing is None:
+            # also accept any prior grade for repo (resume across run ids)
+            existing = store.get_grade(repo)
+        if existing is not None:
+            spine_g = existing
+            created = False
+        else:
+            spine_g = store.record_grade(
+                repo_or_paper_id=repo,
+                score=score_f,
+                idea=float(shape.get("idea") or 0),
+                skill=float(shape.get("skill") or 0),
+                method=str(shape.get("method") or DEFAULT_METHOD),
+                summary=str(shape.get("summary") or shape.get("pattern") or ""),
+                path=str(shape.get("path") or ""),
+                run_id=rid,
+            )
+            store.append(
+                run_id=rid,
+                stage=STAGE_GRADED,
+                agent=str(agent or DEFAULT_AGENTS[STAGE_GRADED]),
+                action="ensure_grade_for_apply",
+                payload={
+                    "grade_id": spine_g["id"],
+                    "repo_or_paper_id": repo,
+                    "score": spine_g["score"],
+                    "source": "ensure_grade_for_apply",
+                },
+            )
+            created = True
+            # mark apply_pending so status shows ready for hard apply
+            store.append(
+                run_id=rid,
+                stage=STAGE_APPLY_PENDING,
+                agent=DEFAULT_AGENTS[STAGE_APPLY_PENDING],
+                action="mark_apply_pending",
+                payload={"grade_id": spine_g["id"], "repo": repo},
+            )
+            save_checkpoint(
+                rid,
+                STAGE_APPLY_PENDING,
+                workdir=root,
+                extra={"grade_ids": [spine_g["id"]], "repo": repo},
+            )
+
+    dual: Optional[dict[str, Any]] = None
+    if dual_write:
+        dual = dual_write_to_grade_ledger(root, [spine_g], run_id=rid)
+
+    return {
+        "schema": SCHEMA_VERSION,
+        "ok": True,
+        "accepted": True,
+        "created": created,
+        "run_id": rid,
+        "repo": repo,
+        "score": spine_g.get("score"),
+        "spine_grade": spine_g,
+        "apply_grade": grade_to_apply_shape(spine_g),
+        "dual_write": dual,
+    }
+
+
+def require_spine_grade(
+    workdir: Optional[Path | str],
+    *,
+    repo: str,
+    run_id: Optional[str] = None,
+    min_score: Optional[float] = None,
+    auto_ensure: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Gate: candidate must exist on improve spine (optionally auto-ensure).
+
+    When *auto_ensure* is a grade dict, calls :func:`ensure_grade_for_apply`
+    first. Fail-closed if still missing after that.
+    """
+    root = _root(workdir)
+    rname = str(repo or "").strip()
+    if not rname and isinstance(auto_ensure, dict):
+        rname = str(
+            auto_ensure.get("repo")
+            or auto_ensure.get("repo_or_paper_id")
+            or ""
+        ).strip()
+    if not rname:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "error": "repo required",
+        }
+
+    ensure_report: Optional[dict[str, Any]] = None
+    if isinstance(auto_ensure, dict) and auto_ensure:
+        ensure_report = ensure_grade_for_apply(
+            root,
+            auto_ensure,
+            run_id=run_id,
+            min_score=min_score,
+            dual_write=True,
+        )
+        if not ensure_report.get("accepted"):
+            return {
+                "schema": SCHEMA_VERSION,
+                "ok": False,
+                "accepted": False,
+                "repo": rname,
+                "error": ensure_report.get("error") or "ensure failed",
+                "ensure": ensure_report,
+            }
+
+    with ImproveSpine.open(root) as store:
+        g = store.get_grade(rname, run_id=run_id) if run_id else None
+        if g is None:
+            g = store.get_grade(rname)
+        if g is None and run_id:
+            # list by run and match repo
+            for cand in store.list_grades(run_id=run_id, limit=50):
+                if cand.get("repo_or_paper_id") == rname:
+                    g = cand
+                    break
+
+    if g is None:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "repo": rname,
+            "error": f"no spine grade for {rname}",
+            "ensure": ensure_report,
+        }
+
+    try:
+        score_f = float(g.get("score") or 0)
+    except (TypeError, ValueError):
+        score_f = 0.0
+    if min_score is not None and score_f < float(min_score):
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "repo": rname,
+            "score": score_f,
+            "error": f"spine score {score_f} < min_score {min_score}",
+            "spine_grade": g,
+            "ensure": ensure_report,
+        }
+
+    return {
+        "schema": SCHEMA_VERSION,
+        "ok": True,
+        "accepted": True,
+        "repo": rname,
+        "score": score_f,
+        "run_id": str(
+            (ensure_report or {}).get("run_id")
+            or g.get("run_id")
+            or run_id
+            or ""
+        ),
+        "spine_grade": g,
+        "apply_grade": grade_to_apply_shape(g),
+        "ensure": ensure_report,
     }

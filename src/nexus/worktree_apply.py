@@ -241,6 +241,51 @@ nexus improve apply --pattern soul-work-ledger-ops
 """
 
 
+# labsai/EDDI-shaped config-driven routing skill (pattern only)
+_EDDI_ROUTING_MANIFEST = {
+    "id": "eddi-routing-ops",
+    "version": "0.1.0",
+    "name": "EDDI Routing Ops",
+    "description": (
+        "Config-driven multi-agent routing + memory handoff skill "
+        "(labsai/EDDI middleware shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": ["routing", "memory", "config", "eddi", "middleware"],
+}
+
+_EDDI_ROUTING_SKILL_MD = """# EDDI Routing Ops
+
+## When to use
+
+- Route improve/mine workers by config (not ad-hoc if/else)
+- Hand off durable memory keys between scout → grade → apply
+- Validate agent graph configs before hard apply
+
+## Commands
+
+```bash
+nexus improve status --run <id>
+nexus improve board
+nexus improve apply --pattern eddi-routing-ops
+nexus task context --task-id <id>
+```
+
+## Rules
+
+- Prefer declarative route tables over free-form agent chat
+- Memory handoffs must cite spine/ledger keys (no silent drop)
+- Fail closed when route target or privilege is missing
+- No vendored upstream trees — patterns only
+
+## Success
+
+- Skillpack validates offline
+- Route table lists scout/grade/apply agents
+- Handoff keys appear in improve spine / context pack
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -313,6 +358,24 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "soul-work-ledger-ops",
+    },
+    "eddi-routing-ops": {
+        "id": "eddi-routing-ops",
+        "repo": "labsai/EDDI",
+        "description": (
+            "Config-driven multi-agent routing + memory handoff skill "
+            "(labsai/EDDI middleware shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/eddi-routing-ops/manifest.json": json.dumps(
+                _EDDI_ROUTING_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/eddi-routing-ops/SKILL.md": _EDDI_ROUTING_SKILL_MD,
+            "skillpacks/eddi-routing-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "eddi-routing-ops",
     },
 }
 
@@ -928,6 +991,7 @@ def run_apply(
     promote_force: bool = False,
     require_decision: bool = True,
     require_work_ledger: Optional[bool] = None,
+    require_spine: Optional[bool] = None,
     work_ledger_threshold: Optional[float] = None,
     grader: str = "grok:grade",
     implementer: str = "worker:apply",
@@ -951,6 +1015,10 @@ def run_apply(
     records mine→grade→decision→propose→accept on the append-only work ledger
     under dual-control (grader ≠ applier) before plan_apply.
 
+    When *require_spine* is True (default: same as require_decision),
+    ensures the grade is on ``improve_spine`` (and dual-writes grade_ledger)
+    before plan_apply.
+
     When *promote* is True, after worktree verify the allowlisted pack is
     copied onto main and re-verified (PROMOTE_STAGES). Isolation still holds
     during apply; main only changes at the explicit promote step.
@@ -963,6 +1031,9 @@ def run_apply(
         bool(require_decision)
         if require_work_ledger is None
         else bool(require_work_ledger)
+    )
+    use_spine = (
+        bool(require_decision) if require_spine is None else bool(require_spine)
     )
     runner = (
         StageRunner.promote_slice() if do_promote else StageRunner.apply_slice()
@@ -1001,12 +1072,14 @@ def run_apply(
         "promote_requested": do_promote,
         "require_decision": bool(require_decision),
         "require_work_ledger": use_work_ledger,
+        "require_spine": use_spine,
         "completed": [],
         "grade": None,
         "claim": None,
         "decision": None,
         "signal": None,
         "work_ledger": None,
+        "spine": None,
         "worktree": None,
         "apply": None,
         "verify": None,
@@ -1177,6 +1250,54 @@ def run_apply(
             if sig.get("signal") == asel.SIGNAL_REPLAN:
                 raise WorktreeApplyError(
                     f"board signal replan: {sig.get('reason')}"
+                )
+
+        # --- improve_spine grade ensure + dual-write grade_ledger ---
+        if use_spine:
+            from . import improve_spine as spine
+
+            spine_gate = spine.require_spine_grade(
+                workdir,
+                repo=str(g.get("repo") or ""),
+                run_id=rid,
+                auto_ensure=g,
+            )
+            report["spine"] = {
+                "ok": spine_gate.get("ok"),
+                "accepted": spine_gate.get("accepted"),
+                "run_id": spine_gate.get("run_id")
+                or (spine_gate.get("ensure") or {}).get("run_id")
+                or rid,
+                "repo": spine_gate.get("repo"),
+                "score": spine_gate.get("score"),
+                "error": spine_gate.get("error"),
+                "created": (spine_gate.get("ensure") or {}).get("created"),
+                "dual_write": (spine_gate.get("ensure") or {}).get("dual_write"),
+            }
+            store.append(
+                run_id=rid,
+                agent="improve_spine",
+                claim=(
+                    f"spine accepted={spine_gate.get('accepted')} "
+                    f"ok={spine_gate.get('ok')} err={spine_gate.get('error')}"
+                ),
+                evidence_refs=[str(g.get("path") or ""), "improve_spine"],
+                grade={
+                    "repo": g.get("repo"),
+                    "score": g.get("score"),
+                    "path": g.get("path"),
+                    "pattern": pid,
+                },
+                action="spine_gate",
+            )
+            _log(
+                "spine",
+                f"accepted={spine_gate.get('accepted')} "
+                f"err={spine_gate.get('error')}",
+            )
+            if not spine_gate.get("accepted"):
+                raise WorktreeApplyError(
+                    f"spine grade denied: {spine_gate.get('error') or 'not accepted'}"
                 )
 
         # --- work ledger dual-control accept (soul / 2601.00360) ---

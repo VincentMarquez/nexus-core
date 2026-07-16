@@ -809,3 +809,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-253098a619.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — spine wire + dual-write (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (wshobson 16 / cas 15 / EDDI 15 / soul / mission-control / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers≈20 notes under `.nexus_state/arxiv_improve/` (latest `improve-rx-14dc4121d6.md`; AOAD-MAT **2510.13343**, multi-stage **2604.03350**, Thucy **2512.03278**, preference **2602.04518**)
+- apply slice (**First apply slice** — close prior open: spine→apply/alive · dual-write grade_ledger · pattern catalog):
+  - `src/nexus/improve_spine.py` — `dual_write_to_grade_ledger`, `ensure_grade_for_apply`, `require_spine_grade`, `grade_to_apply_shape`; ingest dual-writes operator ledger
+  - `src/nexus/worktree_apply.py` — `require_spine` gate (default=require_decision); pattern `eddi-routing-ops`
+  - `src/nexus/alive.py` — `AliveConfig.require_spine`; `_self_approve_spine_gate` after work_ledger
+  - tests: `tests/test_improve_spine.py` (dual-write/ensure), `test_worktree_apply.py` (spine+eddi), `test_usage_alive.py` (knobs)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: cas/forge worktree; soul ledger; labsai/EDDI routing; mission-control grade board parity (pattern only, no tree vendor)
+- non-goals kept: no live IRL trainer; no vendored trees; no auto-promote without flags
+- next open: spine-aware board ranking · openrouter research pattern · live Grok judge (gated)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **490 passed**
+
+## Cycle 2026-07-16 00:40:47Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-14dc4121d6.md`

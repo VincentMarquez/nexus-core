@@ -88,6 +88,26 @@ def test_pattern_catalog_has_mission_control_spend(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_eddi_routing(tmp_path: Path):
+    """labsai/EDDI config-driven routing skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "eddi-routing-ops" for r in rows)
+    p = wta.get_pattern("eddi-routing-ops")
+    assert p["repo"] == "labsai/EDDI"
+    assert p["pack_id"] == "eddi-routing-ops"
+    meta = wta.create_worktree(tmp_path, job_id="eddi-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "eddi-routing-ops", job_id="eddi-1")
+    assert any("eddi-routing-ops" in f for f in applied["files_written"])
+    assert (wt / "skillpacks" / "eddi-routing-ops" / "APPLY_META.json").is_file()
+    skill = (wt / "skillpacks" / "eddi-routing-ops" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "route" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "eddi-routing-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")
@@ -184,12 +204,14 @@ def test_run_apply_end_to_end_sandbox(tmp_path: Path):
             "grade",
             "claim_verify",
             "decide",
+            "improve_spine",
             "work_ledger",
             "plan_apply",
             "apply",
         ]
-        assert led.count(run_id="e2e-apply-1") == 7
+        assert led.count(run_id="e2e-apply-1") == 8
         assert (report.get("work_ledger") or {}).get("accepted") is True
+        assert (report.get("spine") or {}).get("accepted") is True
 
 
 def test_run_apply_keeps_worktree_when_requested(tmp_path: Path):
@@ -280,6 +302,40 @@ def test_run_apply_records_work_ledger_accept(tmp_path: Path):
     # ledger persisted under workdir
     db = tmp_path / ".nexus_workspaces" / "work_ledger" / "work.sqlite"
     assert db.is_file()
+    # spine ensure dual-writes grade (require_spine follows require_decision)
+    sp = report.get("spine") or {}
+    assert sp.get("accepted") is True, sp
+    spine_db = tmp_path / ".nexus_workspaces" / "improve_spine" / "spine.sqlite"
+    assert spine_db.is_file()
+
+
+def test_run_apply_spine_gate(tmp_path: Path):
+    """require_spine ensures grade on improve_spine before plan_apply."""
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        repo="wshobson/agents",
+        run_id="spine-wire-1",
+        mode="sandbox",
+        cleanup=True,
+        require_decision=False,
+        require_work_ledger=False,
+        require_spine=True,
+        grader="grok:grade",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    assert report["ok"] is True, report.get("error")
+    assert report.get("require_spine") is True
+    sp = report.get("spine") or {}
+    assert sp.get("accepted") is True, sp
+    assert float(sp.get("score") or 0) >= 10.0
+    from nexus.improve_spine import ImproveSpine
+
+    with ImproveSpine.open(tmp_path) as store:
+        g = store.get_grade("wshobson/agents", run_id="spine-wire-1")
+        assert g is not None
+        assert float(g["score"]) >= 10.0
 
 
 def test_run_apply_work_ledger_collusion_denies(tmp_path: Path):
@@ -404,8 +460,9 @@ def test_promote_to_main_after_apply(tmp_path: Path):
         assert agents[-1] == "promote"
         assert "promote" in agents
         assert "decide" in agents
+        assert "improve_spine" in agents
         assert "work_ledger" in agents
-        assert led.count(run_id="prom-e2e-1") == 8
+        assert led.count(run_id="prom-e2e-1") == 9
 
 
 def test_promote_idempotent_same_content(tmp_path: Path):

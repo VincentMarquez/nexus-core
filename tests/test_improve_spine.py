@@ -322,3 +322,81 @@ def test_cli_improve_status_and_ingest(tmp_path: Path, monkeypatch: pytest.Monke
     text = format_status(report)
     assert "demo-cas" in text
     assert "score=" in text
+
+
+# ---------------------------------------------------------------------------
+# Dual-write spine → grade_ledger + ensure_grade_for_apply gate
+# ---------------------------------------------------------------------------
+
+
+def test_ingest_dual_writes_grade_ledger(tmp_path: Path):
+    """Ingest writes spine grades and dual-writes operator grade_ledger."""
+    from nexus.grade_ledger import GradeLedger
+    from nexus.improve_spine import dual_write_to_grade_ledger, ensure_grade_for_apply
+
+    fix = tmp_path / "mine.json"
+    fix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    report = ingest_mine_eval(
+        tmp_path,
+        run_id="demo-cas",
+        source=fix,
+        repo="codingagentsystem/cas",
+    )
+    assert report["ok"]
+    dual = report.get("dual_write") or {}
+    assert dual.get("written", 0) >= 1
+    assert dual.get("ok") is True
+
+    with GradeLedger.open(tmp_path) as led:
+        rows = led.list(run_id="demo-cas", limit=10)
+    assert any(r["repo"] == "codingagentsystem/cas" for r in rows)
+    assert float(rows[0]["score"]) >= 10.0
+
+    # ensure is idempotent + dual-write again
+    g = report["grades"][0]
+    shape = {
+        "repo": g["repo_or_paper_id"],
+        "score": g["score"],
+        "idea": g["idea"],
+        "skill": g["skill"],
+        "method": g["method"],
+        "path": g["path"],
+        "summary": g.get("summary") or "",
+    }
+    ens = ensure_grade_for_apply(tmp_path, shape, run_id="demo-cas")
+    assert ens["accepted"] is True
+    assert ens["created"] is False
+    assert (ens.get("dual_write") or {}).get("written", 0) >= 1
+
+    # dual_write helper alone
+    again = dual_write_to_grade_ledger(tmp_path, [g], run_id="demo-cas")
+    assert again["written"] >= 1
+
+
+def test_ensure_grade_for_apply_creates_spine_row(tmp_path: Path):
+    from nexus.improve_spine import ensure_grade_for_apply, require_spine_grade
+
+    grade = {
+        "repo": "wshobson/agents",
+        "score": 16.0,
+        "idea": 8.0,
+        "skill": 8.0,
+        "method": "grok:grok-4.5",
+        "path": ".nexus_workspaces/mine_eval/wshobson__agents",
+        "summary": "Markdown SoT marketplace",
+    }
+    ens = ensure_grade_for_apply(tmp_path, grade, run_id="alive-wsh")
+    assert ens["accepted"] is True
+    assert ens["created"] is True
+    assert ens["spine_grade"]["score"] == 16.0
+
+    gate = require_spine_grade(
+        tmp_path, repo="wshobson/agents", run_id="alive-wsh", min_score=10.0
+    )
+    assert gate["accepted"] is True
+    assert gate["score"] == 16.0
+
+    denied = require_spine_grade(
+        tmp_path, repo="missing/repo", min_score=10.0
+    )
+    assert denied["accepted"] is False

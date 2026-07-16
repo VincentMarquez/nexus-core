@@ -83,6 +83,9 @@ class AliveConfig:
     # require work_ledger dual-control accept before self_approve apply
     # (default: same as require_decision)
     require_work_ledger: bool = True
+    # require improve_spine grade record (+ dual-write grade_ledger) before apply
+    # (default: same as require_decision)
+    require_spine: bool = True
     # implementer/verifier role ids for anti-collusion (grader uses cfg.grader label)
     implementer: str = "worker:apply"
     verifier: str = "judge:verify"
@@ -99,11 +102,15 @@ class AliveConfig:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AliveConfig":
         require_decision = bool(d.get("require_decision", True))
-        # default work-ledger gate follows decision gate when key omitted
+        # default work-ledger / spine gates follow decision gate when key omitted
         if "require_work_ledger" in d:
             require_work_ledger = bool(d.get("require_work_ledger"))
         else:
             require_work_ledger = require_decision
+        if "require_spine" in d:
+            require_spine = bool(d.get("require_spine"))
+        else:
+            require_spine = require_decision
         return cls(
             goal=str(d.get("goal") or "improve this repository using research and high-quality open source"),
             queries=list(d.get("queries") or ["multi agent durable"]),
@@ -134,6 +141,7 @@ class AliveConfig:
             promote_require=bool(d.get("promote_require", False)),
             require_decision=require_decision,
             require_work_ledger=require_work_ledger,
+            require_spine=require_spine,
             implementer=str(d.get("implementer") or "worker:apply"),
             verifier=str(d.get("verifier") or "judge:verify"),
             sync_board_gaps=bool(d.get("sync_board_gaps", True)),
@@ -337,6 +345,25 @@ def _self_approve_decision_gate(
             out["work_ledger_error"] = str(e)
             out["skip_reason"] = f"work_ledger_error:{e}"
 
+    # Improve spine grade ensure + dual-write before self_approve hard apply
+    out["require_spine"] = bool(getattr(cfg, "require_spine", True))
+    if out["allow"] and out["require_spine"]:
+        try:
+            out["spine"] = _self_approve_spine_gate(
+                root,
+                cfg,
+                decision=decision if isinstance(decision, dict) else {},
+                board=board,
+            )
+            if not (out["spine"] or {}).get("accepted"):
+                out["allow"] = False
+                err = (out["spine"] or {}).get("error") or "not accepted"
+                out["skip_reason"] = f"spine_denied:{err}"
+        except Exception as e:
+            out["allow"] = False
+            out["spine_error"] = str(e)
+            out["skip_reason"] = f"spine_error:{e}"
+
     return out
 
 
@@ -389,6 +416,50 @@ def _self_approve_work_ledger_gate(
         applier=applier,
         accept=True,
         tests_to_run=["tests/test_usage_alive.py", "tests/test_work_ledger.py"],
+    )
+
+
+def _self_approve_spine_gate(
+    root: Path,
+    cfg: "AliveConfig",
+    *,
+    decision: dict[str, Any],
+    board: dict[str, Any],
+) -> dict[str, Any]:
+    """Ensure top candidate is on improve_spine (+ dual-write grade_ledger)."""
+    from . import improve_spine as spine
+
+    cand = (decision or {}).get("candidate") or {}
+    if not cand:
+        ranked = board.get("candidates") or []
+        cand = ranked[0] if ranked else {}
+    grade = {
+        "repo": cand.get("repo") or cand.get("source_repo") or "",
+        "score": cand.get("score"),
+        "idea": cand.get("idea"),
+        "skill": cand.get("skill"),
+        "method": cand.get("method") or "alive:self_approve",
+        "path": cand.get("path") or "",
+        "summary": cand.get("pattern")
+        or cand.get("pattern_name")
+        or cand.get("summary")
+        or "",
+        "pattern": cand.get("pattern") or cand.get("pattern_name") or "alive-self-approve",
+    }
+    if not grade["repo"]:
+        return {
+            "ok": False,
+            "accepted": False,
+            "error": "no candidate repo for spine gate",
+        }
+    rid = f"alive-{grade['repo'].replace('/', '_')[:40]}"
+    thr = float(cfg.min_score or 0) or None
+    return spine.require_spine_grade(
+        root,
+        repo=str(grade["repo"]),
+        run_id=rid,
+        min_score=thr,
+        auto_ensure=grade,
     )
 
 

@@ -116,6 +116,7 @@ def test_alive_require_decision_knobs_roundtrip(tmp_path, monkeypatch):
         enabled=True,
         require_decision=False,
         require_work_ledger=False,
+        require_spine=False,
         implementer="impl:a",
         verifier="ver:b",
     )
@@ -123,6 +124,7 @@ def test_alive_require_decision_knobs_roundtrip(tmp_path, monkeypatch):
     loaded = al.load_config(tmp_path)
     assert loaded.require_decision is False
     assert loaded.require_work_ledger is False
+    assert loaded.require_spine is False
     assert loaded.implementer == "impl:a"
     assert loaded.verifier == "ver:b"
 
@@ -170,7 +172,7 @@ def test_alive_sync_board_gaps_knobs_roundtrip(tmp_path, monkeypatch):
 
 
 def test_self_approve_decision_gate_allows_with_fixture(tmp_path, monkeypatch):
-    """With claims fixture present, decision allow + signal continue + work_ledger."""
+    """With claims fixture present, decision allow + signal continue + work_ledger + spine."""
     monkeypatch.chdir(tmp_path)
     root = Path(__file__).resolve().parents[1]
     fx_src = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
@@ -188,6 +190,7 @@ def test_self_approve_decision_gate_allows_with_fixture(tmp_path, monkeypatch):
         self_approve=True,
         require_decision=True,
         require_work_ledger=True,
+        require_spine=True,
         min_score=10.0,
         grader="grok",
         implementer="worker:apply",
@@ -199,6 +202,9 @@ def test_self_approve_decision_gate_allows_with_fixture(tmp_path, monkeypatch):
     assert (gate.get("decision") or {}).get("ok") is True
     wl = gate.get("work_ledger") or {}
     assert wl.get("accepted") is True, wl
+    sp = gate.get("spine") or {}
+    assert sp.get("accepted") is True, sp
+    assert float(sp.get("score") or 0) >= 10.0
 
 
 def test_self_approve_work_ledger_can_be_disabled(tmp_path, monkeypatch):
@@ -220,6 +226,7 @@ def test_self_approve_work_ledger_can_be_disabled(tmp_path, monkeypatch):
         self_approve=True,
         require_decision=True,
         require_work_ledger=False,
+        require_spine=False,
         min_score=10.0,
         grader="grok",
         implementer="worker:apply",
@@ -229,6 +236,40 @@ def test_self_approve_work_ledger_can_be_disabled(tmp_path, monkeypatch):
     assert gate["allow"] is True, gate
     assert gate.get("require_work_ledger") is False
     assert gate.get("work_ledger") is None
+    assert gate.get("require_spine") is False
+    assert gate.get("spine") is None
+
+
+def test_self_approve_spine_can_be_disabled(tmp_path, monkeypatch):
+    """require_spine=false skips improve_spine ensure when decision/work_ledger on."""
+    monkeypatch.chdir(tmp_path)
+    root = Path(__file__).resolve().parents[1]
+    fx_src = root / "fixtures" / "mine_eval" / "grades_with_claims.json"
+    if not fx_src.is_file():
+        pytest.skip("claims fixture missing")
+    dest = tmp_path / "fixtures" / "mine_eval"
+    dest.mkdir(parents=True)
+    (dest / "grades_with_claims.json").write_text(
+        fx_src.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / ".nexus_state").mkdir(exist_ok=True)
+    cfg = al.AliveConfig(
+        goal="g",
+        apply=True,
+        self_approve=True,
+        require_decision=True,
+        require_work_ledger=True,
+        require_spine=False,
+        min_score=10.0,
+        grader="grok",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    gate = al._self_approve_decision_gate(tmp_path, cfg, report={"steps": []})
+    assert gate["allow"] is True, gate
+    assert gate.get("require_spine") is False
+    assert gate.get("spine") is None
+    assert (gate.get("work_ledger") or {}).get("accepted") is True
 
 
 def test_should_promote_on_done_auto_self_approve():
