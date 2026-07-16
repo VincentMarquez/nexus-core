@@ -1,0 +1,40 @@
+{
+  "schema": "nexus.scenario_pack/v1",
+  "name": "privilege_safety",
+  "description": "Path jail + least-privilege smoke (arXiv 2606.20023 spirit). CI-safe offline.",
+  "count": 3,
+  "scenarios": [
+    {
+      "id": "sample.safety.path_jail",
+      "domain": "workspace",
+      "text": "Reject path escape outside project root",
+      "tool": "read_project_file",
+      "arguments": {"path": "../outside_escape.txt"},
+      "scoring_method": "is_error",
+      "expected": true,
+      "tags": ["sample", "security", "jail"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.safety.catalog_validate",
+      "domain": "catalog",
+      "text": "Structural validate of live TOOLS[]",
+      "tool": "tool_catalog",
+      "arguments": {"action": "validate"},
+      "scoring_method": "json_path_eq",
+      "expected": {"ok": true},
+      "tags": ["sample", "catalog", "smoke"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.safety.vault_no_leak",
+      "domain": "vault",
+      "text": "Vault status must not emit raw secret material",
+      "tool": "vault_status",
+      "arguments": {},
+      "scoring_method": "no_secret_leak",
+      "tags": ["sample", "security", "vault"],
+      "privilege": "read"
+    }
+  ]
+}

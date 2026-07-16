@@ -1,0 +1,50 @@
+{
+  "schema": "nexus.scenario_pack/v1",
+  "name": "improve_board_smoke",
+  "description": "Improve board + mine_eval_slice + plan-reuse operator smoke. Install with: nexus eval packs --install-samples",
+  "count": 4,
+  "scenarios": [
+    {
+      "id": "sample.improve.board",
+      "domain": "improve",
+      "text": "Show improve board ranking of graded candidates",
+      "tool": "improve_board",
+      "arguments": {"limit": 5},
+      "scoring_method": "json_keys",
+      "expected": ["schema", "candidates"],
+      "tags": ["sample", "improve", "board"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.improve.mine_eval_slice",
+      "domain": "improve",
+      "text": "Run offline plan-slice status via mine_eval_slice tool",
+      "tool": "mine_eval_slice",
+      "arguments": {"action": "status", "limit": 3},
+      "scoring_method": "tool_ok",
+      "tags": ["sample", "improve", "slice"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.improve.apply_select",
+      "domain": "improve",
+      "text": "Select apply candidates with spine/preference flags",
+      "tool": "apply_select",
+      "arguments": {"limit": 3, "use_spine": true, "use_preference": true},
+      "scoring_method": "json_keys",
+      "expected": ["schema", "candidates"],
+      "tags": ["sample", "improve", "select"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.improve.work_ledger",
+      "domain": "improve",
+      "text": "Work ledger status (dual-control surface)",
+      "tool": "work_ledger",
+      "arguments": {"action": "status"},
+      "scoring_method": "tool_ok",
+      "tags": ["sample", "improve", "ledger"],
+      "privilege": "ops"
+    }
+  ]
+}

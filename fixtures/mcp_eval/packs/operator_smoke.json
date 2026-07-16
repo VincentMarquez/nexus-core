@@ -1,0 +1,51 @@
+{
+  "schema": "nexus.scenario_pack/v1",
+  "name": "operator_smoke",
+  "description": "Read-only operator surface smoke (status, catalog, vault, grade). Install with: nexus eval packs --install-samples",
+  "count": 4,
+  "scenarios": [
+    {
+      "id": "sample.operator.status",
+      "domain": "status",
+      "text": "Report NEXUS project root and server identity",
+      "tool": "nexus_status",
+      "arguments": {},
+      "scoring_method": "contains_all",
+      "expected": ["project_root=", "server=nexus-workspace"],
+      "tags": ["sample", "operator", "read"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.operator.catalog",
+      "domain": "catalog",
+      "text": "List MCP tools with privilege tags",
+      "tool": "tool_catalog",
+      "arguments": {"action": "list"},
+      "scoring_method": "json_keys",
+      "expected": ["schema", "count", "tools"],
+      "tags": ["sample", "operator", "read"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.operator.vault",
+      "domain": "vault",
+      "text": "Vault presence report never leaks secret values",
+      "tool": "vault_status",
+      "arguments": {},
+      "scoring_method": "json_keys",
+      "expected": ["schema", "present", "n_present"],
+      "tags": ["sample", "operator", "security"],
+      "privilege": "read"
+    },
+    {
+      "id": "sample.operator.grade",
+      "domain": "grade",
+      "text": "List offline graded candidates from IMPROVE_OURS",
+      "tool": "list_graded_candidates",
+      "arguments": {"min_score": 10.0, "limit": 5},
+      "scoring_method": "tool_ok",
+      "tags": ["sample", "operator", "grade"],
+      "privilege": "read"
+    }
+  ]
+}
