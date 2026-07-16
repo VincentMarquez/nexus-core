@@ -124,12 +124,24 @@ def enable_agent_bridges(
         rt.start_mock_bridge("local")
         backends["local"] = "mock"
 
-    # Agent slots the bus expects
-    # claude / gpt / gemini — real CLI when available and allowed
+    # Agent slots the bus expects — real CLIs when installed
+    # Claude (Anthropic), gpt via Codex, Grok (xAI), Gemini
+    root = Path(rt.root)
+    grok_wrap = root / "bridge" / "bridges" / "stdin_to_grok.py"
     cli_specs = [
         ("claude", "claude", ["claude", "--print"]),
         ("gpt", "codex", ["codex", "exec", "--skip-git-repo-check"]),
         ("gemini", "gemini", ["gemini"]),
+        (
+            "grok",
+            "grok",
+            [
+                sys.executable,
+                str(grok_wrap),
+            ]
+            if grok_wrap.is_file()
+            else ["grok", "-p"],  # fallback; wrapper preferred
+        ),
     ]
 
     for agent, tool_key, cmd in cli_specs:
@@ -210,7 +222,7 @@ def cmd_start(args: argparse.Namespace) -> int:
         print("  Install Node 18+ then re-run: ./run   or   nexus start")
         return 1
 
-    agents = ["local", "claude", "gpt", "gemini"]
+    agents = ["local", "claude", "gpt", "gemini", "grok"]
     model = args.model or hw.recommended_model or "gemma2:2b"
     yes = bool(args.yes) or not sys.stdin.isatty()
     # Auto mode: enable every installed CLI unless user opts out

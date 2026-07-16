@@ -182,11 +182,12 @@ class BusAgent:
 
 AgentLike = Union[MockAgent, BusAgent]
 
-# Default: pipeline role → bus slot name
+# Default: pipeline role → bus slot name (multi-vendor when stack is up)
+# Claude = plan/review, GPT/Codex = implement, Grok = adversary/challenge, local = light
 DEFAULT_ROLE_TO_BUS = {
     "planner": "claude",
-    "adversary": "local",
-    "implementer": "claude",
+    "adversary": "grok",
+    "implementer": "gpt",
     "tester": "local",
     "reviewer": "claude",
     "logger": "local",

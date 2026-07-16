@@ -111,6 +111,7 @@ def _cli_tools() -> dict[str, bool]:
         "claude": bool(shutil.which("claude")),
         "codex": bool(shutil.which("codex")),
         "gemini": bool(shutil.which("gemini")),
+        "grok": bool(shutil.which("grok")),
     }
 
 
