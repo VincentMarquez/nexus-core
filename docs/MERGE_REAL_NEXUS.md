@@ -8,6 +8,12 @@ You have **two layers**. They are meant to work together, not replace each other
 | **Staging (safe)** | `~/nexus-core-staging` | Clean `origin/main` worktree — **test GitHub code here first** |
 | **Lab / research** | `~/Desktop/research` (`run.py`, bridges, EEG, agents…) | Your full autonomous research machine |
 
+## Developer path: Grok Build (coding agent)
+
+For day-to-day work on the **product** tree, use Grok Build as the coding agent and NEXUS as orchestration:
+
+→ **[GROK_BUILD_DEV_PATH.md](GROK_BUILD_DEV_PATH.md)**
+
 ## Safe pull of “best GitHub code” without breaking lab
 
 **Never** copy GitHub over `Desktop/research` while ops services are running. Use:
