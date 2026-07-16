@@ -2,14 +2,41 @@
 
 NEXUS is the **hub**. Grok CLI (now), Cursor, Claude, Codex, Gemini, and **local LLMs** are **spokes**. Every spoke should use the **same tools** and hand off work through the same workspace.
 
+## Local LLMs on this machine (Spark / GB10)
+
+| Priority | Grok model id | Backend | When to use |
+|----------|---------------|---------|-------------|
+| **Primary** | **`gemma4`** | **vLLM NVFP4** `http://127.0.0.1:8000/v1` · served name `gemma4-nvfp4-interactive2` | Interactive Grok + **full workspace MCP** (default in `~/.grok/config.toml`) |
+| Secondary | `nexus-local` | Ollama `gemma4:26b` `:11434` | Light turns / bus agent when NVFP4 is stopped |
+| Speed option | (Ollama) `e2b-fast` | ~100 tok/s Q4 | Fast drafts only — not the NVFP4 26B quality path |
+
+**Start primary local (NVFP4):**
+
+```bash
+cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up   # ~2–3 min cold load; ~80–90 GiB unified mem
+# Grok TUI: default model is already gemma4 — MCP tools attach to the session
+# Ask: "Use send_to_workspace / read_workspace_chat to talk to the Nexus workspace"
+```
+
+Do **not** load heavy Ollama models at the same time as NVFP4 (same unified memory). Unload with `keep_alive: 0` or stop the vLLM container when switching.
+
+**Small-model tool calling:** install the cheat sheet so Gemma actually *uses* Grok’s tools:
+
+```bash
+cp -a skillpacks/gemma-local-tools ~/.grok/skills/gemma-local-agent
+```
+
+See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and [`skillpacks/gemma-local-tools/`](../skillpacks/gemma-local-tools/).
+
 ## Goal
 
 | Want | How |
 |------|-----|
-| Run a **local LLM inside Grok CLI** | `nexus platforms connect` registers Ollama as `[model.nexus-local]` + MCP tools |
+| Run **NVFP4 Gemma4** inside Grok + workspace MCP | `[model.gemma4]` → `:8000` (already default); keep `mcp_servers.nexus-workspace` enabled |
+| Run a **light Ollama** model in Grok | `nexus platforms connect` registers `[model.nexus-local]` + same MCP |
 | Auto-connect Grok / Cursor / Claude | `nexus platforms connect` |
 | Agents from other products join the same job | Distinct `agent` ids + `send_to_workspace` / bus bridges |
-| Local model uses **all** tools | MCP host (Grok/Cursor) executes tools; model only chooses them |
+| Local model uses **all** tools | MCP host (Grok/Cursor) executes tools; model only chooses them — **works for `gemma4` (NVFP4) and `nexus-local`** |
 
 ## One-time setup
 
@@ -23,10 +50,11 @@ nexus platforms connect --start
 What `connect` does:
 
 1. **Grok CLI** — `mcp_servers.nexus-workspace` in `~/.grok/config.toml` (or `grok mcp add`)
-2. **Grok local model** — optional `[model.nexus-local]` → `http://127.0.0.1:11434/v1` (Ollama)
-3. **Cursor** — `.cursor/mcp.json` in the project
-4. **Claude** — `connectors/examples/claude-desktop.nexus.json` (+ desktop config if found)
-5. **`--start`** — `nexus start -y` so Ollama bridge agent `local` is on the event bus
+2. **Grok local model (Ollama secondary)** — optional `[model.nexus-local]` → `http://127.0.0.1:11434/v1`
+3. **Does not overwrite** an existing `[model.gemma4]` **NVFP4 / vLLM** entry — keep that as primary interactive local
+4. **Cursor** — `.cursor/mcp.json` in the project
+5. **Claude** — `connectors/examples/claude-desktop.nexus.json` (+ desktop config if found)
+6. **`--start`** — `nexus start -y` so Ollama bridge agent `local` is on the event bus (optional; not required for NVFP4-in-Grok)
 
 ## Shared tools (Workspace MCP)
 
@@ -44,48 +72,52 @@ What `connect` does:
 ## Agent flow
 
 ```text
-Grok CLI (cloud or local model) ──MCP──┐
-Cursor ──MCP────────────────────────────┤
-Claude ──MCP / CLI bridge───────────────┼──► NEXUS hub
-Codex / Gemini ──CLI bridge─────────────┤     · Workspace MCP tools
-Ollama ──bus agent `local`──────────────┘     · event bus
-                                              · durable jobs
-                                              · github scout/loop
-         ◄──── workspace chat handoff ────────┘
+Grok CLI + model gemma4 (NVFP4 vLLM :8000) ──MCP──┐
+Grok CLI + model nexus-local (Ollama) ─────────────┤
+Cursor ──MCP───────────────────────────────────────┼──► NEXUS hub
+Claude ──MCP / CLI bridge──────────────────────────┤     · Workspace MCP tools
+Codex / Gemini ──CLI bridge────────────────────────┤     · event bus (optional)
+Ollama bus agent `local` (ollama_tools loop) ──────┘     · durable jobs
+         ◄──── workspace chat handoff ──────────────────┘
 ```
 
 Agent ids (use consistently):
 
 | Platform | `agent` id |
 |----------|------------|
-| Grok CLI | `grok_cli` |
+| Grok CLI (cloud or **NVFP4 gemma4**) | `grok_cli` |
 | Cursor | `cursor` |
 | Claude | `claude` |
 | Codex | `gpt` |
 | Gemini | `gemini` |
-| Ollama / local | `local` |
+| Ollama bus / light local | `local` |
 
 ## Grok CLI + local LLM
 
-**Split of labor (recommended):**
+**Split of labor (recommended on Spark):**
 
-| | Grok (cloud) | Local Ollama / `nexus-local` |
-|--|---------------|------------------------------|
-| Role | **Hard work + grading** | **Light work** |
-| Used by | `mine evaluate`, `improve-ours --apply`, alive cycles | bus agent `local`, drafts, cheap turns |
-| Config | `NEXUS_GROK_MODEL=grok-4.5` (optional) | `OLLAMA_MODEL` / platforms connect |
+| | **Local NVFP4 `gemma4`** | Grok (cloud) | Ollama `nexus-local` / bus |
+|--|--------------------------|--------------|----------------------------|
+| Role | **Default interactive + workspace MCP** | Hard grading / when NVFP down | Light bus turns, drafts |
+| Backend | vLLM `nvfp4-interactive2` `:8000` | xAI | Ollama `:11434` |
+| Memory | ~80–90 GiB unified | network | small; don't dual-load with NVFP |
 
 ```bash
-nexus platforms connect --model gemma2   # or your ollama tag
-ollama serve                             # if not already
-nexus start -y
-# headless hard grade/work is automatic when mine/alive run with grader/worker=auto
+# Primary path — NVFP4 Gemma4 + workspace tools
+cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up
+# ~/.grok/config.toml already: default = "gemma4", mcp_servers.nexus-workspace enabled
 grok
-# in TUI: /model nexus-local   # light interactive
-# MCP tools appear for that model the same as for grok-build
+# /model gemma4   if needed
+# Prompt: talk to workspace via send_to_workspace / read_workspace_chat
+
+# Secondary — Ollama only when NVFP is stopped
+# ./manage.sh nvfp4-interactive2 stop
+nexus platforms connect --model gemma4:26b
+ollama serve
+# /model nexus-local
 ```
 
-If you already use a custom Grok `[model.gemma4]` (or similar), keep it — `connect` only adds `nexus-workspace` MCP + optional `nexus-local`. **MCP tools attach to the session**, not to a single vendor model.
+**MCP tools attach to the Grok session**, not to a single vendor model — so **`gemma4` (NVFP4) gets the same Nexus workspace tools as cloud Grok.** `platforms connect` must not replace your NVFP4 `[model.gemma4]` block.
 
 ## Cursor / others later
 

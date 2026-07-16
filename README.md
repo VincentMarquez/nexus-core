@@ -409,54 +409,80 @@ you / contributor replies on issue or PR
 
 ### Multi-platform agents + local LLM tools
 
-**Any local LLM** (Ollama / OpenAI-compatible) and **cloud agents** should share the same tools and hand off through NEXUS. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
+**Any local LLM** (Ollama / OpenAI-compatible / **vLLM**) and **cloud agents** should share the same tools and hand off through NEXUS. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
+
+#### Spark / GB10 — NVFP4 Gemma4 as primary local agent
+
+On DGX Spark (unified memory), the **primary interactive local engine** is **Gemma 4 26B NVFP4** via vLLM — not Ollama. Grok’s default model points at it; **Workspace MCP tools attach to the Grok session**, so the same NVFP brain can call `send_to_workspace`, files, bus status, improve board, etc.
+
+| Role | Engine | Endpoint / notes |
+|------|--------|------------------|
+| **Primary local (interactive + tools)** | **Gemma 4 NVFP4 + MTP** (`gemma4-nvfp4-interactive2`) | `http://127.0.0.1:8000/v1` · Grok model id **`gemma4`** · ~80–90 GiB unified mem · do **not** dual-load heavy Ollama |
+| **Secondary local (light / bus)** | Ollama `gemma4:26b` / `e2b-fast` | `http://127.0.0.1:11434/v1` · Grok model id **`nexus-local`** · only when NVFP is stopped or for bus agent `local` |
+| **Hard cloud grading / apply** | Grok 4.5 CLI | Optional; still best for spendy mine/improve when you want cloud |
+| **Tools** | `nexus-workspace` MCP | Same tool surface for **cloud Grok, NVFP `gemma4`, or Ollama** inside Grok CLI |
+
+```bash
+# Start primary local brain (cold load ~2–3 min)
+cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up
+# Grok CLI: default = gemma4 (NVFP4); MCP nexus-workspace already in ~/.grok/config.toml
+grok
+# Prompt: use send_to_workspace / read_workspace_chat — tools run via MCP host, model is NVFP
+```
+
+```text
+  Grok + model gemma4 (vLLM NVFP4 :8000)  ──MCP──┐
+  Grok + model nexus-local (Ollama)       ───────┤
+  Cursor / Claude Desktop                 ───────┼──►  NEXUS hub
+  Bus Ollama agent `local` (ollama_tools) ───────┘     · workspace MCP
+                                                       · durable engine / ops
+         ◄──── workspace chat handoff ─────────────────┘
+```
+
+**Memory rule:** NVFP owns the GPU/RAM budget while up. Stop it before large Ollama loads:  
+`./manage.sh nvfp4-interactive2 stop`.
+
+**Small-model tool cheat sheet:** weaker local models need explicit “when/how to call tools” instructions. Ship that as skill pack [`skillpacks/gemma-local-tools/`](skillpacks/gemma-local-tools/) — covers shell, Nexus MCP, GitHub, and coding skills (`implement`, `review`, `check-work`, …). Doc: [docs/LOCAL_LLM_TOOL_CALLING.md](docs/LOCAL_LLM_TOOL_CALLING.md).
+
+**Orchestration façade (designed, not all shipped yet):** high-level `run_task` / `get_task_status` / `submit_workflow` / `trigger_self_improve` so the NVFP agent can **delegate multi-step work** without hand-chaining atomic MCP tools. Spec: [docs/design/nexus-orchestration-mcp-server.md](docs/design/nexus-orchestration-mcp-server.md) · platforms detail: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 **Recommended split of labor**
 
 | Work | Engine | Notes |
 |------|--------|--------|
-| **Hard grading** (idea/skill on mined repos) | **Grok 4.5 CLI** | `grader=auto\|grok` |
-| **Hard improve / apply** | **Grok 4.5 CLI** | `worker=auto\|grok` — agentic edits + tests |
-| **Light bus turns / drafts** | **Ollama / nexus-local** | Cheap; grade fallback if Grok offline |
+| **Interactive agent + workspace MCP** | **NVFP4 Gemma4 (`gemma4`)** | Default on Spark; high-bandwidth local |
+| **Hard grading** (idea/skill on mined repos) | **Grok 4.5 CLI** (or NVFP when online) | `grader=auto\|grok` |
+| **Hard improve / apply** | **Grok 4.5 CLI** (or NVFP) | `worker=auto\|grok` — agentic edits + tests |
+| **Light bus turns / drafts** | **Ollama / nexus-local** | Cheap; only when NVFP is off or as bus `local` |
 | **Offline** | Heuristic keywords | `--heuristic-only` |
-
-```text
-  Grok CLI ──┐   (cloud grok-4.5 *or* /model nexus-local for light work)
-  Cursor   ──┼──►  Workspace MCP (nexus mcp)  ──►  project tools
-  Claude   ──┤         + event bus                 (files, tests, github,
-  Codex    ──┤         + durable engine             scout, workspace chat)
-  Gemini   ──┤
-  Ollama   ──┘──►  bus agent `local` (ollama-http bridge)
-```
 
 | Command | What it does |
 |---------|----------------|
 | `nexus platforms status` | Detect Grok CLI, Cursor, Claude, Codex, Gemini, Ollama |
-| `nexus platforms connect` | Auto-register MCP on Grok + Cursor + Claude; optional local model in Grok |
-| `nexus platforms connect --start` | Connect **and** `nexus start` so local LLM is on the bus |
+| `nexus platforms connect` | Auto-register MCP on Grok + Cursor + Claude; optional Ollama `nexus-local` (**does not replace** NVFP `[model.gemma4]`) |
+| `nexus platforms connect --start` | Connect **and** `nexus start` so Ollama bus agent is up |
 | `nexus platforms flow` | JSON map of ingress / agent ids / shared tools |
 
 ```bash
-# One-time on this machine (project root = your repo)
-nexus platforms connect --path . --start
-export NEXUS_GROK_MODEL=grok-4.5   # pin hard worker / grader
+# One-time mesh (project root = your repo)
+nexus platforms connect --path .
+# Optional: export NEXUS_GROK_MODEL=grok-4.5 for cloud hard worker/grader
 
-# Grok CLI: tools from MCP work for *whatever model* you pick (including local)
-grok                          # enable MCP server nexus-workspace if prompted
-# /model nexus-local          # Ollama via OpenAI-compatible endpoint (if registered)
+grok                          # /model gemma4  → NVFP; MCP nexus-workspace
+# /model nexus-local          # Ollama only if NVFP stopped
 
 # Cursor: Settings → MCP → nexus-workspace (written to .cursor/mcp.json)
 # Claude Desktop: merge connectors/examples/claude-desktop.nexus.json
 ```
 
-**Rule:** local models share the same **tools**, but **hard grading and hard apply default to Grok 4.5**. **(1)** Inside **Grok CLI** (or Cursor) with `nexus-workspace` MCP, models share project tools. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
+**Rule:** local models share the same **tools**. **(1)** Inside **Grok CLI** with `nexus-workspace` MCP, **NVFP `gemma4` and Ollama** both get project tools. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
 
 ```bash
 nexus platforms doctor          # mesh health
-nexus start -y                 # bus local agent + tools
+# nexus start -y               # bus local agent (Ollama) — optional; not required for NVFP-in-Grok
 ```
 
-Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md)
+Docs: [docs/CONNECTORS.md](docs/CONNECTORS.md) · [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · [docs/PLATFORMS.md](docs/PLATFORMS.md) · [docs/design/nexus-orchestration-mcp-server.md](docs/design/nexus-orchestration-mcp-server.md)
 
 
 ### Alive — self-improve under your goals + token budget

@@ -1,0 +1,10 @@
+{
+  "id": "gemma-local-tools",
+  "version": "0.2.0",
+  "tags": ["gemma", "nvfp4", "tools", "grok", "local", "implement", "review", "skills"],
+  "entrypoints": {
+    "skill": "SKILL.md",
+    "canonical": "~/.grok/skills/gemma-local-agent/SKILL.md"
+  },
+  "notes": "Full cheat sheet: tools + all coding/office/resume skills for local Gemma in Grok CLI"
+}
