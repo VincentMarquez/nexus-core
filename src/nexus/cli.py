@@ -126,7 +126,7 @@ def enable_agent_bridges(
 
     # Agent slots the bus expects — real CLIs when installed
     # Claude (Anthropic), gpt via Codex, Grok (xAI), Gemini
-    root = Path(rt.root)
+    root = Path(getattr(rt, "root", None) or Path.cwd())
     grok_wrap = root / "bridge" / "bridges" / "stdin_to_grok.py"
     cli_specs = [
         ("claude", "claude", ["claude", "--print"]),

@@ -55,7 +55,11 @@ def test_enable_agents_auto_cli():
 
 def test_enable_agents_no_cli():
     rt = FakeRT()
-    hw = HW({"claude": True, "codex": True, "gemini": True})
+    hw = HW({"claude": True, "codex": True, "gemini": True, "grok": True})
     backends = enable_agent_bridges(rt, hw, use_cli=False, ollama_ok=False, model="x")
-    assert backends == {"local": "mock", "claude": "mock", "gpt": "mock", "gemini": "mock"}
+    assert backends["local"] == "mock"
+    assert backends["claude"] == "mock"
+    assert backends["gpt"] == "mock"
+    assert backends["gemini"] == "mock"
+    assert backends["grok"] == "mock"
     assert all(t[0] == "mock" for t in rt.started)

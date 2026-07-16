@@ -5,7 +5,36 @@ You have **two layers**. They are meant to work together, not replace each other
 | Layer | Path | Role |
 |-------|------|------|
 | **Product / OSS** | `~/nexus-core` → github.com/VincentMarquez/nexus-core | Durable engine, mine, alive, community bot, demos, CLI `nexus` |
+| **Staging (safe)** | `~/nexus-core-staging` | Clean `origin/main` worktree — **test GitHub code here first** |
 | **Lab / research** | `~/Desktop/research` (`run.py`, bridges, EEG, agents…) | Your full autonomous research machine |
+
+## Safe pull of “best GitHub code” without breaking lab
+
+**Never** copy GitHub over `Desktop/research` while ops services are running. Use:
+
+```bash
+# 1) Isolated eval (does NOT touch lab or rewrite product until green)
+bash ~/nexus-core/scripts/safe_product_eval.sh --compare
+
+# 2) Only if tests passed, fast-forward product tree to GitHub main
+bash ~/nexus-core/scripts/safe_product_eval.sh --promote
+
+# 3) Use product from lab WITHOUT merging lab code:
+export PYTHONPATH=~/nexus-core/src
+# or: pip install -e ~/nexus-core
+nexus doctor
+nexus task list
+```
+
+**What “best parts” means in practice**
+
+| Use from product | Leave in lab |
+|------------------|--------------|
+| `nexus.engine`, `agents`, `persist`, `task` CLI | `run.py`, EEG, research bridges |
+| multi-vendor live, alive/mine | domain experiments |
+| fixtures + tests (CI green) | systemd ops units |
+
+Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
 
 ## Recommended merge model
 
