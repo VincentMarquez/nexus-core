@@ -1621,10 +1621,13 @@ def cmd_task(args: argparse.Namespace) -> int:
 
     if sub == "context":
         # P1.4 bounded multi-source context pack (arXiv 2508.08322)
+        # Preference brief (2602.04518) on by default; --no-preference to skip
+        include_pref = not bool(getattr(args, "no_preference", False))
         rep = engine.context_pack(
             args.task_id,
             include_research=bool(getattr(args, "research", False)),
             include_repo_digests=bool(getattr(args, "repos", False)),
+            include_preference=include_pref,
             journal_limit=int(getattr(args, "journal_limit", 8) or 8),
         )
         if not rep.get("found"):
@@ -2818,6 +2821,7 @@ def cmd_improve(args: argparse.Namespace) -> int:
             fixture=fixture,
             require_evidence=not bool(getattr(args, "allow_no_evidence", False)),
             auto_index=not bool(getattr(args, "no_index", False)),
+            use_preference=not bool(getattr(args, "no_preference", False)),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
@@ -4125,6 +4129,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="include mined repo digests from IMPROVE_OURS / USE_LATEST",
     )
     tk_ctx.add_argument(
+        "--no-preference",
+        action="store_true",
+        help="skip offline preference brief (arXiv 2602.04518; included by default when pairs exist)",
+    )
+    tk_ctx.add_argument(
         "--journal-limit",
         type=int,
         default=8,
@@ -4689,6 +4698,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         action="store_true",
         dest="no_index",
         help="do not reindex FTS before select",
+    )
+    imp_sel.add_argument(
+        "--no-preference",
+        action="store_true",
+        dest="no_preference",
+        help="disable offline preference_boost in rank (arXiv 2602.04518)",
     )
     imp_sel.add_argument("--json", action="store_true")
     imp_sel.set_defaults(func=cmd_improve, improve_cmd="select")

@@ -2,43 +2,46 @@
 
 _Generated 2026-07-16 · hard-apply worker_
 
-Model: `grok-4.5` · repos from IMPROVE_OURS · arXiv notes under `.nexus_state/arxiv_improve/`
+Model: `grok-4.5` · repos from IMPROVE_OURS (≥10) · arXiv under `.nexus_state/arxiv_improve/`
 
 ---
 
 ## Reasoning plan (this cycle)
 
-1. **Read evidence** — `IMPROVE_OURS.md`, latest arXiv improve notes, `ALIVE_IMPROVEMENTS.md` next-open.
-2. **Pick First apply slice** — close prior open: wire work_ledger into apply paths + MCP + transition invariants.
-3. **Port patterns, not trees** — soul ledger, dual-control, cas/mission-control operator surface.
-4. **Hard apply** — small modules + tests; fail-closed gates.
-5. **Verify** — `PYTHONPATH=src python3 -m pytest -q`.
-6. **Document** — `LATEST_IMPROVE_PLAN.md`, `ALIVE_IMPROVEMENTS.md`.
-
-## First apply slice (landed)
-
-| Surface | Change |
-|---------|--------|
-| `work_ledger.py` | LEGAL_SUCCESSORS, `ensure_apply_gate`, status helper |
-| `worktree_apply.py` | require work_ledger accept before plan_apply |
-| `alive.py` | `require_work_ledger` + gate in self_approve |
-| `mcp_server.py` | tool `work_ledger` |
-| tests | transitions, gate, e2e apply, alive, MCP |
+1. **Evidence** — Read IMPROVE_OURS + latest arXiv improve notes + prior ALIVE_IMPROVEMENTS open items.
+2. **Prioritize** — Prefer P0/P1 loop gaps over product UI. Next open after work_ledger wire was:
+   - preference brief → context_pack
+   - more pattern catalog
+   - multi-worker interleaving stress
+3. **First apply slice** — Inject offline preference pairs into `nexus.context_pack/v1` so apply/resume agents see value-system bias (arXiv 2602.04518) without a live trainer; add soul work-ledger skill pattern; stress dual-control under concurrent workers.
+4. **Verify** — Focused + full `pytest`; keep fail-closed gates; no vendored trees; no secrets; no force-push.
+5. **Document** — Update `docs/LATEST_IMPROVE_PLAN.md` + `docs/ALIVE_IMPROVEMENTS.md`.
 
 ## Commands
 
 ```bash
-# offline proof of dual-control loop
-PYTHONPATH=src python3 -m nexus.cli improve work-loop --repo wshobson/agents
-# worktree apply (decision + work_ledger gates on by default)
-PYTHONPATH=src python3 -m nexus.cli improve apply --mode sandbox --repo wshobson/agents
-# inspect ledger
-PYTHONPATH=src python3 -m nexus.cli improve work-ledger --limit 10
-# tests
-PYTHONPATH=src python3 -m pytest -q
+# offline preference → pack
+nexus improve prefer record --better wshobson/agents --worse openai/swarm
+nexus task context <task_id> --json   # preference section when pairs exist
+nexus task context <task_id> --no-preference
+nexus improve select --no-preference  # disable rank boost
+
+# pattern catalog
+nexus improve apply --list-patterns
+nexus improve apply --pattern soul-work-ledger-ops --mode sandbox
+
+# work ledger dual-control
+nexus improve work-loop --repo wshobson/agents
+make test
 ```
 
-## Safety
+## This session landed
 
-- No force-push; no secrets; no vendored upstream trees.
-- Autonomy apply/push remain opt-in (`self_approve`, `push_github`).
+| Piece | Module |
+|-------|--------|
+| Preference section in context pack | `src/nexus/context_pack.py` |
+| Engine / CLI / MCP flags | `engine.py`, `cli.py`, `mcp_server.py` |
+| soul-work-ledger-ops pattern | `src/nexus/worktree_apply.py` |
+| Multi-worker interleaving stress | `tests/test_work_ledger.py` |
+
+See `docs/LATEST_IMPROVE_PLAN.md` for backlog + success criteria.

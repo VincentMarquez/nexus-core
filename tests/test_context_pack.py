@@ -164,6 +164,83 @@ def test_pack_from_grade(tmp_path: Path):
     assert pack.meta.get("source") == "improve_apply"
 
 
+def test_preference_brief_injected_into_context_pack(tmp_path: Path):
+    """P1.1: offline preference pairs become a context_pack section."""
+    from nexus import preference_pairs as pp
+    from nexus.context_pack import load_preference_section
+
+    pp.record_pair(
+        tmp_path,
+        better="wshobson/agents",
+        worse="openai/swarm",
+        better_score=16.0,
+        worse_score=13.0,
+        source="test",
+    )
+    pp.record_pair(
+        tmp_path,
+        better="wshobson/agents",
+        worse="AgenticGoKit/AgenticGoKit",
+        source="test",
+    )
+    loaded = load_preference_section(
+        tmp_path,
+        grade={"repo": "wshobson/agents"},
+    )
+    assert loaded is not None
+    assert loaded["n_pairs"] == 2
+    assert loaded["focus_repo"] == "wshobson/agents"
+    assert float(loaded["focus_boost"]) > 0
+
+    pack = build_context_pack(
+        workdir=tmp_path,
+        objective="self-improve with preference bias",
+        grade={
+            "repo": "wshobson/agents",
+            "score": 16.0,
+            "idea": 8.0,
+            "skill": 8.0,
+            "method": "grok:grok-4.5",
+        },
+        include_research=False,
+        include_repo_digests=False,
+        include_preference=True,
+        total_budget=8000,
+    )
+    pref = pack.section("preference")
+    assert pref is not None
+    assert "wshobson/agents" in pref.content
+    assert "preference pairs" in pref.content.lower() or "leaderboard" in pref.content
+    assert pack.meta.get("include_preference") is True
+    assert pack.meta.get("preference_n_pairs") == 2
+    assert pack.meta.get("preference_focus") == "wshobson/agents"
+    prompt = pack.prompt_block()
+    assert "## preference" in prompt
+
+    # --no-preference path
+    pack_off = build_context_pack(
+        workdir=tmp_path,
+        objective="no pref",
+        include_research=False,
+        include_repo_digests=False,
+        include_preference=False,
+    )
+    assert pack_off.section("preference") is None
+    assert pack_off.meta.get("include_preference") is False
+
+    # empty store → section omitted (budget-friendly)
+    empty = tmp_path / "empty_wd"
+    empty.mkdir()
+    pack_empty = build_context_pack(
+        workdir=empty,
+        objective="empty prefs",
+        include_research=False,
+        include_repo_digests=False,
+        include_preference=True,
+    )
+    assert pack_empty.section("preference") is None
+
+
 # ---------------------------------------------------------------------------
 # Engine + CLI
 # ---------------------------------------------------------------------------

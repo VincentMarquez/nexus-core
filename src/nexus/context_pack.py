@@ -37,6 +37,7 @@ DEFAULT_SECTION_BUDGETS: dict[str, int] = {
     "goal": 800,
     "constraints": 600,
     "grade": 1200,
+    "preference": 900,
     "research": 3000,
     "repo_digest": 3000,
     "journal": 1500,
@@ -46,10 +47,13 @@ DEFAULT_SECTION_BUDGETS: dict[str, int] = {
 }
 
 # Drop order when total exceeds budget (lowest priority first).
+# Preference sits after grade so offline value-system bias (2602.04518) stays
+# visible when research/repo digests get trimmed.
 SECTION_PRIORITY: tuple[str, ...] = (
     "goal",
     "constraints",
     "grade",
+    "preference",
     "research",
     "repo_digest",
     "journal",
@@ -485,6 +489,55 @@ def _enforce_total_budget(
     return [by_name[n] for n in order if n in by_name and by_name[n].content]
 
 
+def load_preference_section(
+    workdir: Path | str,
+    *,
+    grade: Optional[dict[str, Any]] = None,
+    limit: int = 8,
+    require_pairs: bool = True,
+) -> Optional[dict[str, Any]]:
+    """Load offline preference brief (arXiv 2602.04518) for context packs.
+
+    Returns ``None`` when *require_pairs* and the store is empty (saves budget).
+    Includes optional focus boost for the grade's repo when present.
+    """
+    try:
+        from .preference_pairs import (
+            format_brief,
+            preference_boost,
+            preference_brief,
+        )
+    except Exception:
+        return None
+    brief = preference_brief(workdir, limit=limit)
+    n_pairs = int(brief.get("n_pairs") or 0)
+    if require_pairs and n_pairs <= 0:
+        return None
+    focus_repo = ""
+    if grade and isinstance(grade, dict):
+        focus_repo = str(grade.get("repo") or "").strip()
+    focus_boost: Optional[float] = None
+    if focus_repo:
+        try:
+            focus_boost = float(preference_boost(focus_repo, workdir))
+        except Exception:
+            focus_boost = None
+    text = format_brief(brief)
+    if focus_repo and focus_boost is not None:
+        text = (
+            text.rstrip()
+            + f"\nfocus: {focus_repo}  preference_boost={focus_boost:+.2f}\n"
+        )
+    return {
+        "brief": brief,
+        "text": text,
+        "n_pairs": n_pairs,
+        "focus_repo": focus_repo or None,
+        "focus_boost": focus_boost,
+        "source": "preference_pairs",
+    }
+
+
 def build_context_pack(
     *,
     workdir: Path | str | None = None,
@@ -498,8 +551,10 @@ def build_context_pack(
     notes: str = "",
     include_research: bool = True,
     include_repo_digests: bool = True,
+    include_preference: bool = True,
     research_limit: int = 1,
     repo_limit: int = 6,
+    preference_limit: int = 8,
     min_score: float = 10.0,
     total_budget: int = DEFAULT_TOTAL_CHARS,
     section_budgets: Optional[dict[str, int]] = None,
@@ -507,14 +562,16 @@ def build_context_pack(
 ) -> ContextPack:
     """Assemble a hard-budgeted multi-source context pack.
 
-    All sources are optional; empty sections are omitted. Research notes and
-    repo digests are read from ``workdir/.nexus_state/`` when present.
+    All sources are optional; empty sections are omitted. Research notes,
+    repo digests, and offline preference briefs are read from ``workdir``
+    when present (``include_preference`` defaults on; skips when store empty).
     """
     budgets = dict(DEFAULT_SECTION_BUDGETS)
     if section_budgets:
         budgets.update(section_budgets)
     wd = Path(workdir).resolve() if workdir else None
     sections: list[ContextSection] = []
+    pref_meta: Optional[dict[str, Any]] = None
 
     # goal
     crit = list(success_criteria or [])
@@ -557,6 +614,24 @@ def build_context_pack(
                 budgets=budgets,
             )
         )
+
+    # offline preference brief (arXiv 2602.04518 value systems)
+    if include_preference and wd is not None:
+        pref_meta = load_preference_section(
+            wd,
+            grade=grade,
+            limit=preference_limit,
+            require_pairs=True,
+        )
+        if pref_meta and pref_meta.get("text"):
+            sections.append(
+                make_section(
+                    "preference",
+                    str(pref_meta["text"]),
+                    source="preference_pairs",
+                    budgets=budgets,
+                )
+            )
 
     # research notes
     if include_research and wd is not None:
@@ -662,6 +737,12 @@ def build_context_pack(
         pack_meta.setdefault("workdir", str(wd))
     pack_meta.setdefault("include_research", include_research)
     pack_meta.setdefault("include_repo_digests", include_repo_digests)
+    pack_meta.setdefault("include_preference", include_preference)
+    if pref_meta:
+        pack_meta["preference_n_pairs"] = pref_meta.get("n_pairs")
+        if pref_meta.get("focus_repo"):
+            pack_meta["preference_focus"] = pref_meta.get("focus_repo")
+            pack_meta["preference_focus_boost"] = pref_meta.get("focus_boost")
 
     return ContextPack(
         sections=sections,
@@ -695,6 +776,7 @@ def pack_from_grade(
     *,
     total_budget: int = DEFAULT_TOTAL_CHARS,
     notes: str = "",
+    include_preference: bool = True,
 ) -> ContextPack:
     """Convenience: pack for improve-apply context_packed phase."""
     return build_context_pack(
@@ -704,6 +786,7 @@ def pack_from_grade(
         notes=notes or str(grade.get("notes") or ""),
         include_research=True,
         include_repo_digests=True,
+        include_preference=include_preference,
         total_budget=total_budget,
         meta={
             "source": "improve_apply",

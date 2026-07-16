@@ -766,3 +766,25 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ebb5fe5b75.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — preference→context_pack + soul pattern (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI / wshobson / soul / cas / mission-control / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: preference IRL **2602.04518**, context **2508.08322**, anti-collusion **2601.00360**, interleaving **1301.6431** (notes `improve-rx-f993cb901b` + priors)
+- apply slice (**First apply slice** — close prior open: preference brief → context_pack · pattern catalog · multi-worker stress):
+  - `src/nexus/context_pack.py` — `preference` section + `load_preference_section` (focus boost for grade.repo); empty store omitted
+  - `src/nexus/engine.py` — `include_preference` + meta `context_preference`
+  - `src/nexus/cli.py` — `task context --no-preference`; `improve select --no-preference`
+  - `src/nexus/mcp_server.py` — `context_pack` arg `preference`
+  - `src/nexus/worktree_apply.py` — pattern `soul-work-ledger-ops`
+  - tests: `test_context_pack` (preference inject), `test_work_ledger` (multi-worker stress), `test_worktree_apply` (soul pattern)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: 2602.04518 preference brief; 2508.08322 context pack; soul ledger skill; 1301.6431 concurrent interleaving (pattern only, no tree vendor)
+- non-goals kept: no live IRL trainer; no vendored trees; no auto-promote without flags
+- next open: alive auto `record_from_ranked` · live Grok judge gated integration · more pattern catalog (EDDI/openrouter)
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 477 passed
+
+## Cycle 2026-07-16 00:18:33Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f993cb901b.md`

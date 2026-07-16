@@ -319,8 +319,8 @@ TOOLS = [
     {
         "name": "context_pack",
         "description": (
-            "Build a bounded multi-source context pack (goal/grade/research/"
-            "repo digests/journal) — P1.4 context engineering. "
+            "Build a bounded multi-source context pack (goal/grade/preference/"
+            "research/repo digests/journal) — P1.4 + P1.1 preference brief. "
             "Pass task_id for a durable task, or grade+notes for ad-hoc."
         ),
         "inputSchema": {
@@ -339,6 +339,14 @@ TOOLS = [
                     "type": "boolean",
                     "default": True,
                     "description": "Include mined repo digests",
+                },
+                "preference": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": (
+                        "Include offline preference brief (arXiv 2602.04518) "
+                        "when pairs exist under .nexus_state/preference_pairs.jsonl"
+                    ),
                 },
                 "prompt": {
                     "type": "boolean",
@@ -1024,6 +1032,7 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
             want_prompt = bool(args.get("prompt", False))
             include_research = bool(args.get("research", True))
             include_repos = bool(args.get("repos", True))
+            include_pref = bool(args.get("preference", True))
             if task_id:
                 settings = Settings(state_dir=root / ".nexus_state", autonomy=False)
                 engine = DurableEngine(settings=settings, auto_approve=True)
@@ -1031,6 +1040,7 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                     str(task_id),
                     include_research=include_research,
                     include_repo_digests=include_repos,
+                    include_preference=include_pref,
                 )
                 if not rep.get("found"):
                     return _tool_result(
@@ -1070,6 +1080,7 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 objective=str(args.get("objective") or "context pack"),
                 include_research=include_research,
                 include_repo_digests=include_repos,
+                include_preference=include_pref,
                 meta={"source": "mcp"},
             )
             if want_prompt:

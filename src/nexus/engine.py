@@ -2360,6 +2360,7 @@ class DurableEngine:
         *,
         include_research: bool = False,
         include_repo_digests: bool = False,
+        include_preference: bool = True,
         journal_limit: int = 8,
         total_budget: Optional[int] = None,
     ) -> dict[str, Any]:
@@ -2367,7 +2368,9 @@ class DurableEngine:
 
         Assembles goal, constraints, journal, memory hits, and dependency-scoped
         prior outputs. Optionally pulls arXiv research notes + mined repo digests
-        from ``settings.state_dir`` parent / workdir (operator opt-in).
+        from ``settings.state_dir`` parent / workdir (operator opt-in). Offline
+        preference briefs (arXiv 2602.04518) are included by default when pairs
+        exist; pass ``include_preference=False`` to skip.
 
         Schema: ``nexus.context_pack/v1``.
         """
@@ -2427,6 +2430,10 @@ class DurableEngine:
 
             budget = DEFAULT_TOTAL_CHARS
 
+        # Preference: default on unless task meta forces off
+        pref_on = include_preference
+        if "context_preference" in task.meta:
+            pref_on = bool(task.meta.get("context_preference"))
         pack = build_context_pack(
             workdir=workdir,
             objective=task.objective,
@@ -2440,6 +2447,7 @@ class DurableEngine:
             or bool(task.meta.get("context_research")),
             include_repo_digests=include_repo_digests
             or bool(task.meta.get("context_repos")),
+            include_preference=pref_on,
             total_budget=int(budget),
             meta={
                 "task_id": task.task_id,

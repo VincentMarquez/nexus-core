@@ -164,6 +164,19 @@ _SPEND_OPS_MANIFEST = {
     "tags": ["ops", "spend", "budget", "mission-control"],
 }
 
+# soul-style immutable work ledger + dual-control gate (pattern only)
+_WORK_LEDGER_MANIFEST = {
+    "id": "soul-work-ledger-ops",
+    "version": "0.1.0",
+    "name": "Soul Work Ledger Ops",
+    "description": (
+        "Operator skill for append-only work ledger dual-control gates "
+        "(soul/cas shape; arXiv 2601.00360 anti-collusion; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": ["ledger", "dual-control", "handoff", "soul"],
+}
+
 _SPEND_OPS_SKILL_MD = """# Mission Control Spend Ops
 
 ## When to use
@@ -194,6 +207,37 @@ nexus improve board --sync-gaps
 - Ops store schema `nexus.ops/v1`
 - `nexus ops spend` returns non-empty rollup after ledger ingest
 - Budget deny reasons appear on decision package / board signal
+"""
+
+
+_WORK_LEDGER_SKILL_MD = """# Soul Work Ledger Ops
+
+## When to use
+
+- Gate hard apply on dual-control accept (grader ≠ applier)
+- Inspect mine → grade → decision → accept causal chains
+- Refuse illegal interleaving (e.g. mine → accept without grade)
+
+## Commands
+
+```bash
+nexus improve work-loop --repo wshobson/agents
+nexus improve work-ledger --run-id <id>
+nexus improve apply --pattern soul-work-ledger-ops
+```
+
+## Rules
+
+- Append-only events; no UPDATE/DELETE of work_events
+- apply_accepted requires grade_recorded from a different agent/role
+- Prefer decision packet score ≥ threshold before propose/accept
+- No vendored upstream trees — patterns only
+
+## Success
+
+- Work ledger schema `nexus.work_ledger/v1`
+- Illegal transitions raise TransitionError
+- MCP tool `work_ledger` returns status/chain/gate
 """
 
 
@@ -251,6 +295,24 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "mission-control-spend-ops",
+    },
+    "soul-work-ledger-ops": {
+        "id": "soul-work-ledger-ops",
+        "repo": "choihyunsus/soul",
+        "description": (
+            "Append-only work ledger + dual-control gate skill "
+            "(soul/cas shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/soul-work-ledger-ops/manifest.json": json.dumps(
+                _WORK_LEDGER_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/soul-work-ledger-ops/SKILL.md": _WORK_LEDGER_SKILL_MD,
+            "skillpacks/soul-work-ledger-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "soul-work-ledger-ops",
     },
 }
 

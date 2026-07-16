@@ -40,6 +40,30 @@ def test_pattern_catalog_has_cas_evidence_board(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_soul_work_ledger(tmp_path: Path):
+    """Fourth catalog entry: soul immutable work-ledger dual-control skill."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "soul-work-ledger-ops" for r in rows)
+    p = wta.get_pattern("soul-work-ledger-ops")
+    assert p["repo"] == "choihyunsus/soul"
+    assert p["pack_id"] == "soul-work-ledger-ops"
+    meta = wta.create_worktree(tmp_path, job_id="soul-led-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(
+        wt, "soul-work-ledger-ops", job_id="soul-led-1"
+    )
+    assert any("soul-work-ledger-ops" in f for f in applied["files_written"])
+    assert (
+        wt / "skillpacks" / "soul-work-ledger-ops" / "APPLY_META.json"
+    ).is_file()
+    skill = (wt / "skillpacks" / "soul-work-ledger-ops" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "dual-control" in skill.lower() or "work ledger" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "soul-work-ledger-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_pattern_catalog_has_mission_control_spend(tmp_path: Path):
     """Third catalog entry: mission-control spend / ops skill."""
     rows = wta.list_patterns()

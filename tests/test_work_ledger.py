@@ -406,6 +406,80 @@ def test_ensure_apply_gate_dual_control_collusion(tmp_path: Path):
     assert "DualControl" in (gate.get("error") or "")
 
 
+def test_multi_worker_interleaving_stress(tmp_path: Path):
+    """Two appliers racing illegal sequences: only dual-control path accepts.
+
+    arXiv 1301.6431 shape: interleaved workers cannot skip grade/decision.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from nexus.work_ledger import DualControlError, TransitionError, ensure_apply_gate
+
+    grade = {
+        "repo": "labsai/EDDI",
+        "score": 17.0,
+        "idea": 8.0,
+        "skill": 9.0,
+        "method": "grok:grok-4.5",
+        "path": "p",
+        "pattern": "config-driven middleware",
+    }
+
+    def worker_a_ok() -> dict:
+        return ensure_apply_gate(
+            tmp_path,
+            grade=grade,
+            run_id="stress-ok",
+            grader="grok:grade",
+            applier="worker:apply-a",
+            score_threshold=15.0,
+        )
+
+    def worker_b_collude() -> dict:
+        return ensure_apply_gate(
+            tmp_path,
+            grade=grade,
+            run_id="stress-collude",
+            grader="same-agent",
+            applier="same-agent",
+            score_threshold=15.0,
+        )
+
+    def worker_c_illegal() -> str:
+        with WorkLedger.open(tmp_path) as led:
+            led.record_mine(run_id="stress-illegal", repo="x/y", score=16.0)
+            try:
+                led.append(
+                    run_id="stress-illegal",
+                    event_type="apply_accepted",
+                    agent="worker:apply-c",
+                    role="applier",
+                    repo="x/y",
+                    payload={"note": "skip grade"},
+                )
+                return "accepted_illegal"
+            except (TransitionError, DualControlError, WorkLedgerError) as e:
+                return type(e).__name__
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futs = {
+            pool.submit(worker_a_ok): "ok",
+            pool.submit(worker_b_collude): "collude",
+            pool.submit(worker_c_illegal): "illegal",
+        }
+        results = {}
+        for fut in as_completed(futs):
+            results[futs[fut]] = fut.result()
+
+    assert results["ok"]["accepted"] is True, results["ok"]
+    assert results["collude"]["accepted"] is False
+    assert results["illegal"] in {
+        "TransitionError",
+        "DualControlError",
+        "WorkLedgerError",
+    }
+
+
 def test_mcp_work_ledger_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("NEXUS_PROJECT_ROOT", str(tmp_path))
