@@ -1,10 +1,13 @@
 {
   "id": "swe-pro-group-review",
   "version": "0.1.0",
+  "name": "SWE-bench Pro multi-AI group review",
   "tags": ["swe-bench-pro", "multi-vendor", "review", "claude", "codex", "grok", "gemini"],
+  "privilege": "write",
   "entrypoints": {
     "skill": "SKILL.md",
     "docs": "docs/SWE_BENCH_PRO_MULTI_AI.md",
     "campaign": "scripts/swe_pro_multi_ai.py"
-  }
+  },
+  "harnesses": ["grok", "claude", "codex", "local"]
 }

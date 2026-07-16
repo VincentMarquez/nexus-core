@@ -1,0 +1,594 @@
+{
+  "task_id": "gap-demo",
+  "found": true,
+  "schema": "nexus.evidence/v1",
+  "generated_at": 1784236718.80235,
+  "compact": false,
+  "task": {
+    "task_id": "gap-demo",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "Write a tiny artifact that proves the durable pipeline works",
+    "success_criteria": [
+      "artifact contains DEMO_OK"
+    ],
+    "namespace": "proj/demo",
+    "constraints": [],
+    "last_agent": "implementer",
+    "error": null,
+    "tokens_total": 0,
+    "max_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": null,
+    "budget_exhausted": false,
+    "wall_exhausted": false,
+    "waiting_step": null,
+    "started_at": null,
+    "completed_at": 1784067999.756867
+  },
+  "norms": {
+    "raw": [],
+    "rules": [],
+    "require": [],
+    "deny": [],
+    "max_tokens": null,
+    "max_wall_s": null,
+    "enforce": false,
+    "n_rules": 0
+  },
+  "gates": {
+    "integrity_ok": false,
+    "budget_ok": true,
+    "has_timeline": false,
+    "terminal": true,
+    "completed": true,
+    "no_veto": true,
+    "not_waiting_human": true,
+    "norms_ok": true,
+    "ready": false
+  },
+  "gate_failures": [
+    "integrity_ok",
+    "has_timeline"
+  ],
+  "ready": false,
+  "story": "s1@operator\u2192revise | s2@planner\u2192revise | s3@adversary\u2192revise | s4@implementer\u2192pass | s5@tester\u2192pass | s6@reviewer\u2192pass | s7@logger\u2192pass | s8@reviewer\u2192pass | s9@operator\u2192pass | s10@implementer\u2192pass | COMPLETED",
+  "explain": {
+    "story": "s1@operator\u2192revise | s2@planner\u2192revise | s3@adversary\u2192revise | s4@implementer\u2192pass | s5@tester\u2192pass | s6@reviewer\u2192pass | s7@logger\u2192pass | s8@reviewer\u2192pass | s9@operator\u2192pass | s10@implementer\u2192pass | COMPLETED",
+    "status": "completed",
+    "n_events": 0,
+    "handoffs": [],
+    "vetoes": [],
+    "failures": [],
+    "steps": [
+      {
+        "step": 1,
+        "name": "",
+        "agent": "operator",
+        "decision": "revise",
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False",
+        "score": 0.62,
+        "tokens": null
+      },
+      {
+        "step": 2,
+        "name": "",
+        "agent": "planner",
+        "decision": "revise",
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False",
+        "score": 0.62,
+        "tokens": null
+      },
+      {
+        "step": 3,
+        "name": "",
+        "agent": "adversary",
+        "decision": "revise",
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False",
+        "score": 0.62,
+        "tokens": null
+      },
+      {
+        "step": 4,
+        "name": "",
+        "agent": "implementer",
+        "decision": "pass",
+        "why": "judge=reviewer score=0.96 criteria_hits=1.00 artifacts=1 degraded=False",
+        "score": 0.96,
+        "tokens": null
+      },
+      {
+        "step": 5,
+        "name": "",
+        "agent": "tester",
+        "decision": "pass",
+        "why": "judge=reviewer score=0.96 criteria_hits=1.00 artifacts=1 degraded=False",
+        "score": 0.96,
+        "tokens": null
+      },
+      {
+        "step": 6,
+        "name": "",
+        "agent": "reviewer",
+        "decision": "pass",
+        "why": "judge=adversary score=0.75 criteria_hits=0.00 artifacts=0 degraded=False",
+        "score": 0.75,
+        "tokens": null
+      },
+      {
+        "step": 7,
+        "name": "",
+        "agent": "logger",
+        "decision": "pass",
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False",
+        "score": 0.75,
+        "tokens": null
+      },
+      {
+        "step": 8,
+        "name": "",
+        "agent": "reviewer",
+        "decision": "pass",
+        "why": "judge=adversary score=0.75 criteria_hits=0.00 artifacts=0 degraded=False",
+        "score": 0.75,
+        "tokens": null
+      },
+      {
+        "step": 9,
+        "name": "",
+        "agent": "operator",
+        "decision": "pass",
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False",
+        "score": 0.75,
+        "tokens": null
+      },
+      {
+        "step": 10,
+        "name": "",
+        "agent": "implementer",
+        "decision": "pass",
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False",
+        "score": 0.75,
+        "tokens": null
+      }
+    ],
+    "cost": {
+      "total_tokens": 0,
+      "avg_score": null,
+      "by_agent": {},
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      },
+      "max_tokens": null,
+      "max_wall_s": null,
+      "elapsed_s": null,
+      "remaining_wall_s": null,
+      "wall_exhausted": false,
+      "budget_exhausted": false
+    },
+    "error": "",
+    "last_agent": "implementer"
+  },
+  "cost": {
+    "total_tokens": 0,
+    "avg_score": null,
+    "request_count": 0,
+    "max_tokens": null,
+    "remaining_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": null,
+    "remaining_wall_s": null,
+    "wall_exhausted": false,
+    "budget_exhausted": false,
+    "by_agent": {},
+    "thresholds": {
+      "pass": 0.7,
+      "revise": 0.45
+    }
+  },
+  "verify": {
+    "ok": false,
+    "n_errors": 2,
+    "n_warns": 0,
+    "issues": [
+      {
+        "severity": "error",
+        "code": "journal_missing",
+        "msg": "no journal at /path/to/nexus-core/.nexus_state/tasks/gap-demo.events.jsonl but status=completed step=10"
+      },
+      {
+        "severity": "error",
+        "code": "missing_completed_event",
+        "msg": "status=completed but journal has no completed event"
+      }
+    ],
+    "checks": {
+      "checkpoint_parseable": true,
+      "checkpoint_exists": true,
+      "journal_exists": false,
+      "journal_parseable": false,
+      "step_alignment": true,
+      "status_alignment": false,
+      "agent_alignment": true,
+      "token_alignment": true,
+      "outputs_bounded": true
+    },
+    "journal_tokens": 0,
+    "meta_tokens": 0
+  },
+  "timeline": [],
+  "n_timeline": 0,
+  "provenance": {
+    "task_id": "gap-demo",
+    "found": true,
+    "schema": "nexus.prov/v1",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "Write a tiny artifact that proves the durable pipeline works",
+    "agents": [],
+    "activities": [
+      {
+        "id": "act-1",
+        "type": "activity",
+        "step": 1,
+        "name": "",
+        "agent": "operator",
+        "decision": "revise",
+        "score": 0.62,
+        "tokens": null,
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-2",
+        "type": "activity",
+        "step": 2,
+        "name": "",
+        "agent": "planner",
+        "decision": "revise",
+        "score": 0.62,
+        "tokens": null,
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-3",
+        "type": "activity",
+        "step": 3,
+        "name": "",
+        "agent": "adversary",
+        "decision": "revise",
+        "score": 0.62,
+        "tokens": null,
+        "why": "judge=reviewer score=0.62 criteria_hits=1.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-4",
+        "type": "activity",
+        "step": 4,
+        "name": "",
+        "agent": "implementer",
+        "decision": "pass",
+        "score": 0.96,
+        "tokens": null,
+        "why": "judge=reviewer score=0.96 criteria_hits=1.00 artifacts=1 degraded=False"
+      },
+      {
+        "id": "act-5",
+        "type": "activity",
+        "step": 5,
+        "name": "",
+        "agent": "tester",
+        "decision": "pass",
+        "score": 0.96,
+        "tokens": null,
+        "why": "judge=reviewer score=0.96 criteria_hits=1.00 artifacts=1 degraded=False"
+      },
+      {
+        "id": "act-6",
+        "type": "activity",
+        "step": 6,
+        "name": "",
+        "agent": "reviewer",
+        "decision": "pass",
+        "score": 0.75,
+        "tokens": null,
+        "why": "judge=adversary score=0.75 criteria_hits=0.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-7",
+        "type": "activity",
+        "step": 7,
+        "name": "",
+        "agent": "logger",
+        "decision": "pass",
+        "score": 0.75,
+        "tokens": null,
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-8",
+        "type": "activity",
+        "step": 8,
+        "name": "",
+        "agent": "reviewer",
+        "decision": "pass",
+        "score": 0.75,
+        "tokens": null,
+        "why": "judge=adversary score=0.75 criteria_hits=0.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-9",
+        "type": "activity",
+        "step": 9,
+        "name": "",
+        "agent": "operator",
+        "decision": "pass",
+        "score": 0.75,
+        "tokens": null,
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False"
+      },
+      {
+        "id": "act-10",
+        "type": "activity",
+        "step": 10,
+        "name": "",
+        "agent": "implementer",
+        "decision": "pass",
+        "score": 0.75,
+        "tokens": null,
+        "why": "judge=reviewer score=0.75 criteria_hits=0.00 artifacts=0 degraded=False"
+      }
+    ],
+    "entities": [
+      {
+        "id": "task:gap-demo",
+        "type": "task",
+        "objective": "Write a tiny artifact that proves the durable pipeline works",
+        "status": "completed",
+        "current_step": 10,
+        "namespace": "proj/demo"
+      },
+      {
+        "id": "artifact:gap-demo_artifact.txt",
+        "type": "artifact",
+        "path": "results/gap-demo_artifact.txt"
+      }
+    ],
+    "relations": [
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-1",
+        "agent": "operator"
+      },
+      {
+        "type": "used",
+        "activity": "act-1",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-1",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-2",
+        "agent": "planner"
+      },
+      {
+        "type": "used",
+        "activity": "act-2",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-2",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-3",
+        "agent": "adversary"
+      },
+      {
+        "type": "used",
+        "activity": "act-3",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-3",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-4",
+        "agent": "implementer"
+      },
+      {
+        "type": "used",
+        "activity": "act-4",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-4",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-5",
+        "agent": "tester"
+      },
+      {
+        "type": "used",
+        "activity": "act-5",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-5",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-6",
+        "agent": "reviewer"
+      },
+      {
+        "type": "used",
+        "activity": "act-6",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-6",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-7",
+        "agent": "logger"
+      },
+      {
+        "type": "used",
+        "activity": "act-7",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-7",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-8",
+        "agent": "reviewer"
+      },
+      {
+        "type": "used",
+        "activity": "act-8",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-8",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-9",
+        "agent": "operator"
+      },
+      {
+        "type": "used",
+        "activity": "act-9",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-9",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-10",
+        "agent": "implementer"
+      },
+      {
+        "type": "used",
+        "activity": "act-10",
+        "entity": "task:gap-demo"
+      },
+      {
+        "type": "generated",
+        "activity": "act-10",
+        "entity": "artifact:gap-demo_artifact.txt"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-2",
+        "informed_by": "act-1"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-3",
+        "informed_by": "act-2"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-4",
+        "informed_by": "act-3"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-5",
+        "informed_by": "act-4"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-6",
+        "informed_by": "act-5"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-7",
+        "informed_by": "act-6"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-8",
+        "informed_by": "act-7"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-9",
+        "informed_by": "act-8"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-10",
+        "informed_by": "act-9"
+      }
+    ],
+    "handoffs": [],
+    "vetoes": [],
+    "failures": [],
+    "trust": [],
+    "story": "s1@operator\u2192revise | s2@planner\u2192revise | s3@adversary\u2192revise | s4@implementer\u2192pass | s5@tester\u2192pass | s6@reviewer\u2192pass | s7@logger\u2192pass | s8@reviewer\u2192pass | s9@operator\u2192pass | s10@implementer\u2192pass | COMPLETED",
+    "cost": {
+      "total_tokens": 0,
+      "avg_score": null,
+      "by_agent": {},
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    "n_events": 0
+  },
+  "graph": {
+    "task_id": "gap-demo",
+    "found": true,
+    "schema": "nexus.graph/v1",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "Write a tiny artifact that proves the durable pipeline works",
+    "nodes": [],
+    "edges": [],
+    "sequence": [],
+    "n_handoffs": 0,
+    "n_agents": 0,
+    "mermaid": "flowchart LR\n  empty[no agents yet]",
+    "cost": {
+      "total_tokens": 0,
+      "max_tokens": null,
+      "remaining_tokens": null,
+      "budget_exhausted": false,
+      "by_agent": {}
+    },
+    "n_events": 0
+  },
+  "n_vetoes": 0,
+  "n_failures": 0
+}

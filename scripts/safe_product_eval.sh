@@ -15,7 +15,11 @@ set -euo pipefail
 
 PRODUCT="${NEXUS_PRODUCT:-$HOME/nexus-core}"
 STAGING="${NEXUS_STAGING:-$HOME/nexus-core-staging}"
-LAB="${NEXUS_LAB:-$HOME/Desktop/research}"
+# Lab is never written by this script — path is for logging / operator awareness only.
+LAB="${NEXUS_LAB:-$HOME/Desktop/Projects/research}"
+if [[ ! -d "$LAB" && -d "$HOME/Desktop/research" ]]; then
+  LAB="$HOME/Desktop/research"
+fi
 PROMOTE=0
 COMPARE=0
 

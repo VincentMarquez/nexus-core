@@ -2102,7 +2102,11 @@ def handle_rpc(msg: dict[str, Any]) -> Optional[dict[str, Any]]:
 
 
 def _read_message_stdio() -> Optional[dict[str, Any]]:
-    """Read one MCP message (Content-Length framed or newline JSON)."""
+    """Read one MCP message (Content-Length framed or newline JSON).
+
+    Accepts both CRLF (\\r\\n\\r\\n) and LF (\\n\\n) header terminators —
+    Grok CLI and several other clients speak LF-only Content-Length framing.
+    """
     # Try Content-Length framing first
     header = b""
     while True:
@@ -2110,16 +2114,17 @@ def _read_message_stdio() -> Optional[dict[str, Any]]:
         if not ch:
             return None
         header += ch
-        if header.endswith(b"\r\n\r\n"):
+        # MCP spec is CRLF; many clients (incl. Grok CLI) use bare LF.
+        if header.endswith(b"\r\n\r\n") or header.endswith(b"\n\n"):
             break
-        # fallback: if no headers and looks like JSON
+        # fallback: if no headers and looks like JSON (newline-delimited)
         if header.startswith(b"{") and b"\n" in header:
             line = header.decode("utf-8", errors="replace").strip()
             return json.loads(line)
 
     headers = header.decode("utf-8", errors="replace")
     length = 0
-    for line in headers.split("\r\n"):
+    for line in headers.replace("\r\n", "\n").split("\n"):
         if line.lower().startswith("content-length:"):
             length = int(line.split(":", 1)[1].strip())
     body = sys.stdin.buffer.read(length)
@@ -2212,7 +2217,21 @@ def run_http(host: str = "127.0.0.1", port: int = 8765) -> int:
 
         def do_POST(self) -> None:
             n = int(self.headers.get("content-length") or 0)
-            body = json.loads(self.rfile.read(n) or b"{}")
+            raw = self.rfile.read(n) or b"{}"
+            try:
+                body = json.loads(raw)
+            except Exception:
+                return self._send(400, {"error": "invalid json"})
+            # Full MCP JSON-RPC (what Grok CLI / streamable-HTTP clients expect)
+            if self.path in ("/mcp", "/mcp/"):
+                # notifications have no id and return empty 202-style OK
+                if body.get("method") and body.get("id") is None:
+                    handle_rpc(body)
+                    return self._send(200, {"ok": True})
+                resp = handle_rpc(body)
+                if resp is None:
+                    return self._send(200, {"ok": True})
+                return self._send(200, resp)
             if self.path == "/tools/call":
                 name = body.get("name") or ""
                 result = call_tool(name, body.get("arguments") or {})

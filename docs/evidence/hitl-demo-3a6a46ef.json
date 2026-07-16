@@ -1,0 +1,1754 @@
+{
+  "task_id": "hitl-demo-3a6a46ef",
+  "found": true,
+  "schema": "nexus.evidence/v1",
+  "generated_at": 1784236718.8503294,
+  "compact": false,
+  "task": {
+    "task_id": "hitl-demo-3a6a46ef",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "HITL demo: pause at human approval then continue",
+    "success_criteria": [
+      "artifact contains DEMO_OK"
+    ],
+    "namespace": "proj/hitl",
+    "constraints": [
+      "require:approval"
+    ],
+    "last_agent": "implementer",
+    "error": null,
+    "tokens_total": 4211,
+    "max_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": 0.169,
+    "budget_exhausted": false,
+    "wall_exhausted": false,
+    "waiting_step": 9,
+    "started_at": 1784155237.8577864,
+    "completed_at": 1784155238.0268393
+  },
+  "norms": {
+    "raw": [
+      "require:approval"
+    ],
+    "rules": [
+      {
+        "kind": "require",
+        "value": "approval",
+        "source": "require:approval"
+      }
+    ],
+    "require": [
+      "approval"
+    ],
+    "deny": [],
+    "max_tokens": null,
+    "max_wall_s": null,
+    "enforce": false,
+    "n_rules": 1
+  },
+  "gates": {
+    "integrity_ok": true,
+    "budget_ok": true,
+    "has_timeline": true,
+    "terminal": true,
+    "completed": true,
+    "no_veto": true,
+    "not_waiting_human": true,
+    "norms_ok": true,
+    "ready": true
+  },
+  "gate_failures": [],
+  "ready": true,
+  "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192pass | s5 test@tester\u2192pass | s6 review@reviewer\u2192pass | s7 log@logger\u2192pass | s8 meta_review@reviewer\u2192pass | s9\u2192pass | s10 deliver@implementer\u2192pass | human@9\u2192approve | COMPLETED",
+  "explain": {
+    "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192pass | s5 test@tester\u2192pass | s6 review@reviewer\u2192pass | s7 log@logger\u2192pass | s8 meta_review@reviewer\u2192pass | s9\u2192pass | s10 deliver@implementer\u2192pass | human@9\u2192approve | COMPLETED",
+    "status": "completed",
+    "n_events": 43,
+    "handoffs": [
+      {
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "detail": "operator->planner"
+      },
+      {
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "detail": "planner->adversary"
+      },
+      {
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "detail": "adversary->implementer"
+      },
+      {
+        "step": 5,
+        "from_agent": "implementer",
+        "to_agent": "tester",
+        "detail": "implementer->tester"
+      },
+      {
+        "step": 6,
+        "from_agent": "tester",
+        "to_agent": "reviewer",
+        "detail": "tester->reviewer"
+      },
+      {
+        "step": 7,
+        "from_agent": "reviewer",
+        "to_agent": "logger",
+        "detail": "reviewer->logger"
+      },
+      {
+        "step": 8,
+        "from_agent": "logger",
+        "to_agent": "reviewer",
+        "detail": "logger->reviewer"
+      },
+      {
+        "step": 9,
+        "from_agent": "reviewer",
+        "to_agent": "operator",
+        "detail": "reviewer->operator"
+      },
+      {
+        "step": 10,
+        "from_agent": "reviewer",
+        "to_agent": "implementer",
+        "detail": "reviewer->implementer"
+      }
+    ],
+    "vetoes": [],
+    "failures": [],
+    "steps": [
+      {
+        "step": 1,
+        "name": "goal",
+        "agent": "operator",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+        "score": 0.5954,
+        "tokens": 218
+      },
+      {
+        "step": 2,
+        "name": "plan",
+        "agent": "planner",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.5955,
+        "tokens": 499
+      },
+      {
+        "step": 3,
+        "name": "challenge",
+        "agent": "adversary",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.61 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']",
+        "score": 0.6148,
+        "tokens": 516
+      },
+      {
+        "step": 4,
+        "name": "implement",
+        "agent": "implementer",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.9301,
+        "tokens": 522
+      },
+      {
+        "step": 5,
+        "name": "test",
+        "agent": "tester",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.9303,
+        "tokens": 512
+      },
+      {
+        "step": 6,
+        "name": "review",
+        "agent": "reviewer",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']",
+        "score": 0.5379,
+        "tokens": 491
+      },
+      {
+        "step": 7,
+        "name": "log",
+        "agent": "logger",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+        "score": 0.539,
+        "tokens": 488
+      },
+      {
+        "step": 8,
+        "name": "meta_review",
+        "agent": "reviewer",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']",
+        "score": 0.5379,
+        "tokens": 569
+      },
+      {
+        "step": 9,
+        "name": "",
+        "agent": "",
+        "decision": "pass",
+        "why": "human approved",
+        "score": null,
+        "tokens": null
+      },
+      {
+        "step": 10,
+        "name": "deliver",
+        "agent": "implementer",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.5395,
+        "tokens": 396
+      }
+    ],
+    "cost": {
+      "total_tokens": 4211,
+      "avg_score": 0.6467,
+      "by_agent": {
+        "operator": 218,
+        "planner": 499,
+        "adversary": 516,
+        "implementer": 918,
+        "tester": 512,
+        "reviewer": 1060,
+        "logger": 488
+      },
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      },
+      "max_tokens": null,
+      "max_wall_s": null,
+      "elapsed_s": 0.169,
+      "remaining_wall_s": null,
+      "wall_exhausted": false,
+      "budget_exhausted": false
+    },
+    "error": "",
+    "last_agent": "implementer"
+  },
+  "cost": {
+    "total_tokens": 4211,
+    "avg_score": 0.6467,
+    "request_count": 9,
+    "max_tokens": null,
+    "remaining_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": 0.169,
+    "remaining_wall_s": null,
+    "wall_exhausted": false,
+    "budget_exhausted": false,
+    "by_agent": {
+      "operator": 218,
+      "planner": 499,
+      "adversary": 516,
+      "implementer": 918,
+      "tester": 512,
+      "reviewer": 1060,
+      "logger": 488
+    },
+    "thresholds": {
+      "pass": 0.7,
+      "revise": 0.45
+    }
+  },
+  "verify": {
+    "ok": true,
+    "n_errors": 0,
+    "n_warns": 0,
+    "issues": [],
+    "checks": {
+      "checkpoint_parseable": true,
+      "checkpoint_exists": true,
+      "journal_exists": true,
+      "journal_parseable": true,
+      "step_alignment": true,
+      "status_alignment": true,
+      "agent_alignment": true,
+      "token_alignment": true,
+      "outputs_bounded": true
+    },
+    "journal_tokens": 4211,
+    "meta_tokens": 4211
+  },
+  "timeline": [
+    {
+      "i": 0,
+      "ts": 1784155237.8579671,
+      "event": "status",
+      "step": 0,
+      "agent": "",
+      "status": "running",
+      "detail": "pending->running"
+    },
+    {
+      "i": 1,
+      "ts": 1784155237.8633327,
+      "event": "step_start",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal"
+    },
+    {
+      "i": 2,
+      "ts": 1784155237.8675559,
+      "event": "consensus",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal",
+      "decision": "pass",
+      "score": 0.5954
+    },
+    {
+      "i": 3,
+      "ts": 1784155237.8703103,
+      "event": "step_complete",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+      "score": 0.5954,
+      "tokens": 218,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 4,
+      "ts": 1784155237.8738143,
+      "event": "handoff",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "operator->planner",
+      "from_agent": "operator",
+      "to_agent": "planner"
+    },
+    {
+      "i": 5,
+      "ts": 1784155237.876683,
+      "event": "step_start",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan"
+    },
+    {
+      "i": 6,
+      "ts": 1784155237.8811822,
+      "event": "consensus",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan",
+      "decision": "pass",
+      "score": 0.5955
+    },
+    {
+      "i": 7,
+      "ts": 1784155237.88412,
+      "event": "step_complete",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.5955,
+      "tokens": 499,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 8,
+      "ts": 1784155237.8873987,
+      "event": "handoff",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "planner->adversary",
+      "from_agent": "planner",
+      "to_agent": "adversary"
+    },
+    {
+      "i": 9,
+      "ts": 1784155237.89028,
+      "event": "step_start",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge"
+    },
+    {
+      "i": 10,
+      "ts": 1784155237.8950229,
+      "event": "consensus",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge",
+      "decision": "pass",
+      "score": 0.6148
+    },
+    {
+      "i": 11,
+      "ts": 1784155237.8980057,
+      "event": "step_complete",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.61 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']",
+      "score": 0.6148,
+      "tokens": 516,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 12,
+      "ts": 1784155237.9015837,
+      "event": "handoff",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "adversary->implementer",
+      "from_agent": "adversary",
+      "to_agent": "implementer"
+    },
+    {
+      "i": 13,
+      "ts": 1784155237.904588,
+      "event": "step_start",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement"
+    },
+    {
+      "i": 14,
+      "ts": 1784155237.9091666,
+      "event": "consensus",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement",
+      "decision": "pass",
+      "score": 0.9301
+    },
+    {
+      "i": 15,
+      "ts": 1784155237.9120939,
+      "event": "step_complete",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.9301,
+      "tokens": 522,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 16,
+      "ts": 1784155237.9158041,
+      "event": "handoff",
+      "step": 5,
+      "agent": "tester",
+      "status": "running",
+      "detail": "implementer->tester",
+      "from_agent": "implementer",
+      "to_agent": "tester"
+    },
+    {
+      "i": 17,
+      "ts": 1784155237.9186897,
+      "event": "step_start",
+      "step": 5,
+      "agent": "tester",
+      "status": "running",
+      "detail": "test"
+    },
+    {
+      "i": 18,
+      "ts": 1784155237.9234905,
+      "event": "consensus",
+      "step": 5,
+      "agent": "tester",
+      "status": "running",
+      "detail": "test",
+      "decision": "pass",
+      "score": 0.9303
+    },
+    {
+      "i": 19,
+      "ts": 1784155237.926918,
+      "event": "step_complete",
+      "step": 5,
+      "agent": "tester",
+      "status": "running",
+      "detail": "test",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.9303,
+      "tokens": 512,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 20,
+      "ts": 1784155237.9312344,
+      "event": "handoff",
+      "step": 6,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "tester->reviewer",
+      "from_agent": "tester",
+      "to_agent": "reviewer"
+    },
+    {
+      "i": 21,
+      "ts": 1784155237.9344783,
+      "event": "step_start",
+      "step": 6,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "review"
+    },
+    {
+      "i": 22,
+      "ts": 1784155237.9408147,
+      "event": "consensus",
+      "step": 6,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "review",
+      "decision": "pass",
+      "score": 0.5379
+    },
+    {
+      "i": 23,
+      "ts": 1784155237.9452038,
+      "event": "step_complete",
+      "step": 6,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "review",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']",
+      "score": 0.5379,
+      "tokens": 491,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 24,
+      "ts": 1784155237.9506018,
+      "event": "handoff",
+      "step": 7,
+      "agent": "logger",
+      "status": "running",
+      "detail": "reviewer->logger",
+      "from_agent": "reviewer",
+      "to_agent": "logger"
+    },
+    {
+      "i": 25,
+      "ts": 1784155237.953476,
+      "event": "step_start",
+      "step": 7,
+      "agent": "logger",
+      "status": "running",
+      "detail": "log"
+    },
+    {
+      "i": 26,
+      "ts": 1784155237.9598036,
+      "event": "consensus",
+      "step": 7,
+      "agent": "logger",
+      "status": "running",
+      "detail": "log",
+      "decision": "pass",
+      "score": 0.539
+    },
+    {
+      "i": 27,
+      "ts": 1784155237.9644885,
+      "event": "step_complete",
+      "step": 7,
+      "agent": "logger",
+      "status": "running",
+      "detail": "log",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+      "score": 0.539,
+      "tokens": 488,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 28,
+      "ts": 1784155237.970019,
+      "event": "handoff",
+      "step": 8,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "logger->reviewer",
+      "from_agent": "logger",
+      "to_agent": "reviewer"
+    },
+    {
+      "i": 29,
+      "ts": 1784155237.9734552,
+      "event": "step_start",
+      "step": 8,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "meta_review"
+    },
+    {
+      "i": 30,
+      "ts": 1784155237.980366,
+      "event": "consensus",
+      "step": 8,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "meta_review",
+      "decision": "pass",
+      "score": 0.5379
+    },
+    {
+      "i": 31,
+      "ts": 1784155237.9837072,
+      "event": "step_complete",
+      "step": 8,
+      "agent": "reviewer",
+      "status": "running",
+      "detail": "meta_review",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']",
+      "score": 0.5379,
+      "tokens": 569,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 32,
+      "ts": 1784155237.9870026,
+      "event": "handoff",
+      "step": 9,
+      "agent": "operator",
+      "status": "running",
+      "detail": "reviewer->operator",
+      "from_agent": "reviewer",
+      "to_agent": "operator"
+    },
+    {
+      "i": 33,
+      "ts": 1784155237.9897778,
+      "event": "step_start",
+      "step": 9,
+      "agent": "operator",
+      "status": "running",
+      "detail": "approval"
+    },
+    {
+      "i": 34,
+      "ts": 1784155237.994021,
+      "event": "waiting_human",
+      "step": 9,
+      "agent": "",
+      "status": "waiting_human",
+      "detail": "approval"
+    },
+    {
+      "i": 35,
+      "ts": 1784155237.9968758,
+      "event": "resume",
+      "step": 8,
+      "agent": "",
+      "status": "waiting_human",
+      "detail": "approve",
+      "approve": true,
+      "feedback": "demo approved"
+    },
+    {
+      "i": 36,
+      "ts": 1784155238.001028,
+      "event": "human_decision",
+      "step": 9,
+      "agent": "",
+      "status": "running",
+      "detail": "approve",
+      "decision": "approve",
+      "approve": true,
+      "feedback": "demo approved"
+    },
+    {
+      "i": 37,
+      "ts": 1784155238.0046654,
+      "event": "status",
+      "step": 8,
+      "agent": "",
+      "status": "running",
+      "detail": "running->running"
+    },
+    {
+      "i": 38,
+      "ts": 1784155238.0087652,
+      "event": "handoff",
+      "step": 10,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "reviewer->implementer",
+      "from_agent": "reviewer",
+      "to_agent": "implementer"
+    },
+    {
+      "i": 39,
+      "ts": 1784155238.0128336,
+      "event": "step_start",
+      "step": 10,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "deliver"
+    },
+    {
+      "i": 40,
+      "ts": 1784155238.0190878,
+      "event": "consensus",
+      "step": 10,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "deliver",
+      "decision": "pass",
+      "score": 0.5395
+    },
+    {
+      "i": 41,
+      "ts": 1784155238.0226116,
+      "event": "step_complete",
+      "step": 10,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "deliver",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.5395,
+      "tokens": 396,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 42,
+      "ts": 1784155238.0273824,
+      "event": "completed",
+      "step": 10,
+      "agent": "",
+      "status": "completed",
+      "detail": ""
+    }
+  ],
+  "n_timeline": 43,
+  "provenance": {
+    "task_id": "hitl-demo-3a6a46ef",
+    "found": true,
+    "schema": "nexus.prov/v1",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "HITL demo: pause at human approval then continue",
+    "agents": [
+      {
+        "id": "adversary",
+        "type": "agent",
+        "steps": [
+          3
+        ],
+        "vendor": "xai",
+        "tokens": 516
+      },
+      {
+        "id": "implementer",
+        "type": "agent",
+        "steps": [
+          4,
+          10
+        ],
+        "vendor": "openai",
+        "tokens": 918
+      },
+      {
+        "id": "logger",
+        "type": "agent",
+        "steps": [
+          7
+        ],
+        "vendor": "local",
+        "tokens": 488
+      },
+      {
+        "id": "operator",
+        "type": "agent",
+        "steps": [
+          1,
+          9
+        ],
+        "vendor": "human",
+        "tokens": 218
+      },
+      {
+        "id": "planner",
+        "type": "agent",
+        "steps": [
+          2
+        ],
+        "vendor": "openai",
+        "tokens": 499
+      },
+      {
+        "id": "reviewer",
+        "type": "agent",
+        "steps": [
+          6,
+          8
+        ],
+        "vendor": "anthropic",
+        "tokens": 1060
+      },
+      {
+        "id": "tester",
+        "type": "agent",
+        "steps": [
+          5
+        ],
+        "vendor": "openai",
+        "tokens": 512
+      }
+    ],
+    "activities": [
+      {
+        "id": "act-1",
+        "type": "activity",
+        "step": 1,
+        "name": "goal",
+        "agent": "operator",
+        "decision": "pass",
+        "score": 0.5954,
+        "tokens": 218,
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']"
+      },
+      {
+        "id": "act-2",
+        "type": "activity",
+        "step": 2,
+        "name": "plan",
+        "agent": "planner",
+        "decision": "pass",
+        "score": 0.5955,
+        "tokens": 499,
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      },
+      {
+        "id": "act-3",
+        "type": "activity",
+        "step": 3,
+        "name": "challenge",
+        "agent": "adversary",
+        "decision": "pass",
+        "score": 0.6148,
+        "tokens": 516,
+        "why": "consensus n=3 score=0.61 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']"
+      },
+      {
+        "id": "act-4",
+        "type": "activity",
+        "step": 4,
+        "name": "implement",
+        "agent": "implementer",
+        "decision": "pass",
+        "score": 0.9301,
+        "tokens": 522,
+        "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      },
+      {
+        "id": "act-5",
+        "type": "activity",
+        "step": 5,
+        "name": "test",
+        "agent": "tester",
+        "decision": "pass",
+        "score": 0.9303,
+        "tokens": 512,
+        "why": "consensus n=3 score=0.93 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      },
+      {
+        "id": "act-6",
+        "type": "activity",
+        "step": 6,
+        "name": "review",
+        "agent": "reviewer",
+        "decision": "pass",
+        "score": 0.5379,
+        "tokens": 491,
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']"
+      },
+      {
+        "id": "act-7",
+        "type": "activity",
+        "step": 7,
+        "name": "log",
+        "agent": "logger",
+        "decision": "pass",
+        "score": 0.539,
+        "tokens": 488,
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']"
+      },
+      {
+        "id": "act-8",
+        "type": "activity",
+        "step": 8,
+        "name": "meta_review",
+        "agent": "reviewer",
+        "decision": "pass",
+        "score": 0.5379,
+        "tokens": 569,
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['adversary', 'tester', 'planner']"
+      },
+      {
+        "id": "act-9",
+        "type": "activity",
+        "step": 9,
+        "name": "",
+        "agent": "",
+        "decision": "pass",
+        "score": null,
+        "tokens": null,
+        "why": "human approved"
+      },
+      {
+        "id": "act-10",
+        "type": "activity",
+        "step": 10,
+        "name": "deliver",
+        "agent": "implementer",
+        "decision": "pass",
+        "score": 0.5395,
+        "tokens": 396,
+        "why": "consensus n=3 score=0.54 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      }
+    ],
+    "entities": [
+      {
+        "id": "task:hitl-demo-3a6a46ef",
+        "type": "task",
+        "objective": "HITL demo: pause at human approval then continue",
+        "status": "completed",
+        "current_step": 10,
+        "namespace": "proj/hitl"
+      },
+      {
+        "id": "artifact:hitl-demo-3a6a46ef_artifact.txt",
+        "type": "artifact",
+        "path": "results/hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "id": "journal:hitl-demo-3a6a46ef",
+        "type": "journal",
+        "path": "/path/to/nexus-core/.nexus_state/tasks/hitl-demo-3a6a46ef.events.jsonl",
+        "n_events": 43
+      }
+    ],
+    "relations": [
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-1",
+        "agent": "operator"
+      },
+      {
+        "type": "used",
+        "activity": "act-1",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-1",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-2",
+        "agent": "planner"
+      },
+      {
+        "type": "used",
+        "activity": "act-2",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-2",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-3",
+        "agent": "adversary"
+      },
+      {
+        "type": "used",
+        "activity": "act-3",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-3",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-4",
+        "agent": "implementer"
+      },
+      {
+        "type": "used",
+        "activity": "act-4",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-4",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-5",
+        "agent": "tester"
+      },
+      {
+        "type": "used",
+        "activity": "act-5",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-5",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-6",
+        "agent": "reviewer"
+      },
+      {
+        "type": "used",
+        "activity": "act-6",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-6",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-7",
+        "agent": "logger"
+      },
+      {
+        "type": "used",
+        "activity": "act-7",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-7",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-8",
+        "agent": "reviewer"
+      },
+      {
+        "type": "used",
+        "activity": "act-8",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-8",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "used",
+        "activity": "act-9",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-9",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-10",
+        "agent": "implementer"
+      },
+      {
+        "type": "used",
+        "activity": "act-10",
+        "entity": "task:hitl-demo-3a6a46ef"
+      },
+      {
+        "type": "generated",
+        "activity": "act-10",
+        "entity": "artifact:hitl-demo-3a6a46ef_artifact.txt"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-2",
+        "informed_by": "act-1"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-3",
+        "informed_by": "act-2"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-4",
+        "informed_by": "act-3"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-5",
+        "informed_by": "act-4"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-6",
+        "informed_by": "act-5"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-7",
+        "informed_by": "act-6"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-8",
+        "informed_by": "act-7"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-9",
+        "informed_by": "act-8"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-10",
+        "informed_by": "act-9"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "planner",
+        "derived_from": "operator",
+        "step": 2,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "adversary",
+        "derived_from": "planner",
+        "step": 3,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "implementer",
+        "derived_from": "adversary",
+        "step": 4,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "tester",
+        "derived_from": "implementer",
+        "step": 5,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "reviewer",
+        "derived_from": "tester",
+        "step": 6,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "logger",
+        "derived_from": "reviewer",
+        "step": 7,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "reviewer",
+        "derived_from": "logger",
+        "step": 8,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "operator",
+        "derived_from": "reviewer",
+        "step": 9,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "implementer",
+        "derived_from": "reviewer",
+        "step": 10,
+        "kind": "handoff"
+      }
+    ],
+    "handoffs": [
+      {
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "detail": "operator->planner"
+      },
+      {
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "detail": "planner->adversary"
+      },
+      {
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "detail": "adversary->implementer"
+      },
+      {
+        "step": 5,
+        "from_agent": "implementer",
+        "to_agent": "tester",
+        "detail": "implementer->tester"
+      },
+      {
+        "step": 6,
+        "from_agent": "tester",
+        "to_agent": "reviewer",
+        "detail": "tester->reviewer"
+      },
+      {
+        "step": 7,
+        "from_agent": "reviewer",
+        "to_agent": "logger",
+        "detail": "reviewer->logger"
+      },
+      {
+        "step": 8,
+        "from_agent": "logger",
+        "to_agent": "reviewer",
+        "detail": "logger->reviewer"
+      },
+      {
+        "step": 9,
+        "from_agent": "reviewer",
+        "to_agent": "operator",
+        "detail": "reviewer->operator"
+      },
+      {
+        "step": 10,
+        "from_agent": "reviewer",
+        "to_agent": "implementer",
+        "detail": "reviewer->implementer"
+      }
+    ],
+    "vetoes": [],
+    "failures": [],
+    "trust": [],
+    "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192pass | s5 test@tester\u2192pass | s6 review@reviewer\u2192pass | s7 log@logger\u2192pass | s8 meta_review@reviewer\u2192pass | s9\u2192pass | s10 deliver@implementer\u2192pass | human@9\u2192approve | COMPLETED",
+    "cost": {
+      "total_tokens": 4211,
+      "avg_score": 0.6467,
+      "by_agent": {
+        "operator": 218,
+        "planner": 499,
+        "adversary": 516,
+        "implementer": 918,
+        "tester": 512,
+        "reviewer": 1060,
+        "logger": 488
+      },
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    "n_events": 43
+  },
+  "graph": {
+    "task_id": "hitl-demo-3a6a46ef",
+    "found": true,
+    "schema": "nexus.graph/v1",
+    "status": "completed",
+    "current_step": 10,
+    "objective": "HITL demo: pause at human approval then continue",
+    "nodes": [
+      {
+        "id": "adversary",
+        "type": "agent",
+        "vendor": "xai",
+        "steps": [
+          3
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 516
+      },
+      {
+        "id": "implementer",
+        "type": "agent",
+        "vendor": "openai",
+        "steps": [
+          4,
+          10
+        ],
+        "n_starts": 2,
+        "n_completes": 2,
+        "tokens": 918
+      },
+      {
+        "id": "logger",
+        "type": "agent",
+        "vendor": "local",
+        "steps": [
+          7
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 488
+      },
+      {
+        "id": "operator",
+        "type": "agent",
+        "vendor": "human",
+        "steps": [
+          1,
+          9
+        ],
+        "n_starts": 2,
+        "n_completes": 1,
+        "tokens": 218
+      },
+      {
+        "id": "planner",
+        "type": "agent",
+        "vendor": "openai",
+        "steps": [
+          2
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 499
+      },
+      {
+        "id": "reviewer",
+        "type": "agent",
+        "vendor": "anthropic",
+        "steps": [
+          6,
+          8
+        ],
+        "n_starts": 2,
+        "n_completes": 2,
+        "tokens": 1060
+      },
+      {
+        "id": "tester",
+        "type": "agent",
+        "vendor": "openai",
+        "steps": [
+          5
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 512
+      }
+    ],
+    "edges": [
+      {
+        "from": "adversary",
+        "to": "implementer",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "implementer",
+        "to": "tester",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "logger",
+        "to": "reviewer",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "operator",
+        "to": "planner",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "planner",
+        "to": "adversary",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "reviewer",
+        "to": "implementer",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "reviewer",
+        "to": "logger",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "reviewer",
+        "to": "operator",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "tester",
+        "to": "reviewer",
+        "count": 1,
+        "kind": "handoff"
+      }
+    ],
+    "sequence": [
+      {
+        "event": "status",
+        "step": 0,
+        "agent": "",
+        "detail": "pending->running",
+        "ts": 1784155237.8579671
+      },
+      {
+        "event": "step_start",
+        "step": 1,
+        "agent": "operator",
+        "name": "goal",
+        "ts": 1784155237.8633327
+      },
+      {
+        "event": "step_complete",
+        "step": 1,
+        "agent": "operator",
+        "name": "goal",
+        "decision": "pass",
+        "tokens": 218,
+        "score": 0.5954,
+        "ts": 1784155237.8703103
+      },
+      {
+        "event": "handoff",
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "ts": 1784155237.8738143
+      },
+      {
+        "event": "step_start",
+        "step": 2,
+        "agent": "planner",
+        "name": "plan",
+        "ts": 1784155237.876683
+      },
+      {
+        "event": "step_complete",
+        "step": 2,
+        "agent": "planner",
+        "name": "plan",
+        "decision": "pass",
+        "tokens": 499,
+        "score": 0.5955,
+        "ts": 1784155237.88412
+      },
+      {
+        "event": "handoff",
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "ts": 1784155237.8873987
+      },
+      {
+        "event": "step_start",
+        "step": 3,
+        "agent": "adversary",
+        "name": "challenge",
+        "ts": 1784155237.89028
+      },
+      {
+        "event": "step_complete",
+        "step": 3,
+        "agent": "adversary",
+        "name": "challenge",
+        "decision": "pass",
+        "tokens": 516,
+        "score": 0.6148,
+        "ts": 1784155237.8980057
+      },
+      {
+        "event": "handoff",
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "ts": 1784155237.9015837
+      },
+      {
+        "event": "step_start",
+        "step": 4,
+        "agent": "implementer",
+        "name": "implement",
+        "ts": 1784155237.904588
+      },
+      {
+        "event": "step_complete",
+        "step": 4,
+        "agent": "implementer",
+        "name": "implement",
+        "decision": "pass",
+        "tokens": 522,
+        "score": 0.9301,
+        "ts": 1784155237.9120939
+      },
+      {
+        "event": "handoff",
+        "step": 5,
+        "from_agent": "implementer",
+        "to_agent": "tester",
+        "ts": 1784155237.9158041
+      },
+      {
+        "event": "step_start",
+        "step": 5,
+        "agent": "tester",
+        "name": "test",
+        "ts": 1784155237.9186897
+      },
+      {
+        "event": "step_complete",
+        "step": 5,
+        "agent": "tester",
+        "name": "test",
+        "decision": "pass",
+        "tokens": 512,
+        "score": 0.9303,
+        "ts": 1784155237.926918
+      },
+      {
+        "event": "handoff",
+        "step": 6,
+        "from_agent": "tester",
+        "to_agent": "reviewer",
+        "ts": 1784155237.9312344
+      },
+      {
+        "event": "step_start",
+        "step": 6,
+        "agent": "reviewer",
+        "name": "review",
+        "ts": 1784155237.9344783
+      },
+      {
+        "event": "step_complete",
+        "step": 6,
+        "agent": "reviewer",
+        "name": "review",
+        "decision": "pass",
+        "tokens": 491,
+        "score": 0.5379,
+        "ts": 1784155237.9452038
+      },
+      {
+        "event": "handoff",
+        "step": 7,
+        "from_agent": "reviewer",
+        "to_agent": "logger",
+        "ts": 1784155237.9506018
+      },
+      {
+        "event": "step_start",
+        "step": 7,
+        "agent": "logger",
+        "name": "log",
+        "ts": 1784155237.953476
+      },
+      {
+        "event": "step_complete",
+        "step": 7,
+        "agent": "logger",
+        "name": "log",
+        "decision": "pass",
+        "tokens": 488,
+        "score": 0.539,
+        "ts": 1784155237.9644885
+      },
+      {
+        "event": "handoff",
+        "step": 8,
+        "from_agent": "logger",
+        "to_agent": "reviewer",
+        "ts": 1784155237.970019
+      },
+      {
+        "event": "step_start",
+        "step": 8,
+        "agent": "reviewer",
+        "name": "meta_review",
+        "ts": 1784155237.9734552
+      },
+      {
+        "event": "step_complete",
+        "step": 8,
+        "agent": "reviewer",
+        "name": "meta_review",
+        "decision": "pass",
+        "tokens": 569,
+        "score": 0.5379,
+        "ts": 1784155237.9837072
+      },
+      {
+        "event": "handoff",
+        "step": 9,
+        "from_agent": "reviewer",
+        "to_agent": "operator",
+        "ts": 1784155237.9870026
+      },
+      {
+        "event": "step_start",
+        "step": 9,
+        "agent": "operator",
+        "name": "approval",
+        "ts": 1784155237.9897778
+      },
+      {
+        "event": "resume",
+        "step": 8,
+        "agent": "",
+        "detail": "approve",
+        "ts": 1784155237.9968758
+      },
+      {
+        "event": "status",
+        "step": 8,
+        "agent": "",
+        "detail": "running->running",
+        "ts": 1784155238.0046654
+      },
+      {
+        "event": "handoff",
+        "step": 10,
+        "from_agent": "reviewer",
+        "to_agent": "implementer",
+        "ts": 1784155238.0087652
+      },
+      {
+        "event": "step_start",
+        "step": 10,
+        "agent": "implementer",
+        "name": "deliver",
+        "ts": 1784155238.0128336
+      },
+      {
+        "event": "step_complete",
+        "step": 10,
+        "agent": "implementer",
+        "name": "deliver",
+        "decision": "pass",
+        "tokens": 396,
+        "score": 0.5395,
+        "ts": 1784155238.0226116
+      },
+      {
+        "event": "completed",
+        "step": 10,
+        "agent": "",
+        "detail": "",
+        "ts": 1784155238.0273824
+      }
+    ],
+    "n_handoffs": 9,
+    "n_agents": 7,
+    "mermaid": "flowchart LR\n  adversary[\"adversary\\ntok=516 steps=1\"]\n  implementer[\"implementer\\ntok=918 steps=2\"]\n  logger[\"logger\\ntok=488 steps=1\"]\n  operator[\"operator\\ntok=218 steps=2\"]\n  planner[\"planner\\ntok=499 steps=1\"]\n  reviewer[\"reviewer\\ntok=1060 steps=2\"]\n  tester[\"tester\\ntok=512 steps=1\"]\n  adversary --> implementer\n  implementer --> tester\n  logger --> reviewer\n  operator --> planner\n  planner --> adversary\n  reviewer --> implementer\n  reviewer --> logger\n  reviewer --> operator\n  tester --> reviewer",
+    "cost": {
+      "total_tokens": 4211,
+      "max_tokens": null,
+      "remaining_tokens": null,
+      "budget_exhausted": false,
+      "by_agent": {
+        "operator": 218,
+        "planner": 499,
+        "adversary": 516,
+        "implementer": 918,
+        "tester": 512,
+        "reviewer": 1060,
+        "logger": 488
+      }
+    },
+    "n_events": 43
+  },
+  "n_vetoes": 0,
+  "n_failures": 0
+}

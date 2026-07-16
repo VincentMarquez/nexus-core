@@ -32,12 +32,12 @@ For **each changed hunk**:
 ## Group protocol
 
 ```text
-1. Implementer (Codex) posts patch + short summary to workspace
+1. Implementer (Grok) posts patch + short summary to workspace
 2. Claude review → workspace message (blocking issues list)
-3. Grok review → workspace message (adversarial findings)
+3. Codex/ChatGPT review → workspace message (adversarial findings)
 4. Gemini → search web/arXiv; post links + how they apply
 5. Local → grep/logs; post file paths that help
-6. Implementer revises
+6. Grok revises
 7. Re-review until no blocking issues OR harness green
 8. Only then add line to predictions.jsonl for official eval
 ```

@@ -2,28 +2,10 @@
 
 Machine-readable twin: [`ARXIV_LEDGER.csv`](ARXIV_LEDGER.csv) (open in Excel / LibreOffice). Cycles **skip** ids already listed.
 
-_Rows: 109_
+_Rows: 127_
 
 | arxiv_id | title | times | last_seen | query |
 |----------|-------|------:|-----------|-------|
-| nlin | A Model of a Trust-based Recommendation System on a Social Network | 1 | 2026-07-15T18:32:56Z | multi-agent systems durable orchestratio |
-| 1706.03235 | ACCNet: Actor-Coordinator-Critic Net for "Learning-to-Communicate" wit | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2006.00176 | When2com: Multi-Agent Perception via Communication Graph Grouping | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2405.00839 | Communication-Efficient Training Workload Balancing for Decentralized  | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2501.01140 | Communicating Unexpectedness for Out-of-Distribution Multi-Agent Reinf | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2509.05882 | Collaborate, Deliberate, Evaluate: How LLM Alignment Affects Coordinat | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2510.05158 | Lang-PINN: From Language to Physics-Informed Neural Networks via a Mul | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2510.25595 | Communication and Verification in LLM Agents towards Collaboration und | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2604.11028 | Federated Single-Agent Robotics: Multi-Robot Coordination Without Intr | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2605.11376 | LLM-X: A Scalable Negotiation-Oriented Exchange for Communication Amon | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 2606.05868 | YouZhi: Towards High-Concurrency Financial LLMs via Adaptive GQA-to-ML | 1 | 2026-07-15T18:39:44Z | multi agent communication coordination L |
-| 1905.11863 | MolSSI and BioExcel Workflow Workshop 2018 Report | 5 | 2026-07-16T01:07:51Z | durable multi agent workflow checkpoint  |
-| 2201.04612 | Agent-Temporal Attention for Reward Redistribution in Episodic Multi-A | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2207.01222 | KubeAdaptor: A Docking Framework for Workflow Containerization on Kube | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2309.16263 | Cooperation Dynamics in Multi-Agent Systems: Exploring Game-Theoretic  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2407.00662 | Multi-Agent Training for Pommerman: Curriculum Learning and Population | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2407.20371 | Gender, Race, and Intersectional Bias in Resume Screening via Language | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
-| 2409.02645 | Emergent Language: A Survey and Taxonomy | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2507.19543 | Agent WARPP: Workflow Adherence via Runtime Parallel Personalization | 5 | 2026-07-15T22:52:39Z | durable multi agent workflow checkpoint  |
 | 2602.09771 | A large scale multi-modal workflow for battery characterization: from  | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
 | 2606.22213 | Resume Screening, Fast and Slow: (Biased) AI Recommendations' Influenc | 1 | 2026-07-15T18:46:46Z | durable multi agent workflow checkpoint  |
@@ -56,3 +38,21 @@ _Rows: 109_
 | 2605.28999 | Measuring Real-World Prompt Injection Attacks in LLM-based Resume Scre | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
 | 2607.01425 | Agent4cs: A Multi-agent System for Code Summarization in Large Hierarc | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
 | 2607.07052 | Progressive Crystallization: Turning Agent Exploration into Determinis | 1 | 2026-07-15T19:21:08Z | durable multi agent workflow checkpoint  |
+| 2410.06992 | SWE-Bench+: Enhanced Coding Benchmark for LLMs | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2505.23419 | SWE-bench Goes Live! | 2 | 2026-07-16T14:53:04Z | SWE-bench Pro agent multi-agent review |
+| 2506.09289 | UTBoost: Rigorous Evaluation of Coding Agents on SWE-Bench | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2507.23348 | SWE-Debate: Competitive Multi-Agent Debate for Software Issue Resoluti | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2509.16941 | SWE-Bench Pro: Can AI Agents Solve Long-Horizon Software Engineering T | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2510.08996 | Saving SWE-Bench: A Benchmark Mutation Approach for Realistic Agent Ev | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2603.00520 | SWE-ABS: Adversarial Benchmark Strengthening Exposes Inflated Success  | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2603.05980 | An Interactive Multi-Agent System for Evaluation of New Product Concep | 1 | 2026-07-16T14:45:21Z | SWE-bench Pro multi-agent coding evaluat |
+| 2106.06828 | A Game-Theoretic Approach to Multi-Agent Trust Region Optimization | 1 | 2026-07-16T14:53:04Z | SWE-bench Pro agent multi-agent review |
+| 2502.05986 | Preventing Rogue Agents Improves Multi-Agent Collaboration | 1 | 2026-07-16T14:53:04Z | SWE-bench Pro agent multi-agent review |
+| 2412.21139 | Training Software Engineering Agents and Verifiers with SWE-Gym | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2505.20411 | SWE-rebench: An Automated Pipeline for Task Collection and Decontamina | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2511.02352 | SWE-Sharp-Bench: A Reproducible Benchmark for C# Software Engineering  | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2601.16746 | SWE-Pruner: Self-Adaptive Context Pruning for Coding Agents | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2602.09540 | SWE-Bench Mobile: Can Large Language Model Agents Develop Industry-Lev | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2604.10493 | SWE-Shepherd: Advancing PRMs for Reinforcing Code Agents | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2606.12344 | Claw-SWE-Bench: A Benchmark for Evaluating OpenClaw-style Agent Harnes | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
+| 2607.00990 | SWE-Doctor: Guiding Software Engineering Agents with Runtime Diagnosis | 1 | 2026-07-16T15:12:31Z | SWE-bench Pro multi-agent coding evaluat |
