@@ -16,7 +16,12 @@ Roles (default):
   planner/reviewer → Claude
   implementer      → GPT (Codex)
   adversary        → Grok 4.5
-  tester/logger    → local Ollama
+  tester           → local Ollama
+  logger           → Gemini (research / external notes) when bridge is up
+
+SWE-bench Pro multi-AI campaign (group review + arXiv):
+  PYTHONPATH=src python3 scripts/swe_pro_multi_ai.py --once
+  docs/SWE_BENCH_PRO_MULTI_AI.md
 """
 
 from __future__ import annotations
@@ -166,7 +171,7 @@ def run_multi_vendor_task(port: int, cycle: int) -> dict:
         "implementer": "gpt",  # Codex / ChatGPT CLI; falls back via panel if offline
         "tester": "local",
         "reviewer": "claude",
-        "logger": "local",
+        "logger": "gemini",  # web/arXiv style notes when gemini bridge is up
     })
     # deliver step is implementer — keep gpt but logger/local can finish light work
     base = f"http://127.0.0.1:{port}"

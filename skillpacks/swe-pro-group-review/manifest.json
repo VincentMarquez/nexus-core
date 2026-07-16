@@ -1,0 +1,10 @@
+{
+  "id": "swe-pro-group-review",
+  "version": "0.1.0",
+  "tags": ["swe-bench-pro", "multi-vendor", "review", "claude", "codex", "grok", "gemini"],
+  "entrypoints": {
+    "skill": "SKILL.md",
+    "docs": "docs/SWE_BENCH_PRO_MULTI_AI.md",
+    "campaign": "scripts/swe_pro_multi_ai.py"
+  }
+}

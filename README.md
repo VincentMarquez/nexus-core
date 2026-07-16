@@ -444,6 +444,8 @@ grok
 
 **Small-model tool cheat sheet:** weaker local models need explicit “when/how to call tools” instructions. Ship that as skill pack [`skillpacks/gemma-local-tools/`](skillpacks/gemma-local-tools/) — covers shell, Nexus MCP, GitHub, and coding skills (`implement`, `review`, `check-work`, …). Doc: [docs/LOCAL_LLM_TOOL_CALLING.md](docs/LOCAL_LLM_TOOL_CALLING.md).
 
+**SWE-bench Pro multi-AI:** Claude plan/review · Codex implement · Grok adversary · Gemini arXiv/web · local files — human-style group review, **official Pro harness for the score**. Doc: [docs/SWE_BENCH_PRO_MULTI_AI.md](docs/SWE_BENCH_PRO_MULTI_AI.md) · `scripts/swe_pro_multi_ai.py`.
+
 **Orchestration façade (designed, not all shipped yet):** high-level `run_task` / `get_task_status` / `submit_workflow` / `trigger_self_improve` so the NVFP agent can **delegate multi-step work** without hand-chaining atomic MCP tools. Spec: [docs/design/nexus-orchestration-mcp-server.md](docs/design/nexus-orchestration-mcp-server.md) · platforms detail: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 **Recommended split of labor**
