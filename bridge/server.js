@@ -133,12 +133,18 @@ async function callAgent(agent, prompt, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const resp = readJson(p.response);
-    if (resp && resp.id === id && typeof resp.text === "string") {
-      try {
-        unlinkSync(p.response);
-      } catch {}
-      emit("message_done", { agent, id, ms: Date.now() - start });
-      return { id, agent, text: resp.text, ms: Date.now() - start };
+    // Prefer exact id match; also accept if bridge finished and prompt was removed
+    // (avoids rare id races when bridge rewrites response).
+    if (resp && typeof resp.text === "string") {
+      const idOk = !resp.id || resp.id === id;
+      const promptGone = !existsSync(p.prompt);
+      if (idOk || (promptGone && resp.text.length > 0)) {
+        try {
+          unlinkSync(p.response);
+        } catch {}
+        emit("message_done", { agent, id, ms: Date.now() - start, matched: resp.id });
+        return { id, agent, text: resp.text, ms: Date.now() - start };
+      }
     }
     await sleep(200);
   }

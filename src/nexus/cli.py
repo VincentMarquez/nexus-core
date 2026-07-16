@@ -142,6 +142,7 @@ def enable_agent_bridges(
     claude_cmd = [
         "claude",
         "--print",
+        "--bare",  # headless bus: no hooks/sandbox fighting multi-agent prompts
         "--model",
         claude_model,
         "--effort",
