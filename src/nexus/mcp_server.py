@@ -534,7 +534,7 @@ TOOLS = [
         "description": (
             "First apply slice (plan §5): load offline grade → append-only ledger "
             "with causal_note → claim verify → MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE "
-            "dry-run. No network."
+            "sandbox worktree dry-run (plan-reuse cache). No network; no promote."
         ),
         "inputSchema": {
             "type": "object",

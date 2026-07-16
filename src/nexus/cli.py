@@ -2722,6 +2722,9 @@ def cmd_improve(args: argparse.Namespace) -> int:
             ),
             test_exit_code=int(getattr(args, "test_exit_code", None) or 0),
             dry_run=not bool(getattr(args, "no_dry_run", False)),
+            worktree_dry_run=not bool(getattr(args, "no_worktree", False)),
+            use_plan_cache=not bool(getattr(args, "no_plan_cache", False)),
+            pattern_id=getattr(args, "pattern", None),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
@@ -5065,7 +5068,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "plan-slice",
         help=(
             "First apply slice (plan §5): durable grade ledger + claim gate + "
-            "MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE smoke (offline, dry-run)"
+            "MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE worktree dry-run "
+            "(plan-reuse cache, offline)"
         ),
     )
     imp_ps.add_argument("--path", default=".", help="project workdir")
@@ -5098,7 +5102,25 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--no-dry-run",
         action="store_true",
         dest="no_dry_run",
-        help="mark dry_run=false (still no hard apply in this slice)",
+        help="mark dry_run=false (still no hard apply/promote in this slice)",
+    )
+    imp_ps.add_argument(
+        "--no-worktree",
+        action="store_true",
+        dest="no_worktree",
+        help="skip sandbox worktree dry-run (flag-only APPLY_CANDIDATE)",
+    )
+    imp_ps.add_argument(
+        "--no-plan-cache",
+        action="store_true",
+        dest="no_plan_cache",
+        help="disable plan-reuse cache for worktree dry-run",
+    )
+    imp_ps.add_argument(
+        "--pattern",
+        default=None,
+        dest="pattern",
+        help="worktree pattern id (default: map from repo / markdown-skill-sot-validator)",
     )
     imp_ps.add_argument("--json", action="store_true")
     imp_ps.set_defaults(func=cmd_improve, improve_cmd="plan-slice")

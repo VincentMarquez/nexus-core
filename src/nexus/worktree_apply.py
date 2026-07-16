@@ -1780,9 +1780,18 @@ def run_apply(
 
         # Pattern files must exist under worktree; main fingerprint already proves
         # isolation when those paths were missing or unchanged on main.
-        wt_pack = Path(wt_meta["path"]) / "skillpacks" / "markdown-sot-demo" / "SKILL.md"
+        pack_id = str(get_pattern(pid).get("pack_id") or "markdown-sot-demo")
+        wt_pack = Path(wt_meta["path"]) / "skillpacks" / pack_id / "SKILL.md"
         if not wt_pack.is_file():
-            raise WorktreeApplyError("pattern SKILL.md missing from worktree")
+            # Fallback: any SKILL.md written by this pattern under skillpacks/
+            skill_hits = list(
+                Path(wt_meta["path"]).glob("skillpacks/*/SKILL.md")
+            )
+            if not skill_hits:
+                raise WorktreeApplyError(
+                    f"pattern SKILL.md missing from worktree (pack_id={pack_id})"
+                )
+            wt_pack = skill_hits[0]
 
         store.append(
             run_id=rid,

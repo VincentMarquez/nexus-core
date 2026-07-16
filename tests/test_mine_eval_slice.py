@@ -19,9 +19,11 @@ from nexus.mine_eval_slice import (
     assert_transition,
     can_transition,
     classify_apply_candidates,
+    dry_run_worktree_apply,
     format_demo_report,
     load_fixture_grade,
     migrate,
+    pattern_for_repo,
     run_demo_slice,
     verify_claims,
 )
@@ -156,8 +158,51 @@ def test_demo_slice_wshobson_exits_ok(tmp_path: Path):
     assert report["ledger_row"]["causal_note"]
     assert report["completed"] == list(SLICE_STAGES)
     assert "apply_candidate=YES" in report["kanban"]
+    # APPLY_CANDIDATE now runs sandbox worktree dry-run
+    wt = report.get("worktree_apply") or {}
+    assert wt.get("ok") is True, wt
+    assert wt.get("pattern") == "markdown-skill-sot-validator"
+    assert wt.get("cache_hit") is False
     text = format_demo_report(report)
     assert "pass:             YES" in text or "pass:" in text and "YES" in text
+    assert "worktree.ok" in text
+
+
+def test_demo_slice_plan_reuse_cache_hit(tmp_path: Path):
+    """Second plan-slice for same grade hits plan-reuse cache."""
+    fix_dir = tmp_path / "tests" / "fixtures"
+    fix_dir.mkdir(parents=True)
+    dest = fix_dir / "mine_eval_sample.json"
+    dest.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    r1 = run_demo_slice(
+        tmp_path,
+        fixture=str(dest),
+        repo="wshobson/agents",
+        run_id="slice-cache-1",
+        min_score=14.0,
+    )
+    assert r1["ok"] is True
+    assert (r1.get("worktree_apply") or {}).get("cache_hit") is False
+
+    r2 = run_demo_slice(
+        tmp_path,
+        fixture=str(dest),
+        repo="wshobson/agents",
+        run_id="slice-cache-2",
+        min_score=14.0,
+    )
+    assert r2["ok"] is True
+    wt2 = r2.get("worktree_apply") or {}
+    assert wt2.get("cache_hit") is True, wt2
+    assert wt2.get("ok") is True
+    assert "cache=hit" in (r2.get("kanban") or "")
+
+
+def test_pattern_for_repo_hints():
+    assert pattern_for_repo("wshobson/agents") == "markdown-skill-sot-validator"
+    assert pattern_for_repo("codingagentsystem/cas") == "cas-evidence-board-ops"
+    assert pattern_for_repo("unknown/thing").startswith("markdown")
 
 
 def test_eval_classify_three_grades():
@@ -210,6 +255,10 @@ def test_cli_plan_slice(tmp_path: Path, monkeypatch):
         test_exit_code=0,
         json=False,
         project_root=str(tmp_path),
+        no_dry_run=False,
+        no_worktree=False,
+        no_plan_cache=False,
+        pattern=None,
     )
     # cmd_improve uses root from args / cwd
     code = nexus_cli.cmd_improve(args)

@@ -1,8 +1,9 @@
-"""First apply slice — prove mine→grade→claim→ledger→smoke (plan §5).
+"""First apply slice — prove mine→grade→claim→ledger→worktree dry-run (plan §5).
 
 Offline loop matching ``docs/LATEST_IMPROVE_PLAN.md`` First apply slice:
 
-  research/mine artifact → Grok-shaped grade → claim verify → durable ledger → smoke
+  research/mine artifact → Grok-shaped grade → claim verify → durable ledger
+  → APPLY_CANDIDATE worktree dry-run (plan-reuse cache)
 
 Stages (AOAD-MAT / arXiv 2510.13343)::
 
@@ -12,12 +13,15 @@ Patterns (shape only, not vendored trees):
 - choihyunsus/soul — immutable append-only ledger
 - ahmedEid1/lumen — migration guards + decision audit
 - wshobson/agents — generate/validate/smoke adapter shape
+- codingagentsystem/cas / forge — worktree isolation dry-run
 - Thucy (2512.03278) — claim verification against grade + tests
 - CEMA (2302.10809) — causal_note on grade rows
+- multi-stage plan reuse (2604.03350 / context eng 2508.08322)
 
 Storage::
 
   ``.nexus_workspaces/mine_eval/slice/grades.sqlite``
+  ``.nexus_workspaces/plan_reuse/cache.json``
 
 No network in unit tests; precomputed grades from fixtures / IMPROVE_OURS.
 """
@@ -717,10 +721,208 @@ def format_kanban(status: dict[str, Any]) -> str:
         s.upper() for s in (stages.get("completed") or status.get("completed") or [])
     ) or "(none)"
     note = (g.get("causal_note") or claim.get("causal_note") or "")[:80]
+    wt = status.get("worktree_apply") or {}
+    cache = "hit" if wt.get("cache_hit") else ("miss" if wt else "-")
+    wt_ok = wt.get("ok")
     return (
         f"[slice] {rid}  score={score}  apply_candidate={cand}  "
-        f"stages={done}  causal={note!r}"
+        f"wt={wt_ok} cache={cache}  stages={done}  causal={note!r}"
     )
+
+
+# Repo → worktree pattern catalog id (first match wins).
+_REPO_PATTERN_HINTS: tuple[tuple[str, str], ...] = (
+    ("wshobson/agents", "markdown-skill-sot-validator"),
+    ("codingagentsystem/cas", "cas-evidence-board-ops"),
+    ("builderz-labs/mission-control", "mission-control-spend-ops"),
+    ("choihyunsus/soul", "soul-work-ledger-ops"),
+    ("labsai/eddi", "eddi-routing-ops"),
+    ("wheattoast11/openrouter", "openrouter-research-ops"),
+    ("mattmagg/mistersmith", "mistersmith-runtime-ops"),
+    ("solacelabs/solace", "solace-mesh-events-ops"),
+    ("intelligent-internet/zenith", "zenith-principled-stop-ops"),
+    ("escapeboy/agent-fleet", "agent-fleet-ops"),
+)
+
+
+def pattern_for_repo(repo: str, *, default: Optional[str] = None) -> str:
+    """Map a mined repo name to a worktree pattern catalog id."""
+    from . import worktree_apply as wta
+
+    key = str(repo or "").strip().lower().replace("__", "/")
+    for needle, pid in _REPO_PATTERN_HINTS:
+        if needle in key:
+            return pid
+    return default or wta.DEFAULT_PATTERN
+
+
+def grade_for_worktree(grade: dict[str, Any], row: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Shape a slice grade into claim_verify / worktree_apply fields."""
+    base = dict(grade or {})
+    if row:
+        base.setdefault("repo", row.get("repo_or_paper_id") or base.get("repo"))
+        base.setdefault("score", row.get("score"))
+        base.setdefault("idea", row.get("idea"))
+        base.setdefault("skill", row.get("skill"))
+        base.setdefault("method", row.get("method"))
+        path = (
+            row.get("artifact_path")
+            or base.get("path")
+            or base.get("artifact_path")
+            or ""
+        )
+        base["path"] = str(path) or f".nexus_workspaces/mine_eval/{str(base.get('repo') or 'unknown').replace('/', '__')}"
+        base.setdefault("artifact_path", base["path"])
+    else:
+        path = str(
+            base.get("path")
+            or base.get("artifact_path")
+            or base.get("local_path")
+            or ""
+        )
+        if not path:
+            rid = str(base.get("repo") or base.get("repo_or_paper_id") or "unknown")
+            path = f".nexus_workspaces/mine_eval/{rid.replace('/', '__')}"
+        base["path"] = path
+        base.setdefault("repo", base.get("repo_or_paper_id"))
+    return base
+
+
+def dry_run_worktree_apply(
+    workdir: Optional[Path | str],
+    grade: dict[str, Any],
+    *,
+    run_id: Optional[str] = None,
+    pattern_id: Optional[str] = None,
+    use_cache: bool = True,
+    force: bool = False,
+    cleanup: bool = True,
+) -> dict[str, Any]:
+    """Sandbox worktree apply for APPLY_CANDIDATE (dry-run, no promote).
+
+    Uses :mod:`nexus.plan_reuse` so a second call with the same fingerprint
+    skips worktree materialisation. Gates (decision / work_ledger / spine)
+    are off — this stage only proves isolated pattern apply + verify.
+    """
+    from . import plan_reuse as pr
+    from . import worktree_apply as wta
+
+    root = _root(workdir)
+    g = grade_for_worktree(grade)
+    repo = str(g.get("repo") or g.get("repo_or_paper_id") or "")
+    pid = pattern_id or pattern_for_repo(repo)
+    method = str(g.get("method") or DEFAULT_METHOD)
+    score = g.get("score")
+    rid = run_id or f"slice-wt-{uuid.uuid4().hex[:10]}"
+
+    out: dict[str, Any] = {
+        "schema": "nexus.slice_worktree_dry/v1",
+        "ok": False,
+        "dry_run": True,
+        "cache_hit": False,
+        "key": pr.plan_key(repo=repo, pattern=pid, score=score, method=method),
+        "repo": repo,
+        "pattern": pid,
+        "run_id": rid,
+        "apply": None,
+        "verify": None,
+        "error": None,
+    }
+
+    def _compute() -> dict[str, Any]:
+        return wta.run_apply(
+            root,
+            grade=g,
+            pattern_id=pid,
+            run_id=rid,
+            mode="sandbox",
+            cleanup=cleanup,
+            skip_smoke_prefix=True,
+            require_path_exists=False,
+            require_decision=False,
+            require_work_ledger=False,
+            require_spine=False,
+            promote=False,
+        )
+
+    try:
+        if use_cache and not force:
+            bundled = pr.get_or_compute(
+                root,
+                repo=repo,
+                pattern=pid,
+                score=score,
+                method=method,
+                compute=_compute,
+                force=False,
+            )
+            out["cache_hit"] = bool(bundled.get("cache_hit"))
+            out["key"] = bundled.get("key") or out["key"]
+            result = bundled.get("result")
+            if bundled.get("cache_hit"):
+                # result is the stored summary dict
+                summary = result if isinstance(result, dict) else {}
+                out["ok"] = bool(summary.get("ok") or summary.get("verify_ok"))
+                out["apply"] = {"files_written": summary.get("files") or []}
+                out["verify"] = {"ok": summary.get("verify_ok")}
+                out["cached_summary"] = summary
+                out["from_cache"] = True
+                return out
+            # miss path: result is full run_apply report
+            if not isinstance(result, dict):
+                out["error"] = "worktree apply returned non-dict"
+                return out
+            out["ok"] = bool(result.get("ok"))
+            out["apply"] = result.get("apply")
+            out["verify"] = result.get("verify")
+            out["worktree"] = result.get("worktree")
+            out["main_untouched"] = result.get("main_untouched")
+            out["error"] = result.get("error")
+            out["apply_report"] = {
+                "ok": result.get("ok"),
+                "run_id": result.get("run_id"),
+                "pattern": result.get("pattern"),
+                "completed": result.get("completed"),
+            }
+            return out
+
+        # force / no-cache path
+        result = _compute()
+        summary = {
+            "ok": result.get("ok"),
+            "pattern": result.get("pattern") or pid,
+            "run_id": result.get("run_id"),
+            "files": (result.get("apply") or {}).get("files_written") or [],
+            "verify_ok": (result.get("verify") or {}).get("ok"),
+            "error": result.get("error"),
+            "dry_run": True,
+        }
+        if use_cache:
+            pr.store_plan(
+                root,
+                key=out["key"],
+                repo=repo,
+                pattern=pid,
+                score=score,
+                method=method,
+                summary=summary,
+            )
+        out["ok"] = bool(result.get("ok"))
+        out["apply"] = result.get("apply")
+        out["verify"] = result.get("verify")
+        out["worktree"] = result.get("worktree")
+        out["main_untouched"] = result.get("main_untouched")
+        out["error"] = result.get("error")
+        out["apply_report"] = {
+            "ok": result.get("ok"),
+            "run_id": result.get("run_id"),
+            "pattern": result.get("pattern"),
+            "completed": result.get("completed"),
+        }
+        return out
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+        return out
 
 
 def run_demo_slice(
@@ -732,14 +934,17 @@ def run_demo_slice(
     min_score: float = DEFAULT_MIN_SCORE,
     test_exit_code: int = 0,
     dry_run: bool = True,
+    worktree_dry_run: bool = True,
+    use_plan_cache: bool = True,
+    pattern_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """End-to-end first apply slice (offline).
 
     1. Load graded repo from fixture (EVIDENCE shape)
     2. Stage MINED → GRADED; persist grade with causal_note
     3. Claim-verify → CLAIM_OK
-    4. APPLY_CANDIDATE dry-run when claims pass
-    5. Emit kanban one-liner; ok only if ledger + claims pass
+    4. APPLY_CANDIDATE → sandbox worktree dry-run (+ plan-reuse cache)
+    5. Emit kanban one-liner; ok only if ledger + claims + dry apply pass
     """
     root = _root(workdir)
     rid = run_id or f"slice-{uuid.uuid4().hex[:10]}"
@@ -758,6 +963,8 @@ def run_demo_slice(
         "ledger_row": None,
         "apply_candidate": False,
         "dry_run": bool(dry_run),
+        "worktree_apply": None,
+        "plan_reuse": None,
         "kanban": "",
         "error": None,
         "timeline": timeline,
@@ -822,17 +1029,60 @@ def run_demo_slice(
         runner.advance("claim_ok")
         timeline.append({"stage": "claim_ok", "apply_candidate": claim.apply_candidate})
 
-        # APPLY_CANDIDATE (dry-run only in this slice)
+        # APPLY_CANDIDATE → worktree dry-run (sandbox; plan-reuse)
         if claim.apply_candidate:
             runner.advance("apply_candidate")
             report["apply_candidate"] = True
+            wt_payload: dict[str, Any]
+            if dry_run and worktree_dry_run:
+                wt_grade = grade_for_worktree(grade, row)
+                wt_payload = dry_run_worktree_apply(
+                    root,
+                    wt_grade,
+                    run_id=f"{rid}-wt",
+                    pattern_id=pattern_id,
+                    use_cache=use_plan_cache,
+                    force=False,
+                    cleanup=True,
+                )
+            else:
+                wt_payload = {
+                    "schema": "nexus.slice_worktree_dry/v1",
+                    "ok": True,
+                    "dry_run": dry_run,
+                    "skipped": "worktree_dry_run_disabled"
+                    if dry_run
+                    else "no_dry_run_flag_only",
+                    "action": "flag_only",
+                }
+            report["worktree_apply"] = wt_payload
+            report["plan_reuse"] = {
+                "cache_hit": wt_payload.get("cache_hit"),
+                "key": wt_payload.get("key"),
+            }
             timeline.append(
                 {
                     "stage": "apply_candidate",
                     "dry_run": dry_run,
-                    "action": "flag_only" if dry_run else "would_apply",
+                    "worktree_ok": wt_payload.get("ok"),
+                    "cache_hit": wt_payload.get("cache_hit"),
+                    "pattern": wt_payload.get("pattern"),
+                    "action": "worktree_dry_run"
+                    if dry_run and worktree_dry_run
+                    else "flag_only",
                 }
             )
+            if dry_run and worktree_dry_run and not wt_payload.get("ok"):
+                report["error"] = (
+                    wt_payload.get("error")
+                    or "worktree dry-run failed for APPLY_CANDIDATE"
+                )
+                report["completed"] = list(runner.completed)
+                report["stage_status"] = runner.status()
+                report["kanban"] = format_kanban(report)
+                # stages complete but overall ok=False
+                report["ok"] = False
+                return report
         else:
             report["error"] = "claims ok but not apply_candidate (score/tests)"
             report["completed"] = list(runner.completed)
@@ -842,11 +1092,15 @@ def run_demo_slice(
 
         report["completed"] = list(runner.completed)
         report["stage_status"] = runner.status()
+        wt_ok = True
+        if dry_run and worktree_dry_run:
+            wt_ok = bool((report.get("worktree_apply") or {}).get("ok"))
         report["ok"] = bool(
             report["ledger_row"]
             and claim.ok
             and claim.apply_candidate
             and runner.is_done()
+            and wt_ok
         )
         report["kanban"] = format_kanban(report)
         return report
@@ -862,6 +1116,7 @@ def run_demo_slice(
 def format_demo_report(report: dict[str, Any]) -> str:
     g = report.get("grade") or {}
     claim = report.get("claim") or {}
+    wt = report.get("worktree_apply") or {}
     lines = [
         "=== NEXUS first apply slice (MINED→GRADED→CLAIM_OK→APPLY_CANDIDATE) ===",
         f"run_id:           {report.get('run_id')}",
@@ -880,6 +1135,15 @@ def format_demo_report(report: dict[str, Any]) -> str:
         lines.append(f"claim.reasons:    {claim.get('reasons')}")
     if report.get("ledger_row"):
         lines.append(f"ledger.id:        {report['ledger_row'].get('id')}")
+    if wt:
+        lines.append(
+            f"worktree.ok:      {wt.get('ok')}  cache_hit={wt.get('cache_hit')}  "
+            f"pattern={wt.get('pattern')}"
+        )
+        if wt.get("key"):
+            lines.append(f"plan_reuse.key:   {wt.get('key')}")
+        if wt.get("error"):
+            lines.append(f"worktree.error:   {wt.get('error')}")
     if report.get("error"):
         lines.append(f"error:            {report['error']}")
     lines.append(f"kanban:           {report.get('kanban')}")

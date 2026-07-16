@@ -674,6 +674,54 @@ def cycle_once(
             workdir=root,
             enforce=True,
         )
+        # Offline preference pairs from ranked mine results (2602.04518)
+        # — auto each cycle when record_preferences, not only on self_approve.
+        if bool(getattr(cfg, "record_preferences", True)):
+            try:
+                from . import preference_pairs as pp
+
+                ranked: list[dict[str, Any]] = []
+                for key in ("use", "evaluate", "improve_ours"):
+                    blob = mine.get(key) or {}
+                    for item in (
+                        blob.get("results")
+                        or blob.get("repos")
+                        or blob.get("grades")
+                        or blob.get("items")
+                        or []
+                    ):
+                        if isinstance(item, dict) and (
+                            item.get("repo") or item.get("full_name")
+                        ):
+                            ranked.append(
+                                {
+                                    "repo": item.get("repo")
+                                    or item.get("full_name"),
+                                    "score": item.get("score")
+                                    or item.get("total"),
+                                    "rank": item.get("rank"),
+                                }
+                            )
+                if len(ranked) >= 2:
+                    pref = pp.record_from_ranked(
+                        ranked,
+                        root,
+                        source="alive_cycle_mine",
+                    )
+                    if pref:
+                        report["steps"].append(
+                            {
+                                "step": "record_preferences",
+                                "ok": True,
+                                "better": pref.get("better"),
+                                "worse": pref.get("worse"),
+                                "source": "alive_cycle_mine",
+                            }
+                        )
+            except Exception as e:
+                report["steps"].append(
+                    {"step": "record_preferences", "error": str(e)}
+                )
     except usage_mod.BudgetExceeded as e:
         report["steps"].append({"step": "mine", "blocked": str(e)})
         _save_state(report, root)
