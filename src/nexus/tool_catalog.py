@@ -61,6 +61,8 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "grade_get": "read",
     "get_run_checkpoint": "read",
     "get_run_status": "read",
+    "run_task": "ops",
+    "get_task_status": "read",
     "context_pack": "read",
     "context_get": "read",
     "tool_catalog": "read",

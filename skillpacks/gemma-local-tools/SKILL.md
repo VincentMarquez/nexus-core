@@ -61,6 +61,18 @@ You are the **brain** inside **Grok CLI**. Grok owns the **hands** (tools + skil
 | Demo / apply | `demo_loop`, `apply_phase` | dry-run unless allowed |
 | GitHub status | `github_community_status` | |
 | GitHub loop | `github_loop` | issue/PR community tests |
+| **Start durable task** | **`run_task`** | `description`, `kind=task\|research`, `agent_mode=demo\|fake\|auto` |
+| **Poll / cancel task** | **`get_task_status`** | `task_id`, `action=status\|cancel\|logs` |
+
+### Orchestrator poll loop (prefer for multi-step work)
+
+```text
+1. run_task description="..." kind=task agent_mode=demo
+2. get_task_status task_id=... action=status   (until completed|failed|cancelled)
+3. Cancel: get_task_status task_id=... action=cancel
+```
+
+Do **not** use `wait=true` when NVFP4 is loaded (blocks the chat).
 
 If a tool is missing: tell user to check `/mcps`.
 

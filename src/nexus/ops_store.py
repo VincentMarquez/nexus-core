@@ -33,9 +33,14 @@ JOB_KINDS = frozenset(
         "github",
         "improve",
         "task",
+        "workflow",  # orchestration submit_workflow
         "other",
     }
 )
+
+# Terminal statuses — sticky writes (orchestrator K15): once terminal, later
+# non-force updates are no-ops so cancel wins races against late completion.
+TERMINAL_JOB_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
 # Mission-control-inspired statuses (simplified).
 JOB_STATUSES = frozenset(
@@ -208,6 +213,14 @@ class OpsStore:
             ("schema", SCHEMA_VERSION),
         )
         self.conn.commit()
+        # K17: WAL for multi-reader / orchestrator poll + worker writers
+        # (best-effort; some filesystems fall back to delete)
+        try:
+            mode = self.conn.execute("PRAGMA journal_mode=WAL").fetchone()
+            # touch read to confirm
+            _ = mode[0] if mode else None
+        except sqlite3.Error:
+            pass
 
     # -- jobs ---------------------------------------------------------------
 
@@ -335,16 +348,33 @@ class OpsStore:
             self.conn.commit()
         return self.get(jid)  # type: ignore[return-value]
 
-    def set_status(self, job_id: str, status: str) -> dict[str, Any]:
+    def set_status(
+        self,
+        job_id: str,
+        status: str,
+        *,
+        force: bool = False,
+        sticky: bool = True,
+    ) -> dict[str, Any]:
+        """Update job status.
+
+        When ``sticky`` is True (default), terminal statuses
+        (completed/failed/cancelled) are not overwritten by non-terminal
+        or competing terminal writes unless ``force=True`` (orchestrator K15).
+        """
         st = str(status or "").strip().lower()
         if st not in JOB_STATUSES:
             raise OpsError(f"invalid status: {status!r}")
         jid = str(job_id).strip()
         row = self.conn.execute(
-            "SELECT id FROM jobs WHERE id = ?", (jid,)
+            "SELECT id, status FROM jobs WHERE id = ?", (jid,)
         ).fetchone()
         if row is None:
             raise OpsError(f"job not found: {jid}")
+        cur = str(row["status"] or "").strip().lower()
+        if sticky and not force and cur in TERMINAL_JOB_STATUSES:
+            # Keep existing terminal status (cancel wins over late completed).
+            return self.get(jid)  # type: ignore[return-value]
         self.conn.execute(
             "UPDATE jobs SET status = ?, updated_at = ? WHERE id = ?",
             (st, time.time(), jid),

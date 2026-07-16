@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 
 SERVER_NAME = "nexus-workspace"
-SERVER_VERSION = "0.7.4"
+SERVER_VERSION = "0.8.0"
 PROTOCOL_VERSION = "2024-11-05"
 
 
@@ -705,6 +705,78 @@ TOOLS = [
         },
     },
     {
+        "name": "run_task",
+        "description": (
+            "Orchestrator: start an async durable task (kind=task|research). "
+            "Returns task_id immediately; poll with get_task_status. "
+            "agent_mode=demo (default/auto) uses MockAgent panel; fake completes instantly; "
+            "bus uses event bus if up else blocked. Does not auto-start the bus."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Goal / task description",
+                },
+                "kind": {
+                    "type": "string",
+                    "description": "task | research",
+                    "default": "task",
+                },
+                "agent_mode": {
+                    "type": "string",
+                    "description": "auto | demo | fake | bus",
+                    "default": "auto",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "Optional client-supplied id (sanitized)",
+                },
+                "wait": {
+                    "type": "boolean",
+                    "description": "Block until terminal (discouraged under NVFP4)",
+                    "default": False,
+                },
+                "wait_timeout_s": {
+                    "type": "number",
+                    "description": "Max wait seconds when wait=true (cap 300)",
+                    "default": 120,
+                },
+                "with_brief": {
+                    "type": "boolean",
+                    "description": "Research only: request brief (default false)",
+                    "default": False,
+                },
+            },
+            "required": ["description"],
+        },
+    },
+    {
+        "name": "get_task_status",
+        "description": (
+            "Orchestrator: poll task status, cancel, or fetch logs. "
+            "action=status|cancel|logs. task_id from run_task."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string"},
+                "action": {
+                    "type": "string",
+                    "description": "status | cancel | logs",
+                    "default": "status",
+                },
+                "log_lines": {
+                    "type": "integer",
+                    "description": "Lines when action=logs",
+                    "default": 40,
+                },
+            },
+            "required": ["task_id"],
+        },
+    },
+    {
         "name": "skillpacks",
         "description": (
             "P2.1 multi-harness skill packs: list / validate / generate / drift "
@@ -827,9 +899,79 @@ def _tool_result(text: str, *, is_error: bool = False) -> dict[str, Any]:
     }
 
 
+def _orch_enabled() -> bool:
+    """NEXUS_ORCH=0 omits/refuses orchestration facades."""
+    return os.environ.get("NEXUS_ORCH", "1").strip() not in ("0", "false", "no", "off")
+
+
+def _listed_tools() -> list[dict[str, Any]]:
+    if _orch_enabled():
+        return TOOLS
+    skip = {"run_task", "get_task_status"}
+    return [t for t in TOOLS if t.get("name") not in skip]
+
+
 def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
     args = arguments or {}
     try:
+        if name in ("run_task", "get_task_status") and not _orch_enabled():
+            return _tool_result(
+                json.dumps(
+                    {
+                        "error": "orchestrator disabled (NEXUS_ORCH=0)",
+                        "code": "orch_disabled",
+                    }
+                ),
+                is_error=True,
+            )
+
+        if name == "run_task":
+            from . import orchestrator as orch
+
+            try:
+                o = orch.Orchestrator(_root())
+                out = o.run_task(
+                    str(args.get("description") or ""),
+                    kind=str(args.get("kind") or "task"),
+                    agent_mode=str(args.get("agent_mode") or "auto"),
+                    task_id=str(args["task_id"]) if args.get("task_id") else None,
+                    wait=bool(args.get("wait") or False),
+                    wait_timeout_s=float(args.get("wait_timeout_s") or 120),
+                    with_brief=bool(args.get("with_brief") or False),
+                    sync_fake=(str(args.get("agent_mode") or "").lower() == "fake"),
+                )
+                return _tool_result(json.dumps(out, indent=2, default=str)[:16000])
+            except orch.OrchError as e:
+                return _tool_result(
+                    json.dumps({"error": str(e), "code": e.code}),
+                    is_error=True,
+                )
+            except Exception as e:
+                return _tool_result(
+                    f"run_task error: {type(e).__name__}: {e}", is_error=True
+                )
+
+        if name == "get_task_status":
+            from . import orchestrator as orch
+
+            try:
+                o = orch.Orchestrator(_root())
+                out = o.get_task_status(
+                    str(args.get("task_id") or ""),
+                    action=str(args.get("action") or "status"),
+                    log_lines=int(args.get("log_lines") or 40),
+                )
+                return _tool_result(json.dumps(out, indent=2, default=str)[:16000])
+            except orch.OrchError as e:
+                return _tool_result(
+                    json.dumps({"error": str(e), "code": e.code}),
+                    is_error=True,
+                )
+            except Exception as e:
+                return _tool_result(
+                    f"get_task_status error: {type(e).__name__}: {e}", is_error=True
+                )
+
         if name == "list_project_files":
             rel = args.get("path") or "."
             max_entries = int(args.get("max_entries") or 200)
@@ -1937,7 +2079,7 @@ def handle_rpc(msg: dict[str, Any]) -> Optional[dict[str, Any]]:
         return None
 
     if method == "tools/list":
-        return {"jsonrpc": "2.0", "id": mid, "result": {"tools": TOOLS}}
+        return {"jsonrpc": "2.0", "id": mid, "result": {"tools": _listed_tools()}}
 
     if method == "tools/call":
         name = params.get("name") or ""
