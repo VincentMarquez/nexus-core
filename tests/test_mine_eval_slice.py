@@ -202,6 +202,8 @@ def test_demo_slice_plan_reuse_cache_hit(tmp_path: Path):
 def test_pattern_for_repo_hints():
     assert pattern_for_repo("wshobson/agents") == "markdown-skill-sot-validator"
     assert pattern_for_repo("codingagentsystem/cas") == "cas-evidence-board-ops"
+    assert pattern_for_repo("builderz-labs/mission-control") == "mission-control-spend-ops"
+    assert pattern_for_repo("SolaceLabs/solace-agent-mesh") == "solace-mesh-events-ops"
     assert pattern_for_repo("unknown/thing").startswith("markdown")
 
 
@@ -229,6 +231,52 @@ def test_load_fixture_grade_prefers_wshobson():
     )
     assert grade["repo"] == "wshobson/agents"
     assert float(grade["score"]) == 16.0
+
+
+def test_load_fixture_grade_mission_control_and_solace():
+    """Named repos resolve to the correct grade (no silent wshobson fallback)."""
+    from nexus.mine_eval_slice import SliceError
+
+    mc = load_fixture_grade(fixture=str(FIXTURE), repo="builderz-labs/mission-control")
+    assert mc["repo"] == "builderz-labs/mission-control"
+    assert float(mc["score"]) == 15.0
+
+    sol = load_fixture_grade(fixture=str(FIXTURE), repo="SolaceLabs/solace-agent-mesh")
+    assert sol["repo"] == "SolaceLabs/solace-agent-mesh"
+    assert float(sol["score"]) == 15.0
+
+    with pytest.raises(SliceError, match="not found"):
+        load_fixture_grade(fixture=str(FIXTURE), repo="does-not/exist-repo")
+
+
+def test_demo_slice_mission_control_and_solace_patterns(tmp_path: Path):
+    """plan-slice dry-run maps mission-control + solace to their worktree patterns."""
+    fix_dir = tmp_path / "tests" / "fixtures"
+    fix_dir.mkdir(parents=True)
+    dest = fix_dir / "mine_eval_sample.json"
+    dest.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    r_mc = run_demo_slice(
+        tmp_path,
+        fixture=str(dest),
+        repo="builderz-labs/mission-control",
+        run_id="slice-mc",
+        min_score=14.0,
+    )
+    assert r_mc["ok"] is True, r_mc.get("error")
+    assert (r_mc.get("worktree_apply") or {}).get("pattern") == "mission-control-spend-ops"
+    assert (r_mc.get("worktree_apply") or {}).get("ok") is True
+
+    r_sol = run_demo_slice(
+        tmp_path,
+        fixture=str(dest),
+        repo="SolaceLabs/solace-agent-mesh",
+        run_id="slice-sol",
+        min_score=14.0,
+    )
+    assert r_sol["ok"] is True, r_sol.get("error")
+    assert (r_sol.get("worktree_apply") or {}).get("pattern") == "solace-mesh-events-ops"
+    assert (r_sol.get("worktree_apply") or {}).get("ok") is True
 
 
 def test_cli_plan_slice(tmp_path: Path, monkeypatch):

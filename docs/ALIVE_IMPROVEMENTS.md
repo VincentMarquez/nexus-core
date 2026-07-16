@@ -910,3 +910,44 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-00eb6c8e07.md`
+
+## Cycle 2026-07-16 18:39:22Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fabe51d925.md`
+- self_check: ok=False
+- apply: tests not green — refusing self-approve
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-16 19:23:30Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a51508cdc1.md`
+- self_check: ok=False
+- apply: tests not green — refusing self-approve
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-16 21:18:38Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
+- self_check: ok=True
+- apply: {'via': 'grok', 'ok': False, 'model': 'grok-4.5', 'returncode': 1, 'summary': "--effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low\nError: --effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low", 'error': None}
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-16 21:19:20Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
+- self_check: ok=True
+- apply: {'via': 'grok', 'ok': False, 'model': 'grok-4.5', 'returncode': 1, 'summary': "--effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low\nError: --effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low", 'error': None}
+- publish: pushed=True sha=3a60c2a05977 staged=['docs/ARXIV_LEDGER.csv', 'docs/ARXIV_LEDGER.md', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/LATEST_IMPROVE_PLAN.md', 'scripts/safe_product_eval.sh', 'skillpacks/gemma-local-tools/manifest.json', 'skillpacks/swe-pro-group-review/SKILL.md', 'skillpacks/swe-pro-group-review/manifest.json', 'src/nexus/mcp_server.py', 'docs/evidence/', 'scripts/run_swe_pro_official_gold.sh', 'scripts/swe_pro_full_suite.py']
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-16 22:25:32Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
+- self_check: ok=True
+- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md'}
+- evidence: 6 file(s) under `docs/evidence/`

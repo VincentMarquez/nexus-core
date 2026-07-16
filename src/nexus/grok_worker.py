@@ -48,10 +48,18 @@ def default_model() -> str:
 
 
 def default_effort() -> str:
-    """Reasoning effort: none|minimal|low|medium|high|xhigh (max → xhigh)."""
-    raw = (os.environ.get("NEXUS_GROK_EFFORT") or "xhigh").strip().lower() or "xhigh"
-    if raw in ("max", "ultra", "highest"):
-        return "xhigh"
+    """Reasoning effort clamped to what the grok CLI accepts: high|medium|low.
+
+    The CLI rejects anything else ("unknown effort level"), so aliases like
+    xhigh/max/ultra map to high and unknown values fall back to high.
+    """
+    raw = (os.environ.get("NEXUS_GROK_EFFORT") or "high").strip().lower() or "high"
+    if raw in ("xhigh", "max", "ultra", "highest"):
+        return "high"
+    if raw in ("none", "minimal"):
+        return "low"
+    if raw not in ("high", "medium", "low"):
+        return "high"
     return raw
 
 

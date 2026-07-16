@@ -200,6 +200,56 @@ def _self_approve_apply_landed(report: dict[str, Any]) -> bool:
     return False
 
 
+def _improve_ours_apply_status(applied: Any) -> dict[str, Any]:
+    """Derive landed ok/reason from ``repo_mine.step_improve_ours`` result.
+
+    ``step_improve_ours`` keeps top-level ``ok: True`` whenever a plan was
+    written; worker success lives under ``apply`` (grok: ``ok``, bus:
+    ``status``). Hard-fail when the worker reports error/failure so
+    ``_self_approve_apply_landed`` does not treat a dead apply as landed.
+    """
+    if not isinstance(applied, dict):
+        return {"ok": False, "reason": "improve_ours returned non-dict"}
+
+    # No scored repos / plan-level hard fail
+    if applied.get("ok") is False:
+        return {
+            "ok": False,
+            "reason": str(applied.get("error") or "improve_ours ok=False")[:500],
+        }
+
+    apply_blob = applied.get("apply")
+    if apply_blob is None:
+        return {"ok": False, "reason": "no apply result from improve_ours"}
+    if not isinstance(apply_blob, dict):
+        return {"ok": False, "reason": "apply result not a dict"}
+
+    # Grok (and any path that sets explicit ok)
+    if apply_blob.get("ok") is False:
+        reason = (
+            apply_blob.get("error")
+            or apply_blob.get("summary")
+            or f"worker apply failed via={apply_blob.get('via')}"
+        )
+        return {"ok": False, "reason": str(reason)[:500]}
+    if apply_blob.get("ok") is True:
+        return {"ok": True}
+
+    # Bus job: status completed|failed (no ok field)
+    status = apply_blob.get("status")
+    if status is not None:
+        st = str(status).strip().lower()
+        if st in ("completed", "success", "ok", "done"):
+            return {"ok": True}
+        err = apply_blob.get("error") or f"bus job status={status}"
+        return {"ok": False, "reason": str(err)[:500]}
+
+    if apply_blob.get("error"):
+        return {"ok": False, "reason": str(apply_blob["error"])[:500]}
+
+    return {"ok": False, "reason": "apply result missing success signal"}
+
+
 def _grader_role(cfg: "AliveConfig") -> str:
     """Map alive grader knob to anti-collusion role id (never equals implementer)."""
     g = str(cfg.grader or "auto").strip().lower()
@@ -787,21 +837,26 @@ def cycle_once(
                     our_repo=cfg.our_repo or None,
                     worker=cfg.worker or "auto",
                 )
-                report["steps"].append({
+                apply_status = _improve_ours_apply_status(applied)
+                step_rec: dict[str, Any] = {
                     "step": "self_approve_apply",
-                    "ok": True,
-                    "apply": applied.get("apply"),
-                    "plan": applied.get("plan"),
+                    "ok": bool(apply_status.get("ok")),
+                    "apply": applied.get("apply") if isinstance(applied, dict) else None,
+                    "plan": applied.get("plan") if isinstance(applied, dict) else None,
                     "decision": gate.get("decision"),
                     "signal": gate.get("signal"),
-                })
-                usage_mod.record(
-                    5000,
-                    source="improve_apply",
-                    label="self_approve",
-                    workdir=root,
-                    enforce=True,
-                )
+                }
+                if not step_rec["ok"]:
+                    step_rec["reason"] = apply_status.get("reason") or "worker apply failed"
+                report["steps"].append(step_rec)
+                if step_rec["ok"]:
+                    usage_mod.record(
+                        5000,
+                        source="improve_apply",
+                        label="self_approve",
+                        workdir=root,
+                        enforce=True,
+                    )
         except usage_mod.BudgetExceeded as e:
             report["steps"].append({"step": "self_approve_apply", "blocked": str(e)})
         except Exception as e:

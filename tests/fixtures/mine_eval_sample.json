@@ -1,6 +1,6 @@
 {
   "schema": "nexus.mine_eval_fixture/v1",
-  "source": "Grok mine_eval digest (slimmed)",
+  "source": "Grok mine_eval digest (slimmed) — IMPROVE_OURS top sources",
   "grades": [
     {
       "repo": "wshobson/agents",
@@ -16,6 +16,40 @@
           "statement": "Markdown marketplace for agents/skills with Makefile generate/validate/test tooling",
           "path": ".nexus_workspaces/scout_repos/wshobson__agents/README.md",
           "quote": "single Markdown source and idiomatic adapters"
+        }
+      ]
+    },
+    {
+      "repo": "builderz-labs/mission-control",
+      "score": 15.0,
+      "idea": 7.0,
+      "skill": 8.0,
+      "method": "grok:grok-4.5",
+      "path": ".nexus_workspaces/mine_eval/builderz-labs__mission-control",
+      "pattern": "SQLite ops plane + task spend + quality gates (CLI/MCP/TUI)",
+      "summary": "Self-hosted agent control plane with task governance and spend tracking.",
+      "claims": [
+        {
+          "statement": "SQLite-backed control plane with spend tracking and multi-surface ops",
+          "path": ".nexus_workspaces/scout_repos/builderz-labs__mission-control/README.md",
+          "quote": "task governance, spend tracking"
+        }
+      ]
+    },
+    {
+      "repo": "SolaceLabs/solace-agent-mesh",
+      "score": 15.0,
+      "idea": 7.0,
+      "skill": 8.0,
+      "method": "grok:grok-4.5",
+      "path": ".nexus_workspaces/mine_eval/SolaceLabs__solace-agent-mesh",
+      "pattern": "Event-driven multi-agent mesh + eval matrix (journal/handoff shape)",
+      "summary": "Enterprise agent mesh on messaging + ADK with packaging and broad tests.",
+      "claims": [
+        {
+          "statement": "Event-driven multi-agent framework with evaluation surface",
+          "path": ".nexus_workspaces/scout_repos/SolaceLabs__solace-agent-mesh/README.md",
+          "quote": "event-driven multi-agent"
         }
       ]
     },

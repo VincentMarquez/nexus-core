@@ -653,59 +653,176 @@ class SliceRunner:
 # ---------------------------------------------------------------------------
 
 
+def _repo_key(name: Any) -> str:
+    return str(name or "").strip().lower().replace("__", "/")
+
+
+def _grades_from_json_payload(data: Any) -> list[dict[str, Any]]:
+    if isinstance(data, list):
+        return [g for g in data if isinstance(g, dict)]
+    if isinstance(data, dict):
+        raw = data.get("grades") or data.get("items") or data.get("candidates") or []
+        if isinstance(raw, list) and raw:
+            return [g for g in raw if isinstance(g, dict)]
+        if data.get("repo") or data.get("score") is not None:
+            return [data]
+    return []
+
+
+def _find_grade_in_list(
+    grades: Sequence[dict[str, Any]],
+    want: str,
+    *,
+    source: str = "",
+) -> Optional[dict[str, Any]]:
+    want_key = _repo_key(want)
+    if not want_key:
+        return None
+    for g in grades:
+        rid = _repo_key(g.get("repo") or g.get("repo_or_paper_id"))
+        if rid == want_key:
+            out = dict(g)
+            if source:
+                out["_fixture"] = source
+            return out
+    return None
+
+
+def _grade_from_improve_ours(
+    workdir: Path,
+    repo: str,
+) -> Optional[dict[str, Any]]:
+    """Offline grade from IMPROVE_OURS / grade cache (no silent wrong-repo)."""
+    try:
+        from .grade_artifact import get_grade
+    except Exception:
+        return None
+    g = get_grade(workdir, repo, min_score=0.0)
+    if not isinstance(g, dict):
+        return None
+    out = dict(g)
+    # Normalize to mine_eval_slice shape
+    out.setdefault("repo", out.get("repo") or repo)
+    out.setdefault("repo_or_paper_id", out.get("repo"))
+    out.setdefault(
+        "path",
+        out.get("path")
+        or out.get("local_path")
+        or f".nexus_workspaces/mine_eval/{_repo_key(repo).replace('/', '__')}",
+    )
+    out["_fixture"] = "improve_ours"
+    return out
+
+
 def load_fixture_grade(
     workdir: Optional[Path | str] = None,
     *,
     fixture: Optional[Path | str] = None,
     repo: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Load one precomputed grade (offline; no network)."""
+    """Load one precomputed grade (offline; no network).
+
+    Search order when *fixture* is unset:
+      1. ``tests/fixtures/mine_eval_sample.json``
+      2. ``fixtures/mine_eval/grades_with_claims.json``
+      3. IMPROVE_OURS / grade cache (named *repo* only)
+
+    When *repo* is set, never silently return a different repo — raise
+    :class:`SliceError` if no match is found (mission-control / solace
+    plan-slice must not fall back to wshobson).
+    """
     root = _root(workdir)
-    path: Optional[Path] = None
+    want = (repo or "").strip()
+    default_repo = "wshobson/agents"
+
+    paths: list[Path] = []
     if fixture:
         path = Path(fixture)
         if not path.is_absolute():
             path = (root / path).resolve()
+        paths.append(path)
     else:
         for candidate in (
             root / "tests" / "fixtures" / "mine_eval_sample.json",
             root / "fixtures" / "mine_eval" / "grades_with_claims.json",
         ):
             if candidate.is_file():
-                path = candidate
-                break
-    if path is None or not path.is_file():
+                paths.append(candidate)
+
+    if not paths:
+        # Named repo can still come from IMPROVE_OURS without JSON fixtures.
+        if want:
+            from_ours = _grade_from_improve_ours(root, want)
+            if from_ours is not None:
+                return from_ours
         raise SliceError(
             "no grade fixture found; pass fixture= or add "
             "tests/fixtures/mine_eval_sample.json"
         )
-    data = json.loads(path.read_text(encoding="utf-8"))
-    grades: list[dict[str, Any]]
-    if isinstance(data, list):
-        grades = [g for g in data if isinstance(g, dict)]
-    elif isinstance(data, dict):
-        raw = data.get("grades") or data.get("items") or []
-        if isinstance(raw, list) and raw:
-            grades = [g for g in raw if isinstance(g, dict)]
-        elif data.get("repo") or data.get("score") is not None:
-            grades = [data]
-        else:
-            grades = []
-    else:
-        grades = []
-    if not grades:
-        raise SliceError(f"no grades in fixture {path}")
 
-    want = (repo or "wshobson/agents").strip().lower()
-    for g in grades:
-        rid = str(g.get("repo") or g.get("repo_or_paper_id") or "").lower()
-        if rid == want or rid.replace("__", "/") == want:
-            out = dict(g)
-            out["_fixture"] = str(path)
-            return out
-    # fallback: first grade
-    out = dict(grades[0])
-    out["_fixture"] = str(path)
+    # Collect grades from all candidate fixtures (first file wins on collision).
+    seen_repos: set[str] = set()
+    all_grades: list[tuple[Path, dict[str, Any]]] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            raise SliceError(f"cannot read grade fixture {path}: {e}") from e
+        for g in _grades_from_json_payload(data):
+            rid = _repo_key(g.get("repo") or g.get("repo_or_paper_id"))
+            if not rid or rid in seen_repos:
+                continue
+            seen_repos.add(rid)
+            all_grades.append((path, g))
+
+    if not all_grades and not want:
+        raise SliceError(f"no grades in fixture {paths[0]}")
+
+    # Explicit repo: match across all fixtures, then IMPROVE_OURS — no wrong-repo fallback.
+    if want:
+        hit = _find_grade_in_list(
+            [g for _, g in all_grades],
+            want,
+        )
+        if hit is not None:
+            # attach source path if we know it
+            for path, g in all_grades:
+                if _repo_key(g.get("repo") or g.get("repo_or_paper_id")) == _repo_key(want):
+                    hit = dict(g)
+                    hit["_fixture"] = str(path)
+                    return hit
+            hit["_fixture"] = str(paths[0])
+            return hit
+        from_ours = _grade_from_improve_ours(root, want)
+        if from_ours is not None:
+            return from_ours
+        known = sorted(seen_repos) or ["(none)"]
+        raise SliceError(
+            f"repo {want!r} not found in grade fixtures or IMPROVE_OURS; "
+            f"known={known}"
+        )
+
+    # No repo: prefer wshobson (canonical demo), else first grade.
+    prefer = _find_grade_in_list(
+        [g for _, g in all_grades],
+        default_repo,
+    )
+    if prefer is not None:
+        for path, g in all_grades:
+            if _repo_key(g.get("repo") or g.get("repo_or_paper_id")) == _repo_key(default_repo):
+                out = dict(g)
+                out["_fixture"] = str(path)
+                return out
+        prefer["_fixture"] = str(paths[0])
+        return prefer
+
+    if not all_grades:
+        raise SliceError(f"no grades in fixture {paths[0]}")
+    path0, g0 = all_grades[0]
+    out = dict(g0)
+    out["_fixture"] = str(path0)
     return out
 
 

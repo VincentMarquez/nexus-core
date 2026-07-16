@@ -286,6 +286,21 @@ def test_should_promote_on_done_auto_self_approve():
         checks={"ok": True},
         report={"steps": [{"step": "self_approve_apply", "skipped": "x"}]},
     )
+    # worker apply failed (ok:False) → do not auto-promote
+    assert not al._should_promote_on_done(
+        cfg_off,
+        checks={"ok": True},
+        report={
+            "steps": [
+                {
+                    "step": "self_approve_apply",
+                    "ok": False,
+                    "reason": "xhigh CLI error",
+                    "apply": {"via": "grok", "ok": False, "error": "xhigh CLI error"},
+                }
+            ]
+        },
+    )
     # explicit knob always wins
     cfg_on = al.AliveConfig(promote_on_done=True, self_approve=False, apply=False)
     assert al._should_promote_on_done(
@@ -297,6 +312,102 @@ def test_should_promote_on_done_auto_self_approve():
         cfg_plan,
         checks={"ok": True},
         report={"steps": [{"step": "self_approve_apply", "ok": True}]},
+    )
+
+
+def test_improve_ours_apply_status_detects_worker_failure():
+    """Worker/CLI failure under apply must not look like a landed apply."""
+    # Simulated real bug: step_improve_ours top-level ok stays True, grok dies
+    failed = {
+        "step": "improve_ours",
+        "ok": True,
+        "plan": "/tmp/IMPROVE_OURS.md",
+        "apply": {
+            "via": "grok",
+            "ok": False,
+            "returncode": 1,
+            "error": "xhigh CLI error: unknown model",
+            "summary": "",
+        },
+    }
+    st = al._improve_ours_apply_status(failed)
+    assert st["ok"] is False
+    assert "xhigh" in (st.get("reason") or "").lower() or "cli" in (st.get("reason") or "").lower()
+
+    # Step record shape used by alive cycle
+    step_rec = {
+        "step": "self_approve_apply",
+        "ok": bool(st.get("ok")),
+        "apply": failed.get("apply"),
+        "plan": failed.get("plan"),
+        "reason": st.get("reason"),
+    }
+    report = {"steps": [step_rec]}
+    assert al._self_approve_apply_landed(report) is False
+
+    # Success path still lands
+    ok_res = {
+        "step": "improve_ours",
+        "ok": True,
+        "plan": "/tmp/IMPROVE_OURS.md",
+        "apply": {"via": "grok", "ok": True, "returncode": 0},
+    }
+    st_ok = al._improve_ours_apply_status(ok_res)
+    assert st_ok["ok"] is True
+    assert al._self_approve_apply_landed(
+        {"steps": [{"step": "self_approve_apply", "ok": True, "apply": ok_res["apply"]}]}
+    )
+
+    # Bus completed without explicit ok
+    bus_ok = {
+        "step": "improve_ours",
+        "ok": True,
+        "apply": {"via": "bus", "status": "completed", "job_id": "j1"},
+    }
+    assert al._improve_ours_apply_status(bus_ok)["ok"] is True
+    bus_fail = {
+        "step": "improve_ours",
+        "ok": True,
+        "apply": {"via": "bus", "status": "failed", "error": "clone failed"},
+    }
+    st_bus = al._improve_ours_apply_status(bus_fail)
+    assert st_bus["ok"] is False
+
+    # No scored repos
+    no_picks = {"step": "improve_ours", "ok": False, "error": "no scored repos"}
+    st_np = al._improve_ours_apply_status(no_picks)
+    assert st_np["ok"] is False
+
+
+def test_failed_worker_apply_not_landed_blocks_promote():
+    """Regression: failed worker apply → step ok False → not landed → no auto-promote."""
+    applied = {
+        "step": "improve_ours",
+        "ok": True,  # plan written; worker still failed
+        "plan": ".nexus_state/repo_mine/IMPROVE_OURS.md",
+        "apply": {
+            "via": "grok",
+            "ok": False,
+            "error": "xhigh CLI error",
+            "returncode": 2,
+        },
+    }
+    status = al._improve_ours_apply_status(applied)
+    assert status["ok"] is False
+    step = {
+        "step": "self_approve_apply",
+        "ok": bool(status.get("ok")),
+        "reason": status.get("reason"),
+        "apply": applied.get("apply"),
+        "plan": applied.get("plan"),
+    }
+    assert step["ok"] is False
+    report = {"steps": [step]}
+    assert al._self_approve_apply_landed(report) is False
+
+    cfg = al.AliveConfig(promote_on_done=False, self_approve=True, apply=True)
+    assert not al._should_promote_on_done(
+        cfg, checks={"ok": True}, report=report
     )
 
 
