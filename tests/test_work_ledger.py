@@ -306,3 +306,137 @@ def test_cli_work_loop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         ]
     )
     assert code == 0
+
+
+# ---------------------------------------------------------------------------
+# P0.5 interleaving + ensure_apply_gate (worktree/alive wire)
+# ---------------------------------------------------------------------------
+
+
+def test_illegal_transition_mine_to_accept(tmp_path: Path):
+    from nexus.work_ledger import TransitionError, assert_legal_transition
+
+    with pytest.raises(TransitionError, match="illegal transition"):
+        assert_legal_transition("mine_completed", "apply_accepted")
+    # empty → accept also illegal
+    with pytest.raises(TransitionError):
+        assert_legal_transition(None, "apply_accepted")
+    # legal happy path steps
+    assert assert_legal_transition(None, "mine_completed")["ok"]
+    assert assert_legal_transition("mine_completed", "grade_recorded")["ok"]
+    assert assert_legal_transition("grade_recorded", "decision_packet")["ok"]
+    assert assert_legal_transition("decision_packet", "apply_proposed")["ok"]
+    assert assert_legal_transition("apply_proposed", "apply_accepted")["ok"]
+
+
+def test_append_refuses_illegal_interleaving(tmp_path: Path):
+    from nexus.work_ledger import TransitionError
+
+    with WorkLedger.open(tmp_path) as led:
+        led.record_mine(run_id="r1", repo="a/b", score=16.0)
+        with pytest.raises(TransitionError, match="illegal transition"):
+            led.append(
+                run_id="r1",
+                event_type="decision_packet",
+                agent="worker:apply",
+                role="applier",
+                repo="a/b",
+                payload={"packet": {"source_repo": "a/b", "score": 16}},
+            )
+
+
+def test_ensure_apply_gate_accepts_dual_control(tmp_path: Path):
+    from nexus.work_ledger import ensure_apply_gate
+
+    grade = {
+        "repo": "wshobson/agents",
+        "score": 16.0,
+        "idea": 8.0,
+        "skill": 8.0,
+        "method": "grok:grok-4.5",
+        "path": ".nexus_workspaces/scout_repos/wshobson__agents",
+        "pattern": "markdown skill SoT",
+    }
+    gate = ensure_apply_gate(
+        tmp_path,
+        grade=grade,
+        run_id="gate-1",
+        grader="grok:grade",
+        applier="worker:apply",
+        score_threshold=15.0,
+    )
+    assert gate["ok"] is True, gate.get("error")
+    assert gate["accepted"] is True
+    types = [e["event_type"] for e in gate["events"]]
+    assert "apply_accepted" in types
+    # idempotent re-entry
+    gate2 = ensure_apply_gate(
+        tmp_path,
+        grade=grade,
+        run_id="gate-1",
+        grader="grok:grade",
+        applier="worker:apply",
+        score_threshold=15.0,
+    )
+    assert gate2.get("cached") is True
+    assert gate2["accepted"] is True
+
+
+def test_ensure_apply_gate_dual_control_collusion(tmp_path: Path):
+    from nexus.work_ledger import ensure_apply_gate
+
+    grade = {
+        "repo": "choihyunsus/soul",
+        "score": 15.0,
+        "idea": 7.0,
+        "skill": 8.0,
+        "method": "x",
+        "path": "p",
+    }
+    gate = ensure_apply_gate(
+        tmp_path,
+        grade=grade,
+        run_id="collude",
+        grader="same-agent",
+        applier="same-agent",
+        score_threshold=10.0,
+    )
+    assert gate["accepted"] is False
+    assert gate["ok"] is False
+    assert "DualControl" in (gate.get("error") or "")
+
+
+def test_mcp_work_ledger_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NEXUS_PROJECT_ROOT", str(tmp_path))
+    from nexus import mcp_server
+    from nexus.work_ledger import ensure_apply_gate
+
+    names = {t["name"] for t in mcp_server.TOOLS}
+    assert "work_ledger" in names
+
+    st = mcp_server.call_tool("work_ledger", {"action": "status"})
+    assert st.get("isError") is not True
+    tr = mcp_server.call_tool("work_ledger", {"action": "transitions"})
+    assert tr.get("isError") is not True
+    body = tr.get("content", [{}])[0].get("text") or tr.get("text") or ""
+    assert "legal_successors" in body or "mine_completed" in body
+
+    # seed a run then chain
+    ensure_apply_gate(
+        tmp_path,
+        grade={
+            "repo": "labsai/EDDI",
+            "score": 17.0,
+            "idea": 8.0,
+            "skill": 9.0,
+            "method": "g",
+            "path": "p",
+        },
+        run_id="mcp-wl-1",
+        score_threshold=15.0,
+    )
+    chain = mcp_server.call_tool(
+        "work_ledger", {"action": "chain", "run_id": "mcp-wl-1"}
+    )
+    assert chain.get("isError") is not True

@@ -80,6 +80,9 @@ class AliveConfig:
     promote_require: bool = False
     # require decision_package + board signal continue before self_approve apply
     require_decision: bool = True
+    # require work_ledger dual-control accept before self_approve apply
+    # (default: same as require_decision)
+    require_work_ledger: bool = True
     # implementer/verifier role ids for anti-collusion (grader uses cfg.grader label)
     implementer: str = "worker:apply"
     verifier: str = "judge:verify"
@@ -95,6 +98,12 @@ class AliveConfig:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "AliveConfig":
+        require_decision = bool(d.get("require_decision", True))
+        # default work-ledger gate follows decision gate when key omitted
+        if "require_work_ledger" in d:
+            require_work_ledger = bool(d.get("require_work_ledger"))
+        else:
+            require_work_ledger = require_decision
         return cls(
             goal=str(d.get("goal") or "improve this repository using research and high-quality open source"),
             queries=list(d.get("queries") or ["multi agent durable"]),
@@ -123,7 +132,8 @@ class AliveConfig:
             seed_gaps=bool(d.get("seed_gaps", True)),
             promote_on_done=bool(d.get("promote_on_done", False)),
             promote_require=bool(d.get("promote_require", False)),
-            require_decision=bool(d.get("require_decision", True)),
+            require_decision=require_decision,
+            require_work_ledger=require_work_ledger,
             implementer=str(d.get("implementer") or "worker:apply"),
             verifier=str(d.get("verifier") or "judge:verify"),
             sync_board_gaps=bool(d.get("sync_board_gaps", True)),
@@ -308,7 +318,78 @@ def _self_approve_decision_gate(
         except Exception as e:
             out["gap_sync_error"] = str(e)
 
+    # Work ledger dual-control accept before self_approve hard apply
+    out["require_work_ledger"] = bool(getattr(cfg, "require_work_ledger", True))
+    if out["allow"] and out["require_work_ledger"]:
+        try:
+            out["work_ledger"] = _self_approve_work_ledger_gate(
+                root,
+                cfg,
+                decision=decision if isinstance(decision, dict) else {},
+                board=board,
+            )
+            if not (out["work_ledger"] or {}).get("accepted"):
+                out["allow"] = False
+                err = (out["work_ledger"] or {}).get("error") or "not accepted"
+                out["skip_reason"] = f"work_ledger_denied:{err}"
+        except Exception as e:
+            out["allow"] = False
+            out["work_ledger_error"] = str(e)
+            out["skip_reason"] = f"work_ledger_error:{e}"
+
     return out
+
+
+def _self_approve_work_ledger_gate(
+    root: Path,
+    cfg: "AliveConfig",
+    *,
+    decision: dict[str, Any],
+    board: dict[str, Any],
+) -> dict[str, Any]:
+    """Record dual-control accept on work ledger for the board's top candidate."""
+    from . import work_ledger as wl
+
+    cand = (decision or {}).get("candidate") or {}
+    if not cand:
+        ranked = board.get("candidates") or []
+        cand = ranked[0] if ranked else {}
+    grade = {
+        "repo": cand.get("repo") or cand.get("source_repo") or "",
+        "score": cand.get("score"),
+        "idea": cand.get("idea"),
+        "skill": cand.get("skill"),
+        "method": cand.get("method") or "alive:self_approve",
+        "path": cand.get("path") or "",
+        "pattern": cand.get("pattern") or cand.get("pattern_name") or "alive-self-approve",
+    }
+    if not grade["repo"]:
+        return {
+            "ok": False,
+            "accepted": False,
+            "error": "no candidate repo for work_ledger gate",
+        }
+    grader = _grader_role(cfg)
+    applier = str(cfg.implementer or "worker:apply")
+    try:
+        score_f = float(grade.get("score") or 0)
+    except (TypeError, ValueError):
+        score_f = 0.0
+    thr = float(cfg.min_score or 0)
+    if score_f > 0:
+        thr = min(max(thr, 0.0), score_f) if thr > 0 else score_f
+    return wl.ensure_apply_gate(
+        root,
+        grade=grade,
+        run_id=f"alive-{grade['repo'].replace('/', '_')[:40]}",
+        pattern_name=str(grade.get("pattern") or "alive-self-approve"),
+        target_module="src/nexus/alive.py",
+        score_threshold=thr if thr > 0 else None,
+        grader=grader,
+        applier=applier,
+        accept=True,
+        tests_to_run=["tests/test_usage_alive.py", "tests/test_work_ledger.py"],
+    )
 
 
 def _sync_board_signal_gaps(

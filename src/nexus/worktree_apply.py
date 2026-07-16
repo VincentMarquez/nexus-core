@@ -865,6 +865,8 @@ def run_apply(
     promote: bool = False,
     promote_force: bool = False,
     require_decision: bool = True,
+    require_work_ledger: Optional[bool] = None,
+    work_ledger_threshold: Optional[float] = None,
     grader: str = "grok:grade",
     implementer: str = "worker:apply",
     verifier: str = "judge:verify",
@@ -883,6 +885,10 @@ def run_apply(
     missing evidence, budget). Soft board signal ``replan`` also blocks apply
     when require_decision is set.
 
+    When *require_work_ledger* is True (default: same as require_decision),
+    records mine→grade→decision→propose→accept on the append-only work ledger
+    under dual-control (grader ≠ applier) before plan_apply.
+
     When *promote* is True, after worktree verify the allowlisted pack is
     copied onto main and re-verified (PROMOTE_STAGES). Isolation still holds
     during apply; main only changes at the explicit promote step.
@@ -891,6 +897,11 @@ def run_apply(
     rid = run_id or f"apply-{uuid.uuid4().hex[:10]}"
     pid = pattern_id or DEFAULT_PATTERN
     do_promote = bool(promote)
+    use_work_ledger = (
+        bool(require_decision)
+        if require_work_ledger is None
+        else bool(require_work_ledger)
+    )
     runner = (
         StageRunner.promote_slice() if do_promote else StageRunner.apply_slice()
     )
@@ -927,11 +938,13 @@ def run_apply(
         "stages": stages,
         "promote_requested": do_promote,
         "require_decision": bool(require_decision),
+        "require_work_ledger": use_work_ledger,
         "completed": [],
         "grade": None,
         "claim": None,
         "decision": None,
         "signal": None,
+        "work_ledger": None,
         "worktree": None,
         "apply": None,
         "verify": None,
@@ -1102,6 +1115,77 @@ def run_apply(
             if sig.get("signal") == asel.SIGNAL_REPLAN:
                 raise WorktreeApplyError(
                     f"board signal replan: {sig.get('reason')}"
+                )
+
+        # --- work ledger dual-control accept (soul / 2601.00360) ---
+        if use_work_ledger:
+            from . import work_ledger as wl
+
+            # When decision package already allowed the candidate, cap the
+            # ledger threshold at grade score so dual-control is the hard gate
+            # (score was already ranked by apply_select / board).
+            thr = work_ledger_threshold
+            if thr is None:
+                try:
+                    score_f = float(g.get("score") or 0)
+                except (TypeError, ValueError):
+                    score_f = 0.0
+                thr = (
+                    min(wl.DEFAULT_SCORE_THRESHOLD, score_f)
+                    if score_f > 0
+                    else wl.DEFAULT_SCORE_THRESHOLD
+                )
+            wl_gate = wl.ensure_apply_gate(
+                workdir,
+                grade=g,
+                run_id=rid,
+                pattern_name=str(g.get("pattern") or pid),
+                target_module="src/nexus/worktree_apply.py",
+                score_threshold=float(thr),
+                grader=grader,
+                applier=implementer,
+                accept=True,
+                tests_to_run=[
+                    "tests/test_worktree_apply.py",
+                    "tests/test_work_ledger.py",
+                ],
+            )
+            report["work_ledger"] = {
+                "ok": wl_gate.get("ok"),
+                "accepted": wl_gate.get("accepted"),
+                "rejected": wl_gate.get("rejected"),
+                "run_id": wl_gate.get("run_id"),
+                "repo": wl_gate.get("repo"),
+                "error": wl_gate.get("error"),
+                "cached": wl_gate.get("cached"),
+                "event_types": [
+                    e.get("event_type") for e in (wl_gate.get("events") or [])
+                ],
+            }
+            store.append(
+                run_id=rid,
+                agent="work_ledger",
+                claim=(
+                    f"work_ledger accepted={wl_gate.get('accepted')} "
+                    f"ok={wl_gate.get('ok')} err={wl_gate.get('error')}"
+                ),
+                evidence_refs=[str(g.get("path") or ""), "work_ledger"],
+                grade={
+                    "repo": g.get("repo"),
+                    "score": g.get("score"),
+                    "path": g.get("path"),
+                    "pattern": pid,
+                },
+                action="work_ledger_gate",
+            )
+            _log(
+                "work_ledger",
+                f"accepted={wl_gate.get('accepted')} err={wl_gate.get('error')}",
+            )
+            if not wl_gate.get("accepted"):
+                raise WorktreeApplyError(
+                    "work_ledger denied: "
+                    f"{wl_gate.get('error') or wl_gate.get('rejected') or 'not accepted'}"
                 )
 
         # Snapshot main before apply (isolation invariant)

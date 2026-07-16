@@ -531,6 +531,46 @@ TOOLS = [
         },
     },
     {
+        "name": "work_ledger",
+        "description": (
+            "Append-only work ledger (nexus.work_ledger/v1): dual-control "
+            "mine→grade→decision→apply_accepted, causal chain, and offline "
+            "first-slice. Actions: status|tail|chain|gate|first_slice|transitions."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "status",
+                        "tail",
+                        "chain",
+                        "gate",
+                        "first_slice",
+                        "transitions",
+                    ],
+                    "default": "status",
+                },
+                "run_id": {"type": "string"},
+                "repo": {
+                    "type": "string",
+                    "description": "Repo for gate/first_slice (e.g. wshobson/agents)",
+                },
+                "limit": {"type": "integer", "default": 20},
+                "score_threshold": {"type": "number"},
+                "grader": {"type": "string", "default": "grok:grade"},
+                "applier": {"type": "string", "default": "worker:apply"},
+                "pattern_name": {"type": "string"},
+                "accept": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "gate/first_slice: accept (true) or reject path",
+                },
+            },
+        },
+    },
+    {
         "name": "get_run_checkpoint",
         "description": (
             "Read durable checkpoint for a grade_loop or improve_apply run "
@@ -1229,6 +1269,90 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 )
             except Exception as e:
                 return _tool_result(f"improve_board error: {e}", is_error=True)
+            return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
+
+        if name == "work_ledger":
+            from . import work_ledger as wl
+            from .load_mine_eval import load_one
+
+            root = _root()
+            action = str(args.get("action") or "status").strip().lower()
+            try:
+                if action in ("status", "tail"):
+                    res = wl.work_ledger_status(
+                        root,
+                        run_id=str(args.get("run_id") or "").strip() or None,
+                        limit=int(args.get("limit") or 20),
+                    )
+                elif action == "chain":
+                    rid = str(args.get("run_id") or "").strip()
+                    if not rid:
+                        return _tool_result("run_id required for chain", is_error=True)
+                    with wl.WorkLedger.open(root) as led:
+                        chain = led.causal_chain(rid)
+                    res = {
+                        "schema": wl.SCHEMA_VERSION,
+                        "run_id": rid,
+                        "chain": chain,
+                        "text": wl.format_causal_chain(chain),
+                    }
+                elif action == "transitions":
+                    res = {
+                        "schema": wl.SCHEMA_VERSION,
+                        "legal_successors": {
+                            (k if k is not None else "∅"): sorted(v)
+                            for k, v in wl.LEGAL_SUCCESSORS.items()
+                            if k != wl.EVENT_BREAKER
+                        },
+                    }
+                elif action in ("gate", "first_slice", "first-slice"):
+                    repo = str(args.get("repo") or "").strip() or None
+                    thr = args.get("score_threshold")
+                    if action == "gate":
+                        grade = load_one(root, repo=repo)
+                        res = wl.ensure_apply_gate(
+                            root,
+                            grade=grade,
+                            run_id=str(args.get("run_id") or "").strip() or None,
+                            pattern_name=str(
+                                args.get("pattern_name")
+                                or grade.get("pattern")
+                                or wl.DEFAULT_PATTERN
+                            ),
+                            score_threshold=float(thr) if thr is not None else None,
+                            grader=str(args.get("grader") or wl.DEFAULT_ROLES[wl.ROLE_GRADER]),
+                            applier=str(
+                                args.get("applier") or wl.DEFAULT_ROLES[wl.ROLE_APPLIER]
+                            ),
+                            accept=bool(args.get("accept", True)),
+                        )
+                    else:
+                        res = wl.run_first_slice(
+                            root,
+                            repo=repo,
+                            run_id=str(args.get("run_id") or "").strip() or None,
+                            score_threshold=float(thr)
+                            if thr is not None
+                            else wl.DEFAULT_SCORE_THRESHOLD,
+                            pattern_name=str(
+                                args.get("pattern_name") or wl.DEFAULT_PATTERN
+                            ),
+                            accept=bool(args.get("accept", True)),
+                            grader=str(
+                                args.get("grader") or wl.DEFAULT_ROLES[wl.ROLE_GRADER]
+                            ),
+                            applier=str(
+                                args.get("applier") or wl.DEFAULT_ROLES[wl.ROLE_APPLIER]
+                            ),
+                        )
+                else:
+                    return _tool_result(
+                        f"unknown work_ledger action: {action} "
+                        "(status|tail|chain|gate|first_slice|transitions)",
+                        is_error=True,
+                    )
+            except Exception as e:
+                return _tool_result(f"work_ledger error: {e}", is_error=True)
             return _tool_result(json.dumps(res, indent=2, default=str)[:16000])
 
         if name == "get_run_checkpoint":

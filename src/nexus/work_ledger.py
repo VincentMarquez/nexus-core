@@ -71,6 +71,64 @@ ALL_EVENTS = frozenset(
     }
 )
 
+# P0.5 interleaving invariants (arXiv 1301.6431 shape): legal worker transitions
+# keyed by previous *pipeline* event (breaker is transparent).
+# Empty prior allows mine or grade (offline fixtures may skip explicit mine).
+LEGAL_SUCCESSORS: dict[Optional[str], frozenset[str]] = {
+    None: frozenset(
+        {EVENT_MINE_COMPLETED, EVENT_GRADE_RECORDED, EVENT_BREAKER}
+    ),
+    EVENT_MINE_COMPLETED: frozenset(
+        {
+            EVENT_GRADE_RECORDED,
+            EVENT_MINE_COMPLETED,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_GRADE_RECORDED: frozenset(
+        {
+            EVENT_DECISION_PACKET,
+            EVENT_APPLY_PROPOSED,
+            EVENT_APPLY_REJECTED,
+            EVENT_GRADE_RECORDED,
+            EVENT_MINE_COMPLETED,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_DECISION_PACKET: frozenset(
+        {
+            EVENT_APPLY_PROPOSED,
+            EVENT_APPLY_REJECTED,
+            EVENT_DECISION_PACKET,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_APPLY_PROPOSED: frozenset(
+        {
+            EVENT_APPLY_ACCEPTED,
+            EVENT_APPLY_REJECTED,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_APPLY_ACCEPTED: frozenset(
+        {
+            EVENT_MINE_COMPLETED,
+            EVENT_GRADE_RECORDED,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_APPLY_REJECTED: frozenset(
+        {
+            EVENT_MINE_COMPLETED,
+            EVENT_GRADE_RECORDED,
+            EVENT_DECISION_PACKET,
+            EVENT_APPLY_PROPOSED,
+            EVENT_BREAKER,
+        }
+    ),
+    EVENT_BREAKER: frozenset(ALL_EVENTS),
+}
+
 ROLE_GRADER = "grader"
 ROLE_APPLIER = "applier"
 ROLE_MINER = "miner"
@@ -80,6 +138,44 @@ DEFAULT_ROLES = {
     ROLE_GRADER: "grok:grade",
     ROLE_APPLIER: "worker:apply",
 }
+
+
+def assert_legal_transition(
+    prev: Optional[str],
+    nxt: str,
+    *,
+    enforce: bool = True,
+) -> dict[str, Any]:
+    """Fail-closed interleaving check for worker event ordering (P0.5).
+
+    Breaker events are transparent (do not change the pipeline cursor).
+    Returns ``{ok, prev, next, allowed}``; raises TransitionError when illegal.
+    """
+    et = str(nxt or "").strip()
+    if et not in ALL_EVENTS:
+        raise TransitionError(f"unknown event_type: {et}")
+    if et == EVENT_BREAKER:
+        return {
+            "ok": True,
+            "prev": prev,
+            "next": et,
+            "allowed": sorted(ALL_EVENTS),
+            "transparent": True,
+        }
+    key: Optional[str] = None if prev in (None, "", EVENT_BREAKER) else str(prev)
+    allowed = LEGAL_SUCCESSORS.get(key, frozenset())
+    out = {
+        "ok": et in allowed,
+        "prev": key,
+        "next": et,
+        "allowed": sorted(allowed),
+    }
+    if enforce and not out["ok"]:
+        raise TransitionError(
+            f"illegal transition {(key or '∅')} → {et}; "
+            f"allowed={sorted(allowed)}"
+        )
+    return out
 
 
 class WorkLedgerError(RuntimeError):
@@ -455,15 +551,21 @@ class WorkLedger:
         body = dict(payload or {})
         parent = str(parent_id or "").strip()
 
-        if enforce_gates and et in APPLY_EVENTS:
-            self._gate_apply(
-                run_id=rid,
-                event_type=et,
-                agent=ag,
-                role=role_s,
-                repo=repo_s,
-                payload=body,
-            )
+        if enforce_gates:
+            # Dual-control / packet checks first so callers get precise errors
+            if et in APPLY_EVENTS:
+                self._gate_apply(
+                    run_id=rid,
+                    event_type=et,
+                    agent=ag,
+                    role=role_s,
+                    repo=repo_s,
+                    payload=body,
+                )
+            # P0.5: refuse illegal worker interleaving for this run (+ repo when set)
+            prev = self._last_pipeline_event(run_id=rid, repo=repo_s)
+            prev_type = prev.get("event_type") if prev else None
+            assert_legal_transition(prev_type, et, enforce=True)
 
         ch = event_content_hash(
             run_id=rid,
@@ -541,6 +643,28 @@ class WorkLedger:
                 if r.get("repo") == repo:
                     return r
         return rows[-1] if rows else None
+
+    def _last_pipeline_event(
+        self,
+        *,
+        run_id: str,
+        repo: str = "",
+    ) -> Optional[dict[str, Any]]:
+        """Most recent non-breaker event for run (optionally filtered by repo)."""
+        rows = self.list_run(run_id, limit=500)
+        for r in reversed(rows):
+            if r.get("event_type") == EVENT_BREAKER:
+                continue
+            if repo and r.get("repo") and r.get("repo") != repo:
+                continue
+            return r
+        return None
+
+    def last_pipeline_type(
+        self, run_id: str, *, repo: str = ""
+    ) -> Optional[str]:
+        ev = self._last_pipeline_event(run_id=run_id, repo=repo)
+        return str(ev["event_type"]) if ev else None
 
     def _gate_apply(
         self,
@@ -1223,3 +1347,310 @@ def format_slice_report(report: dict[str, Any]) -> str:
     if chain:
         lines.append(format_causal_chain(chain))
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Integration: worktree_apply / alive self_approve gate
+# ---------------------------------------------------------------------------
+
+
+def ensure_apply_gate(
+    workdir: Path | str,
+    *,
+    grade: dict[str, Any],
+    run_id: Optional[str] = None,
+    pattern_name: str = DEFAULT_PATTERN,
+    target_module: str = "src/nexus/work_ledger.py",
+    score_threshold: Optional[float] = None,
+    grader: str = DEFAULT_ROLES[ROLE_GRADER],
+    applier: str = DEFAULT_ROLES[ROLE_APPLIER],
+    miner: str = DEFAULT_ROLES[ROLE_MINER],
+    accept: bool = True,
+    tests_to_run: Optional[Sequence[str]] = None,
+) -> dict[str, Any]:
+    """Record mine→grade→decision→propose→accept|reject for a graded repo.
+
+    Used by ``worktree_apply.run_apply`` and ``alive`` self_approve before hard
+    apply. Fail-closed on dual-control collusion, score threshold, or illegal
+    transitions. Idempotent on content_hash when the same packet is re-gated.
+    """
+    root = _root(workdir)
+    rid = str(run_id or f"wgate-{uuid.uuid4().hex[:10]}")
+    repo = str(grade.get("repo") or "").strip()
+    if not repo:
+        return {
+            "schema": SCHEMA_VERSION,
+            "ok": False,
+            "accepted": False,
+            "rejected": False,
+            "run_id": rid,
+            "repo": "",
+            "error": "grade.repo required",
+            "events": [],
+            "decision_packet": None,
+            "chain": [],
+        }
+    try:
+        score = float(grade.get("score") if grade.get("score") is not None else 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    try:
+        idea = float(grade.get("idea") if grade.get("idea") is not None else 0)
+    except (TypeError, ValueError):
+        idea = 0.0
+    try:
+        skill = float(grade.get("skill") if grade.get("skill") is not None else 0)
+    except (TypeError, ValueError):
+        skill = 0.0
+    method = str(grade.get("method") or DEFAULT_METHOD)
+    path = str(grade.get("path") or "")
+    thr = float(
+        score_threshold
+        if score_threshold is not None
+        else DEFAULT_SCORE_THRESHOLD
+    )
+    pat = str(
+        pattern_name
+        or grade.get("pattern")
+        or grade.get("pattern_name")
+        or DEFAULT_PATTERN
+    )
+    tests = list(tests_to_run or ["tests/test_work_ledger.py"])
+    out: dict[str, Any] = {
+        "schema": SCHEMA_VERSION,
+        "ok": False,
+        "accepted": False,
+        "rejected": False,
+        "run_id": rid,
+        "repo": repo,
+        "error": None,
+        "events": [],
+        "decision_packet": None,
+        "chain": [],
+        "score_threshold": thr,
+        "grader": grader,
+        "applier": applier,
+    }
+    try:
+        with WorkLedger.open(root, score_threshold=thr) as led:
+            # Fast path: already accepted this run/repo
+            for ev in led.list_run(rid, event_type=EVENT_APPLY_ACCEPTED):
+                if ev.get("repo") == repo:
+                    out["ok"] = True
+                    out["accepted"] = True
+                    out["events"] = led.list_run(rid)
+                    out["chain"] = led.causal_chain(rid)
+                    out["decision_packet"] = (ev.get("payload") or {}).get(
+                        "decision_packet"
+                    )
+                    out["cached"] = True
+                    return out
+
+            # Resume-safe cursor for this run/repo (P0.5 interleaving)
+            cursor = led.last_pipeline_type(rid, repo=repo)
+            events_for_repo = [
+                e
+                for e in led.list_run(rid)
+                if not repo or e.get("repo") in ("", repo)
+            ]
+            out["events"] = list(events_for_repo)
+            out["resumed_from"] = cursor
+
+            mine_ev: Optional[dict[str, Any]] = None
+            grade_ev: Optional[dict[str, Any]] = None
+            for e in events_for_repo:
+                if e.get("event_type") == EVENT_MINE_COMPLETED:
+                    mine_ev = e
+                elif e.get("event_type") == EVENT_GRADE_RECORDED:
+                    grade_ev = e
+
+            if cursor is None or cursor in (
+                EVENT_APPLY_ACCEPTED,
+                EVENT_APPLY_REJECTED,
+            ):
+                # Fresh cycle (or after terminal apply)
+                mine_ev = led.record_mine(
+                    run_id=rid,
+                    repo=repo,
+                    score=score,
+                    path=path,
+                    agent=miner,
+                )
+                out["events"].append(mine_ev)
+                cursor = EVENT_MINE_COMPLETED
+
+            if cursor == EVENT_MINE_COMPLETED:
+                grade_ev = led.record_grade(
+                    run_id=rid,
+                    repo=repo,
+                    score=score,
+                    idea=idea,
+                    skill=skill,
+                    method=method,
+                    path=path,
+                    agent=grader,
+                    role=ROLE_GRADER,
+                    parent_id=(mine_ev or {}).get("id") or "",
+                )
+                out["events"].append(grade_ev)
+                cursor = EVENT_GRADE_RECORDED
+
+            if grade_ev is None:
+                # Offline start at grade without mine (LEGAL_SUCCESSORS allows)
+                if cursor is None:
+                    grade_ev = led.record_grade(
+                        run_id=rid,
+                        repo=repo,
+                        score=score,
+                        idea=idea,
+                        skill=skill,
+                        method=method,
+                        path=path,
+                        agent=grader,
+                        role=ROLE_GRADER,
+                    )
+                    out["events"].append(grade_ev)
+                    cursor = EVENT_GRADE_RECORDED
+                else:
+                    grade_ev = led._find_grade(run_id=rid, repo=repo)
+
+            if grade_ev is None:
+                out["error"] = "grade_recorded missing after resume"
+                out["ok"] = False
+                return out
+
+            packet = build_decision_packet(
+                source_repo=repo,
+                score=score,
+                pattern_name=pat,
+                target_module=target_module,
+                tests_to_run=tests,
+                idea=idea,
+                skill=skill,
+                method=method,
+                grade_id=grade_ev["id"],
+                threshold=thr,
+                path=path,
+            )
+            out["decision_packet"] = packet
+
+            if not packet["score_ok"] or not accept:
+                reason = (
+                    f"score {packet['score']} < threshold {thr}"
+                    if not packet["score_ok"]
+                    else "operator/applier declined accept"
+                )
+                rej = led.reject_apply(
+                    run_id=rid,
+                    repo=repo,
+                    reason=reason,
+                    agent=applier,
+                    role=ROLE_APPLIER,
+                    grade_id=grade_ev["id"],
+                    parent_id=grade_ev["id"],
+                )
+                out["events"].append(rej)
+                out["rejected"] = True
+                out["ok"] = True
+                out["chain"] = led.causal_chain(rid)
+                out["error"] = reason if not packet["score_ok"] else None
+                return out
+
+            if cursor == EVENT_GRADE_RECORDED:
+                dec_ev = led.record_decision(
+                    run_id=rid,
+                    packet=packet,
+                    agent=applier,
+                    role=ROLE_APPLIER,
+                    parent_id=grade_ev["id"],
+                )
+                out["events"].append(dec_ev)
+                cursor = EVENT_DECISION_PACKET
+            else:
+                dec_ev = None
+                for e in reversed(events_for_repo):
+                    if e.get("event_type") == EVENT_DECISION_PACKET:
+                        dec_ev = e
+                        break
+
+            if cursor == EVENT_DECISION_PACKET:
+                prop = led.propose_apply(
+                    run_id=rid,
+                    packet=packet,
+                    agent=applier,
+                    role=ROLE_APPLIER,
+                    parent_id=(dec_ev or grade_ev)["id"],
+                    note=f"gate propose pattern={pat}",
+                )
+                out["events"].append(prop)
+                cursor = EVENT_APPLY_PROPOSED
+            else:
+                prop = None
+                for e in reversed(led.list_run(rid, event_type=EVENT_APPLY_PROPOSED)):
+                    if e.get("repo") == repo:
+                        prop = e
+                        break
+
+            if cursor == EVENT_APPLY_PROPOSED:
+                acc = led.accept_apply(
+                    run_id=rid,
+                    packet=packet,
+                    agent=applier,
+                    role=ROLE_APPLIER,
+                    parent_id=(prop or grade_ev)["id"],
+                    note="gate accept under dual-control",
+                )
+                out["events"].append(acc)
+                out["accepted"] = True
+                out["ok"] = True
+                out["chain"] = led.causal_chain(rid)
+                led.handoff(
+                    run_id=rid,
+                    from_agent=grader,
+                    to_agent=applier,
+                    reason="grade → apply accepted",
+                    event_id=acc["id"],
+                )
+                return out
+
+            out["error"] = f"unexpected cursor after resume: {cursor}"
+            out["ok"] = False
+            out["chain"] = led.causal_chain(rid)
+            return out
+    except (WorkLedgerError, DualControlError, DecisionPacketError, TransitionError) as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+        out["ok"] = False
+        out["accepted"] = False
+        return out
+    except Exception as e:  # noqa: BLE001 — surface as gate deny
+        out["error"] = f"{type(e).__name__}: {e}"
+        out["ok"] = False
+        out["accepted"] = False
+        return out
+
+
+def work_ledger_status(
+    workdir: Path | str,
+    *,
+    run_id: Optional[str] = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Operator/MCP snapshot of the work ledger."""
+    root = _root(workdir)
+    path = db_path(root)
+    with WorkLedger.open(root) as led:
+        events = led.tail(limit=limit, run_id=run_id)
+        chain = led.causal_chain(run_id) if run_id else []
+        return {
+            "schema": SCHEMA_VERSION,
+            "path": str(path),
+            "count": led.count(run_id=run_id),
+            "run_id": run_id,
+            "events": events,
+            "chain": chain,
+            "legal_successors": {
+                (k if k is not None else "∅"): sorted(v)
+                for k, v in LEGAL_SUCCESSORS.items()
+                if k != EVENT_BREAKER
+            },
+        }

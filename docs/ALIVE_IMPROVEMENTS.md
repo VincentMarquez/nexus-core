@@ -744,3 +744,25 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-8c2205e729.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — work_ledger wire + transitions (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI / wshobson / soul / cas / mission-control / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: decision package **2511.15755**, anti-collusion **2601.00360**, interleaving **1301.6431**, CEMA **2302.10809** (notes `improve-rx-8c2205e729` + priors)
+- apply slice (**First apply slice** — close prior open: work_ledger→apply/alive · MCP · P0.5 transitions):
+  - `src/nexus/work_ledger.py` — `LEGAL_SUCCESSORS` / `assert_legal_transition`; resume-safe `ensure_apply_gate`; `work_ledger_status`
+  - `src/nexus/worktree_apply.py` — `require_work_ledger` (default=require_decision); dual-control accept before plan_apply
+  - `src/nexus/alive.py` — `require_work_ledger` knob; `_self_approve_work_ledger_gate` in decision gate
+  - `src/nexus/mcp_server.py` — tool `work_ledger` (status|tail|chain|gate|first_slice|transitions)
+  - `src/nexus/tool_catalog.py` — privilege `ops` for `work_ledger`
+  - tests: `tests/test_work_ledger.py`, `test_worktree_apply.py`, `test_usage_alive.py`
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: soul immutable ledger; cas/mission-control MCP surface; dual-control 2601.00360; interleaving 1301.6431 (pattern only, no tree vendor)
+- non-goals kept: no vendored trees; no auto-promote without flags; no live network in unit tests
+- next open: preference brief → context_pack · more pattern catalog · multi-worker interleaving stress
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → 474 passed
+
+## Cycle 2026-07-16 00:09:12Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ebb5fe5b75.md`

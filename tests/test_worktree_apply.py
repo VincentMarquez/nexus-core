@@ -160,10 +160,12 @@ def test_run_apply_end_to_end_sandbox(tmp_path: Path):
             "grade",
             "claim_verify",
             "decide",
+            "work_ledger",
             "plan_apply",
             "apply",
         ]
-        assert led.count(run_id="e2e-apply-1") == 6
+        assert led.count(run_id="e2e-apply-1") == 7
+        assert (report.get("work_ledger") or {}).get("accepted") is True
 
 
 def test_run_apply_keeps_worktree_when_requested(tmp_path: Path):
@@ -228,6 +230,55 @@ def test_run_apply_can_skip_decision_gate(tmp_path: Path):
     # collusion recorded but not required → apply still proceeds
     assert report["ok"] is True, report.get("error")
     assert report.get("decision") is not None
+    # work ledger follows require_decision default → off when decision skipped
+    assert report.get("require_work_ledger") is False
+
+
+def test_run_apply_records_work_ledger_accept(tmp_path: Path):
+    """require_work_ledger (default with decision) dual-control accept before plan."""
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        repo="wshobson/agents",
+        run_id="wl-wire-1",
+        mode="sandbox",
+        cleanup=True,
+        require_decision=True,
+        require_work_ledger=True,
+        grader="grok:grade",
+        implementer="worker:apply",
+        verifier="judge:verify",
+    )
+    assert report["ok"] is True, report.get("error")
+    wl = report.get("work_ledger") or {}
+    assert wl.get("accepted") is True, wl
+    assert "apply_accepted" in (wl.get("event_types") or [])
+    # ledger persisted under workdir
+    db = tmp_path / ".nexus_workspaces" / "work_ledger" / "work.sqlite"
+    assert db.is_file()
+
+
+def test_run_apply_work_ledger_collusion_denies(tmp_path: Path):
+    """Even if decision roles look fine, same grader/applier fails work_ledger."""
+    report = wta.run_apply(
+        tmp_path,
+        fixture=FIXTURE,
+        repo="wshobson/agents",
+        run_id="wl-collude-1",
+        mode="sandbox",
+        cleanup=True,
+        require_decision=False,  # skip board decision so we hit work_ledger only
+        require_work_ledger=True,
+        grader="same-agent",
+        implementer="same-agent",
+        verifier="judge:verify",
+        require_distinct_roles=False,
+    )
+    assert report["ok"] is False
+    err = (report.get("error") or "").lower()
+    assert "work_ledger" in err or "dual" in err
+    wl = report.get("work_ledger") or {}
+    assert wl.get("accepted") is not True
 
 
 def test_cli_main_apply(tmp_path: Path, capsys):
@@ -329,7 +380,8 @@ def test_promote_to_main_after_apply(tmp_path: Path):
         assert agents[-1] == "promote"
         assert "promote" in agents
         assert "decide" in agents
-        assert led.count(run_id="prom-e2e-1") == 7
+        assert "work_ledger" in agents
+        assert led.count(run_id="prom-e2e-1") == 8
 
 
 def test_promote_idempotent_same_content(tmp_path: Path):

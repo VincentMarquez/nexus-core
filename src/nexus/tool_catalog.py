@@ -54,6 +54,7 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "search_evidence": "read",
     "apply_select": "read",
     "improve_board": "read",
+    "work_ledger": "ops",
     "get_run_checkpoint": "read",
     "get_run_status": "read",
     "context_pack": "read",
