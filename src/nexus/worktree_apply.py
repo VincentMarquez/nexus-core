@@ -286,6 +286,57 @@ nexus task context --task-id <id>
 """
 
 
+# openrouter-deep-research shape: circuit breakers + research grade loop
+_OPENROUTER_RESEARCH_MANIFEST = {
+    "id": "openrouter-research-ops",
+    "version": "0.1.0",
+    "name": "OpenRouter Research Ops",
+    "description": (
+        "Circuit-breaker protected research/grade loop skill "
+        "(wheattoast11/openrouter-deep-research-mcp shape; pattern only)"
+    ),
+    "privilege": "ops",
+    "tags": [
+        "research",
+        "circuit-breaker",
+        "grade",
+        "openrouter",
+        "resilience",
+    ],
+}
+
+_OPENROUTER_RESEARCH_SKILL_MD = """# OpenRouter Research Ops
+
+## When to use
+
+- Protect grade/research LLM calls with circuit breakers (fail-open after cooldown)
+- Run mine → grade loops without hanging on a single provider outage
+- Record breaker state under `.nexus_state/` for operator inspect
+
+## Commands
+
+```bash
+nexus improve board
+nexus improve select --query research
+nexus improve apply --pattern openrouter-research-ops
+nexus eval smoke --llm-judge auto
+```
+
+## Rules
+
+- Use `nexus.circuits.CircuitBreaker` (CLOSED / OPEN / HALF_OPEN)
+- Trip OPEN after consecutive grade/research failures; probe in HALF_OPEN
+- Never vendor full OpenRouter MCP trees — pattern only
+- Prefer offline fixtures in unit tests; live Grok judge is opt-in via env
+
+## Success
+
+- Skillpack validates offline
+- Breaker snapshot lists grade + research circuits
+- Board still ranks when research circuit is OPEN (degraded mode)
+"""
+
+
 PATTERN_CATALOG: dict[str, dict[str, Any]] = {
     DEFAULT_PATTERN: {
         "id": DEFAULT_PATTERN,
@@ -376,6 +427,24 @@ PATTERN_CATALOG: dict[str, dict[str, Any]] = {
         },
         "verify": "skillpack_validate",
         "pack_id": "eddi-routing-ops",
+    },
+    "openrouter-research-ops": {
+        "id": "openrouter-research-ops",
+        "repo": "wheattoast11/openrouter-deep-research-mcp",
+        "description": (
+            "Circuit-breaker protected research/grade loop skill "
+            "(openrouter-deep-research-mcp shape; pattern only)"
+        ),
+        "files": {
+            "skillpacks/openrouter-research-ops/manifest.json": json.dumps(
+                _OPENROUTER_RESEARCH_MANIFEST, indent=2
+            )
+            + "\n",
+            "skillpacks/openrouter-research-ops/SKILL.md": _OPENROUTER_RESEARCH_SKILL_MD,
+            "skillpacks/openrouter-research-ops/APPLY_META.json": None,
+        },
+        "verify": "skillpack_validate",
+        "pack_id": "openrouter-research-ops",
     },
 }
 

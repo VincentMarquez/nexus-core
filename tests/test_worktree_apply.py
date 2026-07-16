@@ -108,6 +108,29 @@ def test_pattern_catalog_has_eddi_routing(tmp_path: Path):
     assert ver["ok"] is True, ver
 
 
+def test_pattern_catalog_has_openrouter_research(tmp_path: Path):
+    """openrouter-deep-research circuit-breaker research skill (pattern only)."""
+    rows = wta.list_patterns()
+    assert any(r["id"] == "openrouter-research-ops" for r in rows)
+    p = wta.get_pattern("openrouter-research-ops")
+    assert p["repo"] == "wheattoast11/openrouter-deep-research-mcp"
+    assert p["pack_id"] == "openrouter-research-ops"
+    meta = wta.create_worktree(tmp_path, job_id="or-1", mode="sandbox")
+    wt = Path(meta["path"])
+    applied = wta.apply_pattern_files(wt, "openrouter-research-ops", job_id="or-1")
+    assert any("openrouter-research-ops" in f for f in applied["files_written"])
+    assert (
+        wt / "skillpacks" / "openrouter-research-ops" / "APPLY_META.json"
+    ).is_file()
+    skill = (
+        wt / "skillpacks" / "openrouter-research-ops" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "circuit" in skill.lower()
+    assert "breaker" in skill.lower()
+    ver = wta.verify_in_worktree(wt, "openrouter-research-ops")
+    assert ver["ok"] is True, ver
+
+
 def test_unknown_pattern_raises():
     with pytest.raises(wta.WorktreeApplyError, match="unknown pattern"):
         wta.get_pattern("not-a-real-pattern")

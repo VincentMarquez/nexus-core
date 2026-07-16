@@ -2822,6 +2822,8 @@ def cmd_improve(args: argparse.Namespace) -> int:
             require_evidence=not bool(getattr(args, "allow_no_evidence", False)),
             auto_index=not bool(getattr(args, "no_index", False)),
             use_preference=not bool(getattr(args, "no_preference", False)),
+            use_spine=not bool(getattr(args, "no_spine", False)),
+            run_id=getattr(args, "run_id", None),
         )
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2, default=str))
@@ -2855,6 +2857,9 @@ def cmd_improve(args: argparse.Namespace) -> int:
                 or "self-improve nexus-core from mined repos + arXiv"
             ),
             auto_index=not bool(getattr(args, "no_index", False)),
+            use_preference=not bool(getattr(args, "no_preference", False)),
+            use_spine=not bool(getattr(args, "no_spine", False)),
+            run_id=getattr(args, "run_id", None),
         )
         # Optional: wire signal onto PrincipledStop gap board
         if bool(getattr(args, "sync_gaps", False)):
@@ -4759,6 +4764,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         dest="no_preference",
         help="disable offline preference_boost in rank (arXiv 2602.04518)",
     )
+    imp_sel.add_argument(
+        "--no-spine",
+        action="store_true",
+        dest="no_spine",
+        help="disable improve_spine durable-grade boost in rank",
+    )
+    imp_sel.add_argument(
+        "--run-id",
+        default=None,
+        dest="run_id",
+        help="prefer spine grades for this improve run id",
+    )
     imp_sel.add_argument("--json", action="store_true")
     imp_sel.set_defaults(func=cmd_improve, improve_cmd="select")
 
@@ -4779,6 +4796,24 @@ def main(argv: Optional[list[str]] = None) -> int:
     imp_bd.add_argument("--implementer", default=None, help="implementer role id")
     imp_bd.add_argument("--verifier", default=None, help="verifier role id")
     imp_bd.add_argument("--no-index", action="store_true", dest="no_index")
+    imp_bd.add_argument(
+        "--no-preference",
+        action="store_true",
+        dest="no_preference",
+        help="disable offline preference_boost in board rank",
+    )
+    imp_bd.add_argument(
+        "--no-spine",
+        action="store_true",
+        dest="no_spine",
+        help="disable improve_spine durable-grade boost on board",
+    )
+    imp_bd.add_argument(
+        "--run-id",
+        default=None,
+        dest="run_id",
+        help="prefer spine grades for this improve run id",
+    )
     imp_bd.add_argument(
         "--sync-gaps",
         action="store_true",

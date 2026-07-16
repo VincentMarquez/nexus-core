@@ -4,7 +4,7 @@ First apply slice (docs/LATEST_IMPROVE_PLAN.md next PR after grade claims/FTS):
 
   graded candidates
     → FTS evidence hits (cas/soul search)
-    → rank by score + evidence + preference_boost (offline pairs)
+    → rank by score + evidence + preference_boost + spine_boost
     → role gate: grader ≠ implementer ≠ verifier (anti-collusion)
     → budget check (Network-AI / mission-control)
     → decision package (2511.15755) before apply
@@ -17,6 +17,7 @@ Patterns (shape only, not vendored trees):
 - Jovancoding/Network-AI — budgets + guardrails
 - phodal/routa — board: goal / task / trace / evidence
 - ahmedEid1/lumen — decision audit package
+- choihyunsus/soul + improve_spine — durable grade presence on board
 - arXiv 2601.00360 — anti-collusion role separation
 - arXiv 2511.15755 — terminal decision package
 - arXiv 2512.03278 — Thucy path-anchored claims
@@ -53,8 +54,13 @@ DEFAULT_ROLES = {
 
 # Weighting for rank score = grade_score + evidence_boost * hit_count (capped)
 # + optional preference_boost from offline better>worse pairs (arXiv 2602.04518)
+# + optional spine_boost when durable improve_spine grade exists
 EVIDENCE_BOOST = 0.5
 EVIDENCE_HIT_CAP = 5
+# Flat boost when repo has a durable spine grade (mine→grade→ledger resume path)
+SPINE_BOOST = 1.0
+# Cap extra delta when spine score exceeds fixture/digest score
+SPINE_SCORE_ALIGN_CAP = 2.0
 
 # Board / supervisor signals (zenith adaptive stop + MAEBE thrash telemetry)
 SIGNAL_CONTINUE = "continue"
@@ -301,11 +307,13 @@ def rank_score(
     evidence_hits: Sequence[dict[str, Any]],
     *,
     preference_delta: float = 0.0,
+    spine_delta: float = 0.0,
 ) -> float:
-    """Composite rank: grade score + capped evidence boost + preference delta.
+    """Composite rank: grade + evidence + preference + durable spine presence.
 
     *preference_delta* is typically ``preference_boost(repo)`` from offline
     better>worse pairs (arXiv 2602.04518), clamped in that helper to ±1.5.
+    *spine_delta* is a flat/alignment boost when improve_spine has a grade.
     """
     try:
         base = float(grade.get("score") or 0)
@@ -316,7 +324,82 @@ def rank_score(
         pref = float(preference_delta or 0.0)
     except (TypeError, ValueError):
         pref = 0.0
-    return round(base + EVIDENCE_BOOST * n + pref, 4)
+    try:
+        spine = float(spine_delta or 0.0)
+    except (TypeError, ValueError):
+        spine = 0.0
+    return round(base + EVIDENCE_BOOST * n + pref + spine, 4)
+
+
+def _spine_index(
+    workdir: Path,
+    *,
+    min_score: float = 0.0,
+    limit: int = 100,
+) -> dict[str, dict[str, Any]]:
+    """Map repo → latest spine grade row (empty on missing store / errors)."""
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        from . import improve_spine as spine
+
+        with spine.ImproveSpine.open(workdir) as store:
+            for g in store.list_grades(limit=max(1, int(limit))):
+                repo = str(g.get("repo_or_paper_id") or "").strip()
+                if not repo or repo in out:
+                    continue
+                try:
+                    sc = float(g.get("score") or 0)
+                except (TypeError, ValueError):
+                    sc = 0.0
+                if sc < float(min_score):
+                    continue
+                out[repo] = g
+    except Exception:
+        return {}
+    return out
+
+
+def spine_rank_delta(
+    grade: dict[str, Any],
+    spine_row: Optional[dict[str, Any]],
+) -> tuple[float, dict[str, Any]]:
+    """Compute spine boost + meta for a candidate grade.
+
+    Presence on the durable spine earns ``SPINE_BOOST``. When the spine score
+    is higher than the fixture/digest score, add a capped alignment delta so
+    hard-applied Grok grades outrank stale offline digests.
+    """
+    meta: dict[str, Any] = {
+        "on_spine": False,
+        "spine_score": None,
+        "spine_boost": 0.0,
+        "spine_run_id": None,
+        "spine_method": None,
+    }
+    if not spine_row:
+        return 0.0, meta
+    try:
+        spine_score = float(spine_row.get("score") or 0)
+    except (TypeError, ValueError):
+        spine_score = 0.0
+    try:
+        base = float(grade.get("score") or 0)
+    except (TypeError, ValueError):
+        base = 0.0
+    align = max(0.0, spine_score - base)
+    align = min(align, SPINE_SCORE_ALIGN_CAP)
+    delta = float(SPINE_BOOST) + align
+    meta.update(
+        {
+            "on_spine": True,
+            "spine_score": spine_score,
+            "spine_boost": round(delta, 4),
+            "spine_run_id": spine_row.get("run_id"),
+            "spine_method": spine_row.get("method"),
+            "spine_grade_id": spine_row.get("id"),
+        }
+    )
+    return round(delta, 4), meta
 
 
 def select_candidates(
@@ -330,14 +413,18 @@ def select_candidates(
     auto_index: bool = True,
     k_evidence: int = 5,
     use_preference: bool = True,
+    use_spine: bool = True,
+    run_id: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Rank apply candidates by grade score + FTS evidence hits + preference.
+    """Rank apply candidates by grade + FTS + preference + improve spine.
 
     When *query* is set, also runs a global FTS search and boosts matching repos.
     When *require_evidence* is True, candidates with zero evidence hits are
     excluded (fail-closed for ungrounded applies).
     When *use_preference* is True (default), offline preference pairs bias rank
     via ``preference_boost`` (wins−losses, capped).
+    When *use_spine* is True (default), durable ``improve_spine`` grades boost
+    rank and can surface repos not present in fixtures/digests.
     """
     root = _root(workdir)
     index_report: Optional[dict[str, Any]] = None
@@ -359,6 +446,59 @@ def select_candidates(
     except Exception:
         pass
 
+    # Spine-aware: merge durable grades not already on the board
+    spine_by_repo: dict[str, dict[str, Any]] = {}
+    if use_spine:
+        spine_by_repo = _spine_index(root, min_score=min_score, limit=max(limit * 5, 50))
+        # Prefer run-scoped row when run_id given
+        if run_id:
+            try:
+                from . import improve_spine as spine
+
+                with spine.ImproveSpine.open(root) as store:
+                    for g in store.list_grades(run_id=str(run_id), limit=50):
+                        repo = str(g.get("repo_or_paper_id") or "").strip()
+                        if repo:
+                            spine_by_repo[repo] = g
+            except Exception:
+                pass
+        for repo, sg in spine_by_repo.items():
+            if repo in seen:
+                continue
+            try:
+                sc = float(sg.get("score") or 0)
+            except (TypeError, ValueError):
+                sc = 0.0
+            if sc < float(min_score):
+                continue
+            grades.append(
+                {
+                    "repo": repo,
+                    "score": sc,
+                    "idea": sg.get("idea"),
+                    "skill": sg.get("skill"),
+                    "method": sg.get("method") or "spine",
+                    "path": sg.get("path") or "",
+                    "pattern": (sg.get("summary") or "")[:120],
+                    "summary": sg.get("summary") or "",
+                    "source": "improve_spine",
+                    "claims": [
+                        {
+                            "statement": f"spine grade {repo} score={sc}",
+                            "path": str(sg.get("path") or "docs/LATEST_IMPROVE_PLAN.md"),
+                        }
+                    ]
+                    if sg.get("path")
+                    else [
+                        {
+                            "statement": f"spine grade {repo} score={sc}",
+                            "path": "docs/LATEST_IMPROVE_PLAN.md",
+                        }
+                    ],
+                }
+            )
+            seen.add(repo)
+
     # Global query → boost matching repos
     global_hits: list[dict[str, Any]] = []
     repo_from_query: set[str] = set()
@@ -375,6 +515,7 @@ def select_candidates(
 
     candidates: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
+    spine_hits = 0
     for g in grades:
         repo = str(g.get("repo") or "")
         hits = _evidence_for_grade(g, workdir=root, k=k_evidence)
@@ -418,7 +559,22 @@ def select_candidates(
             except Exception:
                 pref_delta = 0.0
 
-        rs = rank_score(g, hits, preference_delta=pref_delta)
+        spine_delta = 0.0
+        spine_meta: dict[str, Any] = {
+            "on_spine": False,
+            "spine_score": None,
+            "spine_boost": 0.0,
+            "spine_run_id": None,
+            "spine_method": None,
+        }
+        if use_spine and repo:
+            spine_delta, spine_meta = spine_rank_delta(g, spine_by_repo.get(repo))
+            if spine_meta.get("on_spine"):
+                spine_hits += 1
+
+        rs = rank_score(
+            g, hits, preference_delta=pref_delta, spine_delta=spine_delta
+        )
         # boost if global query matched
         if query.strip() and repo in repo_from_query:
             rs = round(rs + 1.0, 4)
@@ -434,6 +590,10 @@ def select_candidates(
             "pattern": g.get("pattern") or "",
             "rank": rs,
             "preference_boost": round(pref_delta, 4),
+            "on_spine": bool(spine_meta.get("on_spine")),
+            "spine_score": spine_meta.get("spine_score"),
+            "spine_boost": float(spine_meta.get("spine_boost") or 0.0),
+            "spine_run_id": spine_meta.get("spine_run_id"),
             "evidence_hits": len(hits),
             "evidence": [
                 {
@@ -475,6 +635,8 @@ def select_candidates(
         "min_score": min_score,
         "require_evidence": require_evidence,
         "use_preference": bool(use_preference),
+        "use_spine": bool(use_spine),
+        "spine_repos": spine_hits,
         "count": len(selected),
         "total_considered": len(grades),
         "candidates": selected,
@@ -1202,11 +1364,15 @@ def improve_board(
     goal: str = "self-improve nexus-core from mined repos + arXiv",
     auto_index: bool = True,
     stop_decision: Optional[dict[str, Any]] = None,
+    use_preference: bool = True,
+    use_spine: bool = True,
+    run_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """routa-lite board: goal, roles, ranked candidates, evidence, decision, signal.
 
     Offline operator surface for the self-improve backlog. Includes zenith-style
     ``signal`` ∈ {continue, replan, stop} for alive / supervisor loops.
+    Spine-aware ranking (default on) prefers durable improve_spine grades.
     """
     root = _root(workdir)
     sel = select_candidates(
@@ -1217,6 +1383,9 @@ def improve_board(
         fixture=fixture,
         require_evidence=True,
         auto_index=auto_index,
+        use_preference=use_preference,
+        use_spine=use_spine,
+        run_id=run_id,
     )
     top = (sel.get("candidates") or [None])[0]
     decision = None
@@ -1284,7 +1453,13 @@ def improve_board(
             "count": sel.get("count"),
             "total_considered": sel.get("total_considered"),
             "index": sel.get("index"),
+            "use_spine": sel.get("use_spine"),
+            "use_preference": sel.get("use_preference"),
+            "spine_repos": sel.get("spine_repos"),
         },
+        "use_spine": bool(sel.get("use_spine")),
+        "use_preference": bool(sel.get("use_preference")),
+        "spine_repos": sel.get("spine_repos"),
         "workdir": str(root),
         "ts": time.time(),
     }
@@ -1300,7 +1475,7 @@ def format_board(board: dict[str, Any]) -> str:
         f"verifier={ (board.get('roles') or {}).get('verifier') }  "
         f"[{'OK' if board.get('roles_ok') else 'COLLISION'}]",
         "",
-        "candidates (score + evidence + preference rank):",
+        "candidates (score + evidence + preference + spine rank):",
     ]
     cands = board.get("candidates") or []
     if not cands:
@@ -1308,10 +1483,17 @@ def format_board(board: dict[str, Any]) -> str:
     for i, c in enumerate(cands, 1):
         pref = c.get("preference_boost")
         pref_s = f"  pref={pref:+.2f}" if pref not in (None, 0, 0.0) else ""
+        spine_s = ""
+        if c.get("on_spine"):
+            sb = c.get("spine_boost")
+            ss = c.get("spine_score")
+            spine_s = f"  spine={ss}"
+            if sb not in (None, 0, 0.0):
+                spine_s += f"(+{sb})"
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
             f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}  "
-            f"claims={c.get('claims')}{pref_s}"
+            f"claims={c.get('claims')}{pref_s}{spine_s}"
         )
         for e in (c.get("evidence") or [])[:2]:
             st = (e.get("statement") or "")[:70]
@@ -1359,12 +1541,20 @@ def format_selection(sel: dict[str, Any]) -> str:
         f"selected: {sel.get('count')}  "
         f"require_evidence: {sel.get('require_evidence')}",
     ]
+    if sel.get("use_spine") is not None:
+        lines.append(
+            f"use_preference: {sel.get('use_preference')}  "
+            f"use_spine: {sel.get('use_spine')}  "
+            f"spine_repos: {sel.get('spine_repos')}"
+        )
     for i, c in enumerate(sel.get("candidates") or [], 1):
         pref = c.get("preference_boost")
         pref_s = f"  pref={pref:+.2f}" if pref not in (None, 0, 0.0) else ""
+        spine_s = "  spine=yes" if c.get("on_spine") else ""
         lines.append(
             f"  {i}. {c.get('repo')}  score={c.get('score')}  "
-            f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}{pref_s}"
+            f"rank={c.get('rank')}  evidence={c.get('evidence_hits')}"
+            f"{pref_s}{spine_s}"
         )
     skipped = sel.get("skipped") or []
     if skipped:
@@ -1511,5 +1701,7 @@ __all__ = [
     "format_board",
     "format_selection",
     "rank_score",
+    "spine_rank_delta",
+    "SPINE_BOOST",
     "smoke_board_sync",
 ]

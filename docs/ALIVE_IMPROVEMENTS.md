@@ -829,3 +829,23 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
 - arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-14dc4121d6.md`
+
+## Cycle 2026-07-16 hard-apply First apply slice — spine board rank + openrouter pattern (Grok 4.5 CLI)
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: IMPROVE_OURS top repos (EDDI 17 / wshobson 16 / openrouter-deep-research 15 / cas / soul / mission-control / …) plan=`docs/LATEST_IMPROVE_PLAN.md` + `.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: multi-stage **2604.03350**, AOAD-MAT **2510.13343**, context **2508.08322**, preference **2602.04518** (notes `improve-rx-fa89506430` + priors)
+- apply slice (**First apply slice** — close prior open: spine-aware board ranking · openrouter research pattern):
+  - `src/nexus/apply_select.py` — `SPINE_BOOST` / `spine_rank_delta` / `_spine_index`; `select_candidates(use_spine=True)` merges durable grades + boosts rank; board/select expose `on_spine`/`spine_score`/`spine_boost`
+  - `src/nexus/cli.py` — `improve select|board --no-spine|--run-id|--no-preference`
+  - `src/nexus/worktree_apply.py` — pattern `openrouter-research-ops` (circuit-breaker research skill; pattern only)
+  - tests: `tests/test_apply_select.py` (spine delta + board), `tests/test_worktree_apply.py` (openrouter pattern)
+  - docs: restored `docs/SELF_IMPROVE_CYCLE.md` + `docs/LATEST_IMPROVE_PLAN.md`; this log
+- patterns: cas/soul durable grade on board; openrouter-deep-research breakers; mission-control/routa operator board (pattern only, no tree vendor)
+- non-goals kept: no live Grok in unit tests; no vendored trees; no auto-promote without flags
+- next open: gated live Grok judge integration test · MisterSmith/solace pattern catalog · spine method on decision_package evidence_refs
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **493 passed**
+
+## Cycle 2026-07-16 00:50:09Z
+- goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
+- mine: fetch=None eval=20 used=20 plan=`None`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fa89506430.md`

@@ -129,6 +129,32 @@ def test_rank_score_boosts_with_hits():
     assert asel.rank_score(g, [{"id": "1"}, {"id": "2"}]) == 11.0
     assert asel.rank_score(g, [], preference_delta=0.5) == 10.5
     assert asel.rank_score(g, [{"id": "1"}], preference_delta=-0.25) == 10.25
+    assert asel.rank_score(g, [], spine_delta=asel.SPINE_BOOST) == 10.0 + asel.SPINE_BOOST
+    assert asel.rank_score(
+        g, [{"id": "1"}], preference_delta=0.5, spine_delta=1.0
+    ) == 12.0
+
+
+def test_spine_rank_delta_presence_and_align():
+    g = {"score": 14.0}
+    none_delta, none_meta = asel.spine_rank_delta(g, None)
+    assert none_delta == 0.0
+    assert none_meta["on_spine"] is False
+
+    delta, meta = asel.spine_rank_delta(
+        g,
+        {
+            "score": 16.5,
+            "run_id": "run-a",
+            "method": "grok:grok-4.5",
+            "id": "g1",
+        },
+    )
+    assert meta["on_spine"] is True
+    assert meta["spine_score"] == 16.5
+    # presence boost + capped (16.5-14=2.5 → cap 2.0)
+    assert delta == pytest.approx(asel.SPINE_BOOST + 2.0)
+    assert meta["spine_boost"] == delta
 
 
 def test_select_candidates_applies_preference_boost(work: Path):
@@ -183,6 +209,85 @@ def test_select_candidates_applies_preference_boost(work: Path):
     w_off = {c["repo"]: c for c in sel_off["candidates"]}["wshobson/agents"]
     assert w_off["preference_boost"] == 0.0
     assert w_off["rank"] < w["rank"]
+
+
+def test_select_candidates_spine_boost_and_board(work: Path):
+    """Durable improve_spine grades boost board rank (cas/soul spine wire)."""
+    from nexus import improve_spine as spine
+
+    fx = work / "fixtures" / "mine_eval" / "grades_with_claims.json"
+    # Seed spine with wshobson at high durable score
+    with spine.ImproveSpine.open(work) as store:
+        store.record_grade(
+            repo_or_paper_id="wshobson/agents",
+            score=16.0,
+            idea=8.0,
+            skill=8.0,
+            method="grok:grok-4.5",
+            summary="Markdown skill marketplace",
+            path="fixtures/mine_eval/grades_with_claims.json",
+            run_id="spine-board-1",
+        )
+        store.append(
+            run_id="spine-board-1",
+            stage=spine.STAGE_GRADED,
+            agent="grok:grade",
+            action="grade",
+            payload={"repo": "wshobson/agents", "score": 16.0},
+        )
+
+    sel = asel.select_candidates(
+        work,
+        fixture=fx,
+        min_score=10.0,
+        limit=5,
+        require_evidence=True,
+        auto_index=True,
+        use_preference=False,
+        use_spine=True,
+        run_id="spine-board-1",
+    )
+    assert sel["ok"] is True
+    assert sel["use_spine"] is True
+    assert sel["spine_repos"] >= 1
+    by_repo = {c["repo"]: c for c in sel["candidates"]}
+    assert "wshobson/agents" in by_repo
+    w = by_repo["wshobson/agents"]
+    assert w["on_spine"] is True
+    assert w["spine_score"] == 16.0
+    assert w["spine_boost"] >= asel.SPINE_BOOST
+    assert w["rank"] >= w["score"] + asel.SPINE_BOOST - 0.01
+
+    sel_off = asel.select_candidates(
+        work,
+        fixture=fx,
+        min_score=10.0,
+        limit=5,
+        require_evidence=True,
+        auto_index=False,
+        use_preference=False,
+        use_spine=False,
+    )
+    w_off = {c["repo"]: c for c in sel_off["candidates"]}["wshobson/agents"]
+    assert w_off["on_spine"] is False
+    assert w_off["spine_boost"] == 0.0
+    assert w_off["rank"] < w["rank"]
+
+    board = asel.improve_board(
+        work,
+        fixture=fx,
+        min_score=10.0,
+        use_spine=True,
+        use_preference=False,
+        auto_index=False,
+        run_id="spine-board-1",
+    )
+    assert board["use_spine"] is True
+    assert board["spine_repos"] >= 1
+    top = (board.get("candidates") or [{}])[0]
+    assert top.get("on_spine") is True
+    text = asel.format_board(board)
+    assert "spine=" in text
 
 
 # ---------------------------------------------------------------------------
