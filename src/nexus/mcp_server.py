@@ -113,6 +113,136 @@ TOOLS = [
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
+        "name": "capability_factory",
+        "description": (
+            "S12/S13 capability factory (read-first): list skill/tool candidates, "
+            "invoke builtin read tools (lesson_query, scope_check, skill_search, "
+            "pack_validate, code_review), or bootstrap candidates. "
+            "Does not auto-activate write tools. Prefer first-class nexus_* tools "
+            "when calling a single builtin."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "list | invoke | bootstrap | propose_skill | harvest_skills | "
+                        "fill_skill | auto_activate | retire_skill"
+                    ),
+                    "default": "list",
+                },
+                "tool": {
+                    "type": "string",
+                    "description": "for invoke: nexus_lesson_query|nexus_scope_check|…",
+                },
+                "query": {"type": "string", "description": "search/query string"},
+                "paths": {
+                    "type": "string",
+                    "description": "comma-separated paths for scope_check/code_review",
+                },
+                "code": {
+                    "type": "string",
+                    "description": "lesson code filter for lesson_query",
+                },
+                "skill_id": {"type": "string", "description": "for propose_skill/retire"},
+                "purpose": {"type": "string", "description": "for propose_skill"},
+                "candidate": {
+                    "type": "string",
+                    "description": "candidate dir for fill_skill",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "retire reason",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "auto_activate limit (default 3)",
+                    "default": 3,
+                },
+            },
+        },
+    },
+    {
+        "name": "nexus_lesson_query",
+        "description": (
+            "Query cross-run lessons (S07) by keyword and/or lesson code. "
+            "Read-only factory builtin."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "keyword filter", "default": ""},
+                "code": {"type": "string", "description": "exact lesson code", "default": ""},
+                "limit": {"type": "integer", "default": 10},
+            },
+        },
+    },
+    {
+        "name": "nexus_scope_check",
+        "description": (
+            "Classify paths against a default scope contract (S04). "
+            "Read-only factory builtin."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "string",
+                    "description": "comma-separated relative paths",
+                },
+            },
+        },
+    },
+    {
+        "name": "nexus_skill_search",
+        "description": (
+            "Search activated skillpacks and factory skill candidates. "
+            "Read-only factory builtin."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "default": ""},
+                "include_candidates": {"type": "boolean", "default": True},
+                "limit": {"type": "integer", "default": 20},
+            },
+        },
+    },
+    {
+        "name": "nexus_pack_validate",
+        "description": (
+            "Validate skillpack or factory skill/tool candidate layout. "
+            "Read-only factory builtin."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "relative path to pack/candidate dir",
+                },
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "nexus_code_review",
+        "description": (
+            "Static structured review checklist over listed paths "
+            "(companion to code-review-portfolio-slice skill). Read-only."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "string",
+                    "description": "comma-separated relative paths",
+                },
+            },
+        },
+    },
+    {
         "name": "run_project_checks",
         "description": (
             "Run allowlisted project checks (install + pytest + smoke when present). "
@@ -847,7 +977,9 @@ TOOLS = [
             "agent_mode=demo (default/auto) uses MockAgent panel; fake completes instantly; "
             "bus uses event bus if up else blocked. Does not auto-start the bus. "
             "with_plan=true runs dedicated multi-LLM Planner (arXiv 2401.07324) before "
-            "orchestration; structured plan is stored on envelope and returned in status."
+            "orchestration; structured plan is stored on envelope and returned in status. "
+            "with_swe_plan=true runs SWE-Adept localization→resolution planning "
+            "(arXiv 2603.01327v2) and a phodal/routa-shaped delivery board."
         ),
         "inputSchema": {
             "type": "object",
@@ -902,6 +1034,32 @@ TOOLS = [
                     "type": "integer",
                     "description": "Max Planner steps when with_plan=true",
                     "default": 5,
+                },
+                "with_swe_plan": {
+                    "type": "boolean",
+                    "description": (
+                        "SWE-Adept two-phase plan (localization → resolution; "
+                        "arXiv 2603.01327v2) before Orchestrator; no edits in plan phase"
+                    ),
+                    "default": False,
+                },
+                "swe_max_targets": {
+                    "type": "integer",
+                    "description": "Max localization targets when with_swe_plan=true",
+                    "default": 8,
+                },
+                "swe_require_targets": {
+                    "type": "boolean",
+                    "description": "Fail closed if localization finds no targets",
+                    "default": False,
+                },
+                "with_delivery_board": {
+                    "type": "boolean",
+                    "description": (
+                        "Project SWE-Adept plan onto phodal/routa-shaped delivery board. "
+                        "Omit for default-on when with_swe_plan succeeds; "
+                        "set false to disable; true to force on."
+                    ),
                 },
             },
             "required": ["description"],
@@ -1256,6 +1414,51 @@ def _tool_result(text: str, *, is_error: bool = False) -> dict[str, Any]:
     }
 
 
+def _mcp_json_bounded(obj: Any, *, limit: int = 16000) -> str:
+    """Serialize *obj* as JSON that always fits *limit* chars (never mid-slice).
+
+    Large ``run_task`` responses (SWE plan + delivery board) can exceed the
+    legacy 16k cap; mid-string slicing produced unparseable JSON. Prefer a
+    summary envelope with ``truncated: true`` when needed.
+    """
+    try:
+        text = json.dumps(obj, indent=2, default=str)
+    except (TypeError, ValueError):
+        text = json.dumps({"error": "unserializable", "repr": repr(obj)[:500]})
+    if len(text) <= limit:
+        return text
+    if not isinstance(obj, dict):
+        return json.dumps(
+            {"truncated": True, "repr": repr(obj)[: max(0, limit - 80)]},
+            indent=2,
+            default=str,
+        )
+    summary: dict[str, Any] = {
+        "truncated": True,
+        "task_id": obj.get("task_id"),
+        "status": obj.get("status"),
+        "kind": obj.get("kind"),
+        "swe_adept": obj.get("swe_adept"),
+        "swe_plan_status": obj.get("swe_plan_status"),
+        "swe_adept_summary": obj.get("swe_adept_summary"),
+        "delivery_board_summary": obj.get("delivery_board_summary"),
+        "detail": (str(obj.get("detail") or ""))[:240],
+    }
+    # Drop Nones to stay small
+    summary = {k: v for k, v in summary.items() if v is not None}
+    text2 = json.dumps(summary, indent=2, default=str)
+    if len(text2) <= limit:
+        return text2
+    # Last resort: tiny hard envelope
+    tiny = {
+        "truncated": True,
+        "task_id": obj.get("task_id"),
+        "status": obj.get("status"),
+        "error": "response truncated to preserve valid JSON",
+    }
+    return json.dumps(tiny, indent=2, default=str)
+
+
 def _orch_enabled() -> bool:
     """NEXUS_ORCH=0 omits/refuses orchestration facades."""
     return os.environ.get("NEXUS_ORCH", "1").strip() not in ("0", "false", "no", "off")
@@ -1299,9 +1502,21 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                     require_plan=bool(args.get("require_plan") or False),
                     plan_max_steps=int(args.get("plan_max_steps") or 5),
                     plan_text=str(args["plan_text"]) if args.get("plan_text") else None,
+                    with_swe_plan=bool(args.get("with_swe_plan") or False),
+                    swe_max_targets=(
+                        int(args["swe_max_targets"])
+                        if args.get("swe_max_targets") is not None
+                        else None
+                    ),
+                    swe_require_targets=bool(args.get("swe_require_targets") or False),
+                    with_delivery_board=(
+                        bool(args["with_delivery_board"])
+                        if "with_delivery_board" in args
+                        else None
+                    ),
                     sync_fake=(str(args.get("agent_mode") or "").lower() == "fake"),
                 )
-                return _tool_result(json.dumps(out, indent=2, default=str)[:16000])
+                return _tool_result(_mcp_json_bounded(out, limit=16000))
             except orch.OrchError as e:
                 return _tool_result(
                     json.dumps({"error": str(e), "code": e.code}),
@@ -2876,6 +3091,128 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 return _tool_result(f"BudgetPlaneError: {e}", is_error=True)
             except Exception as e:
                 return _tool_result(f"compute_budget error: {e}", is_error=True)
+
+
+        if name == "capability_factory":
+            from . import capability_factory as cfact
+            from . import factory_tools as ft
+
+            action = str(args.get("action") or "list").lower().strip()
+            root = _root()
+            try:
+                if action == "list":
+                    payload = {
+                        "ok": True,
+                        "candidates": cfact.list_candidates(root),
+                        "builtins": list(ft.BUILTIN_TOOLS),
+                    }
+                elif action == "bootstrap":
+                    payload = cfact.bootstrap_wave_ab(root)
+                elif action == "harvest_skills":
+                    payload = cfact.harvest_skill_proposals_from_lessons(root, limit=3)
+                elif action == "propose_skill":
+                    sid = str(args.get("skill_id") or "").strip()
+                    if not sid:
+                        return _tool_result("skill_id required", is_error=True)
+                    payload = cfact.propose_skill(
+                        root,
+                        skill_id=sid,
+                        purpose=str(args.get("purpose") or ""),
+                        title=str(args.get("title") or sid),
+                        source="mcp",
+                    )
+                elif action == "fill_skill":
+                    cand = str(args.get("candidate") or "").strip()
+                    if not cand:
+                        return _tool_result("candidate required", is_error=True)
+                    payload = cfact.fill_skill_candidate(
+                        root, cand, use_grok=bool(args.get("use_grok", True))
+                    )
+                elif action == "auto_activate":
+                    payload = cfact.auto_activate_ready_skills(
+                        root,
+                        limit=int(args.get("limit") or 3),
+                        use_grok_fill=bool(args.get("use_grok", False)),
+                    )
+                elif action == "retire_skill":
+                    sid = str(args.get("skill_id") or "").strip()
+                    if not sid:
+                        return _tool_result("skill_id required", is_error=True)
+                    payload = cfact.retire_skill(
+                        root, sid, reason=str(args.get("reason") or "retired")
+                    )
+                elif action == "invoke":
+                    tool = str(args.get("tool") or "").strip()
+                    if not tool:
+                        return _tool_result("tool required for invoke", is_error=True)
+                    kw: dict[str, Any] = {}
+                    if args.get("query"):
+                        kw["query"] = str(args.get("query"))
+                    if args.get("paths"):
+                        kw["paths_csv"] = str(args.get("paths"))
+                    if args.get("code"):
+                        kw["code"] = str(args.get("code"))
+                    if tool == "nexus_pack_validate" and args.get("query"):
+                        kw["path"] = str(args.get("query"))
+                    payload = ft.invoke_tool(tool, root, **kw)
+                else:
+                    return _tool_result(
+                        f"unknown action: {action} "
+                        f"(list|invoke|bootstrap|propose_skill|harvest_skills|"
+                        f"fill_skill|auto_activate|retire_skill)",
+                        is_error=True,
+                    )
+                return _tool_result(json.dumps(payload, indent=2, default=str))
+            except Exception as e:
+                return _tool_result(
+                    f"capability_factory error: {type(e).__name__}: {e}",
+                    is_error=True,
+                )
+
+        # First-class S13 factory builtins (also via capability_factory invoke)
+        if name in (
+            "nexus_lesson_query",
+            "nexus_scope_check",
+            "nexus_skill_search",
+            "nexus_pack_validate",
+            "nexus_code_review",
+        ):
+            from . import factory_tools as ft
+
+            root = _root()
+            try:
+                kw: dict[str, Any] = {}
+                if name == "nexus_lesson_query":
+                    if args.get("query") is not None:
+                        kw["query"] = str(args.get("query") or "")
+                    if args.get("code") is not None:
+                        kw["code"] = str(args.get("code") or "")
+                    if args.get("limit") is not None:
+                        kw["limit"] = int(args.get("limit") or 10)
+                elif name in ("nexus_scope_check", "nexus_code_review"):
+                    paths = args.get("paths")
+                    if isinstance(paths, list):
+                        kw["paths"] = [str(p) for p in paths]
+                    elif paths:
+                        kw["paths_csv"] = str(paths)
+                elif name == "nexus_skill_search":
+                    if args.get("query") is not None:
+                        kw["query"] = str(args.get("query") or "")
+                    if args.get("include_candidates") is not None:
+                        kw["include_candidates"] = bool(args.get("include_candidates"))
+                    if args.get("limit") is not None:
+                        kw["limit"] = int(args.get("limit") or 20)
+                elif name == "nexus_pack_validate":
+                    path = args.get("path") or args.get("query")
+                    if not path:
+                        return _tool_result("path required", is_error=True)
+                    kw["path"] = str(path)
+                payload = ft.invoke_tool(name, root, **kw)
+                return _tool_result(json.dumps(payload, indent=2, default=str))
+            except Exception as e:
+                return _tool_result(
+                    f"{name} error: {type(e).__name__}: {e}", is_error=True
+                )
 
         return _tool_result(f"unknown tool: {name}", is_error=True)
 

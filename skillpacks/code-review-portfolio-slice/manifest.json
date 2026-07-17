@@ -1,0 +1,29 @@
+{
+  "id": "code-review-portfolio-slice",
+  "version": "0.1.0",
+  "name": "Code review portfolio slice",
+  "tags": [
+    "nexus",
+    "review",
+    "portfolio",
+    "factory",
+    "golden"
+  ],
+  "privilege": "read",
+  "entrypoints": {
+    "skill": "SKILL.md"
+  },
+  "harnesses": [
+    "grok",
+    "claude",
+    "local"
+  ],
+  "required_tools": [
+    "nexus_scope_check",
+    "nexus_code_review"
+  ],
+  "factory_activated": {
+    "ts": 1784304878.8066194,
+    "from": ".nexus_state/capability_factory/candidates/skills/code-review-portfolio-slice-9cc0a4b9"
+  }
+}

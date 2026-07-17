@@ -652,3 +652,54 @@ def test_tool_catalog_lists_tool_agent():
     entries = {e.name: e for e in tc.build_entries()}
     assert "tool_agent" in entries
     assert entries["tool_agent"].privilege == "read"
+
+
+def test_real_local_tools_include_factory_builtins(tmp_path):
+    """S13 factory builtins stay first-class under --real registry (anti-regression)."""
+    from nexus import capability_factory as cf
+    from nexus import cross_run_lessons as crl
+
+    for name in (
+        "nexus_lesson_query",
+        "nexus_scope_check",
+        "nexus_skill_search",
+        "nexus_pack_validate",
+        "nexus_code_review",
+    ):
+        assert name in mla.REAL_LOCAL_TOOLS
+
+    crl.append_lesson(
+        tmp_path, code="panel_timeout_or_offline", text="timeout", severity="med"
+    )
+    cf.propose_skill(tmp_path, skill_id="reg-skill", purpose="p")
+    reg = mla.build_local_registry(tmp_path, tools=list(mla.REAL_LOCAL_TOOLS))
+    lessons = reg["nexus_lesson_query"](query="timeout")
+    assert lessons.get("ok") is True and lessons.get("real") is True
+    assert lessons.get("count", 0) >= 1
+    skills = reg["nexus_skill_search"](query="reg-skill")
+    assert skills.get("ok") is True and skills.get("count", 0) >= 1
+    mock = mla.resolve_registry(["nexus_skill_search"], real=False)
+    assert mock["nexus_skill_search"]().get("mock") is True
+
+
+def test_mcp_first_class_factory_tools(tmp_path, monkeypatch):
+    from nexus import mcp_server
+
+    monkeypatch.setenv("NEXUS_PROJECT_ROOT", str(tmp_path))
+    names = {t["name"] for t in mcp_server.TOOLS}
+    for n in (
+        "capability_factory",
+        "nexus_lesson_query",
+        "nexus_scope_check",
+        "nexus_skill_search",
+        "nexus_pack_validate",
+        "nexus_code_review",
+    ):
+        assert n in names
+    r = mcp_server.call_tool("capability_factory", {"action": "list"})
+    data = json.loads(r["content"][0]["text"])
+    assert data.get("ok") is True
+    assert "nexus_lesson_query" in (data.get("builtins") or [])
+    r2 = mcp_server.call_tool("nexus_skill_search", {"query": "", "limit": 5})
+    data2 = json.loads(r2["content"][0]["text"])
+    assert data2.get("ok") is True

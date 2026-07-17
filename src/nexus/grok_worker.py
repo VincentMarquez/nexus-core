@@ -325,6 +325,47 @@ def grok_reason(
     )
 
 
+def _resolve_turns_timeout(
+    max_turns: int,
+    timeout_s: float,
+    *,
+    turns_lo: int = 4,
+    turns_hi: int = 128,
+    timeout_lo: float = 120.0,
+    timeout_hi: float = 7200.0,
+) -> tuple[int, float]:
+    """Apply env overrides and clamp agentic turn/timeout budgets."""
+    try:
+        max_turns = int(os.environ.get("NEXUS_GROK_MAX_TURNS") or max_turns)
+    except ValueError:
+        pass
+    try:
+        timeout_s = float(os.environ.get("NEXUS_GROK_TIMEOUT_S") or timeout_s)
+    except ValueError:
+        pass
+    max_turns = max(turns_lo, min(int(max_turns), turns_hi))
+    timeout_s = max(timeout_lo, min(float(timeout_s), timeout_hi))
+    return max_turns, timeout_s
+
+
+def _git_porcelain(workdir: Path) -> list[str]:
+    """Return ``git status --porcelain`` lines (empty if not a git repo / error)."""
+    try:
+        r = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(workdir),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if r.returncode != 0:
+        return []
+    return [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
+
+
 def grok_hard_improve(
     workdir: Path,
     goal: str,
@@ -339,17 +380,15 @@ def grok_hard_improve(
     Override with ``NEXUS_GROK_MAX_TURNS`` / ``NEXUS_GROK_TIMEOUT_S`` if needed.
     """
     workdir = Path(workdir).resolve()
-    try:
-        max_turns = int(os.environ.get("NEXUS_GROK_MAX_TURNS") or max_turns)
-    except ValueError:
-        pass
-    try:
-        timeout_s = float(os.environ.get("NEXUS_GROK_TIMEOUT_S") or timeout_s)
-    except ValueError:
-        pass
     # hard caps so we don't hang forever
-    max_turns = max(8, min(max_turns, 128))
-    timeout_s = max(300.0, min(timeout_s, 7200.0))
+    max_turns, timeout_s = _resolve_turns_timeout(
+        max_turns,
+        timeout_s,
+        turns_lo=8,
+        turns_hi=128,
+        timeout_lo=300.0,
+        timeout_hi=7200.0,
+    )
 
     prompt = (
         "You are the hard-worker for NEXUS self-improvement on this git checkout.\n"
@@ -379,3 +418,108 @@ def grok_hard_improve(
         soft_ok=True,
     )
     return res
+
+
+def grok_self_play_ssr(
+    workdir: Path,
+    *,
+    model: Optional[str] = None,
+    max_rounds: int = 3,
+    max_turns: int = 32,
+    timeout_s: float = 1800,
+    offline_only: bool = False,
+    goal_extra: str = "",
+) -> dict[str, Any]:
+    """Self-play inject→repair loop (arXiv 2512.18552 × wshobson marketplace).
+
+    Offline path (default for tests / no grok): runs ``self_play_ssr.run_self_play``
+    with deterministic mutators — no LLM, no network.
+
+    Agentic path: builds a marketplace-aware prompt and calls headless Grok with
+    tools so the worker can inject/repair in the target checkout.
+
+    Schema: ``nexus.self_play_ssr/v1`` (see ``nexus.self_play_ssr``).
+
+    TODO(next-slice): wire into ``alive.py`` / ``repo_mine`` self-improve loop
+    and run agentic episodes in a disposable worktree (GPT F1 isolation).
+    """
+    from . import self_play_ssr as ssr
+
+    workdir = Path(workdir).resolve()
+    try:
+        max_rounds = int(max_rounds)
+    except (TypeError, ValueError):
+        max_rounds = 3
+    max_rounds = max(1, min(max_rounds, 12))
+
+    # Soft offline once — never raise out of the worker entrypoint.
+    offline = ssr.run_self_play_or_report(
+        max_rounds=max_rounds, repair_plugin="oracle_inverse"
+    )
+    brief = ssr.self_play_brief(max_rounds=max_rounds, report=offline)
+    offline_ok = bool(offline.get("ok"))
+
+    out: dict[str, Any] = {
+        "schema": ssr.SCHEMA,
+        "paper": ssr.PAPER,
+        "idea_id": ssr.IDEA_ID,
+        "workdir": str(workdir),
+        "max_rounds": max_rounds,
+        "offline": offline,
+        "brief": brief,
+        "offline_ok": offline_ok,
+        "agentic": None,
+        "agentic_ok": None,
+    }
+
+    if offline_only or not grok_available():
+        out["ok"] = offline_ok
+        out["mode"] = "offline"
+        if not grok_available() and not offline_only:
+            out["note"] = "grok CLI not on PATH; offline self-play only"
+        return out
+
+    prompt = ssr.build_self_play_prompt(
+        workdir, max_rounds=max_rounds, goal_extra=goal_extra
+    )
+    max_turns, timeout_s = _resolve_turns_timeout(
+        max_turns,
+        timeout_s,
+        turns_lo=4,
+        turns_hi=128,
+        timeout_lo=120.0,
+        timeout_hi=7200.0,
+    )
+
+    agentic = grok_prompt(
+        prompt,
+        model=model,
+        cwd=workdir,
+        max_turns=max_turns,
+        tools=True,
+        timeout_s=timeout_s,
+        label="self_play_ssr",
+        allow_subagents=True,
+        allow_plan=True,
+        soft_ok=True,
+    )
+    text = agentic.get("text") or ""
+    dirty = _git_porcelain(workdir)
+    agentic_process_ok = bool(agentic.get("ok"))
+    # Leftover injected bugs after a crash/max-turns run are a hard safety fail.
+    agentic_ok = agentic_process_ok and not dirty
+    out["agentic"] = {
+        "ok": agentic_process_ok,
+        "model": agentic.get("model"),
+        "returncode": agentic.get("returncode"),
+        "text_len": len(text),
+        "text_head": text[:2000],
+        "error": agentic.get("error"),
+        "dirty_files": dirty,
+        "clean": not dirty,
+    }
+    out["agentic_ok"] = agentic_ok
+    out["mode"] = "agentic"
+    # Offline health gates; agentic outcome is required when mode is agentic.
+    out["ok"] = offline_ok and agentic_ok
+    return out
