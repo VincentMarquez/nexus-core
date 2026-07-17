@@ -1,9 +1,3 @@
-# Task evidence snapshots
+# Evidence samples
 
-Written by alive/publish when self-improve runs. Safe to commit.
-
-- [`canon-1784257375.json`](canon-1784257375.json)
-- [`canon-1784257551.json`](canon-1784257551.json)
-- [`canon-1784259317.json`](canon-1784259317.json)
-- [`canon-1784260265.json`](canon-1784260265.json)
-- [`canon-1784261206.json`](canon-1784261206.json)
+Machine-local task dumps (`canon-*.json`) are not kept in the public tree — they often contain absolute host paths. Live runs write under `.nexus_state/`.
