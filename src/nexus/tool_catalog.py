@@ -70,6 +70,8 @@ TOOL_PRIVILEGE: dict[str, str] = {
     # side-effecting ops
     "run_project_checks": "ops",
     "github_scout": "ops",
+    "github_mine": "read",  # research input only
+    "canonical_pipeline": "ops",  # ONE engine+judge flow (lab/alive/MCP)
     "github_loop": "ops",
     "platforms_connect": "ops",
     "apply_phase": "ops",

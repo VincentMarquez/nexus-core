@@ -87,6 +87,42 @@ def test_alive_config_arxiv_and_use_limits(tmp_path, monkeypatch):
     assert d["arxiv_count"] == 10 and d["use_limit"] == 10
 
 
+def test_alive_pipeline_github_arxiv_meta_knobs(tmp_path, monkeypatch):
+    """Canonical engine flow knobs (same as lab) round-trip."""
+    monkeypatch.chdir(tmp_path)
+    cfg = al.AliveConfig(
+        goal="pipeline",
+        github_min_stars=5000,
+        github_review=True,
+        mid_tier_mine=False,
+        paper_improve=True,
+        use_canonical_engine=True,
+        meta_review=True,
+        pipeline=[
+            "goal",
+            "plan",
+            "challenge",
+            "implement",
+            "test",
+            "review",
+            "log",
+            "meta_review",
+            "approval",
+            "deliver",
+        ],
+        enabled=True,
+    )
+    al.save_config(cfg, tmp_path)
+    loaded = al.load_config(tmp_path)
+    assert loaded.github_min_stars == 5000
+    assert loaded.use_canonical_engine is True
+    assert loaded.pipeline[0] == "goal"
+    assert loaded.pipeline[-1] == "deliver"
+    rep = al.cycle_once(tmp_path, dry_run=True)
+    assert rep.get("dry_run") is True
+    assert "goal" in (rep.get("pipeline") or [])
+
+
 def test_alive_config_stop_knobs_roundtrip(tmp_path, monkeypatch):
     """Zenith-style stop policy knobs survive alive.json round-trip."""
     monkeypatch.chdir(tmp_path)

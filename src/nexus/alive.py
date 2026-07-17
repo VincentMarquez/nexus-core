@@ -1,22 +1,24 @@
 """Self-improvement loop: NEXUS stays alive under *user goals* + token budget.
 
   nexus alive init --goal "improve multi-agent durability and demos"
-  nexus alive once
+  nexus alive once              # REAL (unless --dry-run)
+  nexus alive once --dry-run
   nexus alive watch --interval 3600
   nexus alive status
 
-Cycle (opt-in apply/self-approve):
-  1. Check usage budget (throttle)
-  2. Mine / research according to goals
-  3. improve-ours plan from high scores
-  4. If self_approve + tests green + apply → port patterns into our repo
-  5. Heartbeat + workspace note
-  6. Record token estimates
+**REAL** cycle (``run self-improve real``) always::
 
-Autonomy defaults remain **off** for apply/push; ``self_approve`` + ``push_github``
-are explicit config flags. Typical full loop::
+  1. Budget gate
+  2. **GitHub ≥5K★ research INPUT** (required — labs→individuals)
+  3. arXiv input + paper rank (when configured)
+  4. dual brief
+  5. **canonical_engine + Judge** (goal→…→deliver) — same as lab/MCP
+  6. self_check → implement apply (if apply+self_approve+gates)
+  7. meta_review + optional publish
 
-  mine → score → improve plan → (apply) → tests → commit → push to GitHub
+DRY only runs the budget/dry_run probe. Research+engine are REAL path.
+
+Autonomy: ``self_approve`` + ``push_github`` remain explicit config flags.
 """
 
 from __future__ import annotations
@@ -95,6 +97,41 @@ class AliveConfig:
     abort_on_board_stop: bool = True
     # offline preference pairs from ranked candidates (arXiv 2602.04518)
     record_preferences: bool = True
+    # ── Research inputs + canonical engine pipeline (same as lab / MCP) ──
+    # High-star GitHub mine (labs → individuals). Default 5000. Feeds goal/plan context.
+    github_min_stars: int = 5000
+    github_review: bool = True
+    # Also run legacy mid-tier mine (stars≤500) for niche patterns
+    mid_tier_mine: bool = False
+    # Read+rank arXiv abstracts into PAPER_IMPROVE (not just a reading list)
+    paper_improve: bool = True
+    # After research: run DurableEngine + Judge (goal→…→meta_review→approval→deliver)
+    # This is the ONE implement/meta path — not a parallel lab invention.
+    use_canonical_engine: bool = True
+    # After implement (or after plan if no apply): write meta-review snapshot
+    meta_review: bool = True
+    # When tests are red: worker fix → re-check until green (or max attempts)
+    fix_max_attempts: int = 5
+    # Implement quota: ≥1 arXiv + ≥1 GitHub idea, max 10; scan cross-paper/code patterns
+    implement_min_arxiv: int = 1
+    implement_min_github: int = 1
+    implement_max_ideas: int = 10
+    cross_pattern_scan: bool = True
+    # Canonical step names (must match unified_pipeline / StepPolicy.default)
+    pipeline: list[str] = field(
+        default_factory=lambda: [
+            "goal",
+            "plan",
+            "challenge",
+            "implement",
+            "test",
+            "review",
+            "log",
+            "meta_review",
+            "approval",
+            "deliver",
+        ]
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -111,6 +148,20 @@ class AliveConfig:
             require_spine = bool(d.get("require_spine"))
         else:
             require_spine = require_decision
+        pipe = d.get("pipeline")
+        if not isinstance(pipe, list) or not pipe:
+            pipe = [
+                "goal",
+                "plan",
+                "challenge",
+                "implement",
+                "test",
+                "review",
+                "log",
+                "meta_review",
+                "approval",
+                "deliver",
+            ]
         return cls(
             goal=str(d.get("goal") or "improve this repository using research and high-quality open source"),
             queries=list(d.get("queries") or ["multi agent durable"]),
@@ -147,6 +198,18 @@ class AliveConfig:
             sync_board_gaps=bool(d.get("sync_board_gaps", True)),
             abort_on_board_stop=bool(d.get("abort_on_board_stop", True)),
             record_preferences=bool(d.get("record_preferences", True)),
+            github_min_stars=int(d.get("github_min_stars") or 5000),
+            github_review=bool(d.get("github_review", True)),
+            mid_tier_mine=bool(d.get("mid_tier_mine", False)),
+            paper_improve=bool(d.get("paper_improve", True)),
+            use_canonical_engine=bool(d.get("use_canonical_engine", True)),
+            meta_review=bool(d.get("meta_review", True)),
+            fix_max_attempts=max(1, int(d.get("fix_max_attempts") or 5)),
+            implement_min_arxiv=max(1, int(d.get("implement_min_arxiv") or 1)),
+            implement_min_github=max(1, int(d.get("implement_min_github") or 1)),
+            implement_max_ideas=max(2, min(10, int(d.get("implement_max_ideas") or 10))),
+            cross_pattern_scan=bool(d.get("cross_pattern_scan", True)),
+            pipeline=[str(x) for x in pipe],
         )
 
 
@@ -192,10 +255,187 @@ def _run_checks(workdir: Path) -> dict[str, Any]:
     }
 
 
+def _worker_fix_tests(
+    root: Path,
+    cfg: AliveConfig,
+    checks: dict[str, Any],
+    *,
+    attempt: int,
+    max_attempts: int,
+) -> dict[str, Any]:
+    """One fix attempt aimed at making pytest/smoke green."""
+    fail_bits = [
+        f"{c.get('name')}:rc={c.get('returncode')}"
+        for c in (checks.get("checks") or [])
+        if not c.get("ok")
+    ]
+    goal = (
+        f"FIX LOOP attempt {attempt}/{max_attempts}: make install/pytest/smoke GREEN. "
+        f"Failing checks: {fail_bits or 'unknown'}. "
+        f"Read failures, apply minimal fixes, re-run pytest. "
+        f"Do not push. Product goal context: {(cfg.goal or '')[:240]}"
+    )
+    worker = (cfg.worker or "auto").strip().lower()
+    # Prefer Grok hard improve for real code fixes
+    if worker in ("auto", "grok"):
+        try:
+            from . import grok_worker as gw
+
+            if gw.grok_available():
+                res = gw.grok_hard_improve(root, goal)
+                return {
+                    "worker": "grok",
+                    "ok": bool(res.get("ok", True)) if isinstance(res, dict) else True,
+                    "result": res if isinstance(res, dict) else {"raw": str(res)[:800]},
+                }
+        except Exception as e:
+            return {"worker": "grok", "ok": False, "error": str(e)[:500]}
+    # Fallback: improve_ours apply (pattern port)
+    try:
+        applied = rm.step_improve_ours(
+            root,
+            min_score=cfg.min_score,
+            limit=3,
+            apply=True,
+            our_repo=cfg.our_repo or None,
+            worker=cfg.worker or "auto",
+        )
+        st = _improve_ours_apply_status(applied)
+        return {
+            "worker": "improve_ours",
+            "ok": bool(st.get("ok")),
+            "result": applied if isinstance(applied, dict) else {},
+            "reason": st.get("reason"),
+        }
+    except Exception as e:
+        return {"worker": "improve_ours", "ok": False, "error": str(e)[:500]}
+
+
+def _self_check_fix_loop(
+    root: Path,
+    cfg: AliveConfig,
+    report: dict[str, Any],
+    *,
+    phase: str = "pre_implement",
+) -> tuple[dict[str, Any], Any]:
+    """Run self_check; if red, worker-fix and re-check until green or max attempts.
+
+    Returns (final_checks, last_applied).
+    """
+    max_a = max(1, int(getattr(cfg, "fix_max_attempts", 5) or 5))
+    applied: Any = None
+    checks: dict[str, Any] = {"ok": False, "checks": []}
+
+    for attempt in range(1, max_a + 1):
+        checks = _run_checks(root)
+        report["steps"].append({
+            "step": "self_check",
+            "phase": phase,
+            "attempt": attempt,
+            "max_attempts": max_a,
+            **checks,
+        })
+        usage_mod.record(
+            200,
+            source="tests",
+            label=f"self_check_{phase}_{attempt}",
+            workdir=root,
+            enforce=False,
+        )
+        if checks.get("ok"):
+            report["steps"].append({
+                "step": "fix_loop",
+                "phase": phase,
+                "ok": True,
+                "green": True,
+                "attempts": attempt,
+                "note": "tests green — proceed",
+            })
+            return checks, applied
+
+        # tests red → fix (needs apply+self_approve so worker can edit)
+        if not (cfg.apply and cfg.self_approve):
+            report["steps"].append({
+                "step": "fix_loop",
+                "phase": phase,
+                "ok": False,
+                "green": False,
+                "attempt": attempt,
+                "skipped": "tests red but apply+self_approve not both true — cannot auto-fix",
+            })
+            return checks, applied
+
+        try:
+            fix = _worker_fix_tests(
+                root, cfg, checks, attempt=attempt, max_attempts=max_a
+            )
+            applied = fix.get("result") if isinstance(fix, dict) else fix
+            report["steps"].append({
+                "step": "fix_loop",
+                "phase": phase,
+                "attempt": attempt,
+                "max_attempts": max_a,
+                "worker": (fix or {}).get("worker"),
+                "ok": bool((fix or {}).get("ok")),
+                "error": (fix or {}).get("error"),
+                "reason": (fix or {}).get("reason"),
+                "note": "tests red → worker fix → re-check",
+            })
+            if fix.get("ok"):
+                usage_mod.record(
+                    5000,
+                    source="fix_loop",
+                    label=f"{phase}_{attempt}",
+                    workdir=root,
+                    enforce=True,
+                )
+        except usage_mod.BudgetExceeded as e:
+            report["steps"].append({
+                "step": "fix_loop",
+                "phase": phase,
+                "attempt": attempt,
+                "blocked": str(e),
+            })
+            return checks, applied
+        except Exception as e:
+            report["steps"].append({
+                "step": "fix_loop",
+                "phase": phase,
+                "attempt": attempt,
+                "error": str(e)[:500],
+            })
+
+    # exhausted
+    checks = _run_checks(root)
+    report["steps"].append({
+        "step": "self_check_final",
+        "phase": phase,
+        **checks,
+    })
+    report["steps"].append({
+        "step": "fix_loop",
+        "phase": phase,
+        "ok": bool(checks.get("ok")),
+        "green": bool(checks.get("ok")),
+        "exhausted": not bool(checks.get("ok")),
+        "attempts": max_a,
+        "note": (
+            "tests green after fix loop"
+            if checks.get("ok")
+            else f"tests still red after {max_a} fix attempts — refusing push"
+        ),
+    })
+    return checks, applied
+
+
 def _self_approve_apply_landed(report: dict[str, Any]) -> bool:
-    """True when this cycle's self_approve_apply step reported ok."""
+    """True when this cycle's implement / self_approve_apply step reported ok."""
     for s in report.get("steps") or []:
-        if isinstance(s, dict) and s.get("step") == "self_approve_apply" and s.get("ok"):
+        if not isinstance(s, dict) or not s.get("ok"):
+            continue
+        if s.get("step") in ("self_approve_apply", "implement"):
+            return True
+        if s.get("alias") == "self_approve_apply" and s.get("ok"):
             return True
     return False
 
@@ -652,6 +892,397 @@ def _run_promote_on_done(
     return out
 
 
+def _phase_github_review(
+    root: Path,
+    cfg: AliveConfig,
+    query: str,
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    """High-star GitHub review (≥github_min_stars) + improve plan. Optional mid-tier mine."""
+    from . import github_autonomy as ga
+
+    min_stars = max(0, int(getattr(cfg, "github_min_stars", 5000) or 5000))
+    phase: dict[str, Any] = {
+        "step": "github_review",
+        "query": query,
+        "min_stars": min_stars,
+        "ok": True,
+    }
+
+    # Fast catalog of ≥min_stars repos (labs → individuals)
+    try:
+        hs = ga.search_high_star_repos(
+            query,
+            min_stars=min_stars,
+            limit=max(5, int(cfg.use_limit or 15)),
+            language="Python",
+        )
+        phase["high_star"] = {
+            "count": hs.get("count"),
+            "repos": (hs.get("repos") or [])[:20],
+        }
+        # Persist for dual_review / multi-agent
+        mine_dir = root / ".nexus_state" / "repo_mine"
+        mine_dir.mkdir(parents=True, exist_ok=True)
+        lines = [
+            f"# GitHub high-star review (≥{min_stars}★)",
+            "",
+            f"query: `{query}`",
+            f"found: {hs.get('count')}",
+            "",
+        ]
+        for i, r in enumerate(hs.get("repos") or [], 1):
+            lines.append(
+                f"{i}. **{r.get('full_name')}** ★{r.get('stars')} · {r.get('language') or '?'}"
+            )
+            lines.append(f"   {r.get('url') or ''}")
+            if r.get("description"):
+                lines.append(f"   {(r.get('description') or '')[:160]}")
+        (mine_dir / "GITHUB_HIGHSTAR.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        (root / "docs").mkdir(parents=True, exist_ok=True)
+        (root / "docs" / "LATEST_GITHUB_REVIEW.md").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
+        phase["notes"] = str(mine_dir / "GITHUB_HIGHSTAR.md")
+    except Exception as e:
+        phase["high_star_error"] = str(e)
+
+    # Full mine pipeline targeting high-star repos (plan for implement)
+    mine = rm.run_pipeline(
+        root,
+        query=query,
+        fetch_count=cfg.fetch_count,
+        eval_limit=cfg.fetch_count,
+        min_score=cfg.min_score,
+        min_stars=min_stars,
+        max_stars=None,
+        use_limit=max(1, int(cfg.use_limit or cfg.fetch_count or 10)),
+        use_ollama=cfg.use_ollama,
+        prove=cfg.prove,
+        improve=True,
+        apply_improve=False,
+        our_repo=cfg.our_repo or None,
+        grader=cfg.grader or "auto",
+        worker=cfg.worker or "auto",
+    )
+    phase["mine"] = {
+        "fetch": (mine.get("fetch") or {}).get("inserted"),
+        "evaluated": (mine.get("evaluate") or {}).get("evaluated"),
+        "used": (mine.get("use") or {}).get("used"),
+        "improve_plan": ((mine.get("improve_ours") or {}).get("plan")),
+    }
+    report["steps"].append(phase)
+
+    # Legacy mid-tier mine (optional niche repos)
+    if bool(getattr(cfg, "mid_tier_mine", False)):
+        try:
+            mid = rm.run_pipeline(
+                root,
+                query=query,
+                fetch_count=min(8, int(cfg.fetch_count or 6)),
+                eval_limit=min(8, int(cfg.fetch_count or 6)),
+                min_score=cfg.min_score,
+                max_stars=500,
+                min_stars=None,
+                use_limit=5,
+                use_ollama=cfg.use_ollama,
+                prove=False,
+                improve=False,
+                apply_improve=False,
+                grader="heuristic",
+                worker=cfg.worker or "auto",
+            )
+            report["steps"].append({
+                "step": "github_mid_tier_mine",
+                "fetch": (mid.get("fetch") or {}).get("inserted"),
+                "evaluated": (mid.get("evaluate") or {}).get("evaluated"),
+                "used": (mid.get("use") or {}).get("used"),
+            })
+        except Exception as e:
+            report["steps"].append({"step": "github_mid_tier_mine", "error": str(e)})
+
+    usage_mod.record(
+        1500 * int((mine.get("evaluate") or {}).get("evaluated") or 1),
+        source="mine",
+        label=f"github_review:{query[:40]}",
+        workdir=root,
+        enforce=True,
+    )
+
+    if bool(getattr(cfg, "record_preferences", True)):
+        try:
+            from . import preference_pairs as pp
+
+            ranked: list[dict[str, Any]] = []
+            for key in ("use", "evaluate", "improve_ours"):
+                blob = mine.get(key) or {}
+                for item in (
+                    blob.get("results")
+                    or blob.get("repos")
+                    or blob.get("grades")
+                    or blob.get("items")
+                    or []
+                ):
+                    if isinstance(item, dict) and (
+                        item.get("repo") or item.get("full_name")
+                    ):
+                        ranked.append(
+                            {
+                                "repo": item.get("repo") or item.get("full_name"),
+                                "score": item.get("score") or item.get("total"),
+                                "rank": item.get("rank"),
+                            }
+                        )
+            # Prefer high-star catalog when mine ranking empty
+            if len(ranked) < 2:
+                for r in (phase.get("high_star") or {}).get("repos") or []:
+                    ranked.append(
+                        {
+                            "repo": r.get("full_name"),
+                            "score": r.get("stars"),
+                        }
+                    )
+            if len(ranked) >= 2:
+                pref = pp.record_from_ranked(
+                    ranked, root, source="alive_cycle_github_review"
+                )
+                if pref:
+                    report["steps"].append(
+                        {
+                            "step": "record_preferences",
+                            "ok": True,
+                            "better": pref.get("better"),
+                            "worse": pref.get("worse"),
+                            "source": "alive_cycle_github_review",
+                        }
+                    )
+        except Exception as e:
+            report["steps"].append({"step": "record_preferences", "error": str(e)})
+
+    return mine
+
+
+def _phase_arxiv_review(
+    root: Path,
+    cfg: AliveConfig,
+    report: dict[str, Any],
+) -> None:
+    """arXiv search + optional paper_improve ranking."""
+    from . import github_autonomy as ga
+
+    queries = list(cfg.arxiv_queries or [])
+    if not queries and cfg.goal:
+        # Derive a paper query from the goal so the phase still runs
+        queries = [str(cfg.goal)[:120]]
+
+    if not queries:
+        report["steps"].append({
+            "step": "arxiv_review",
+            "skipped": "no arxiv_queries and empty goal",
+        })
+        return
+
+    aq = queries[0]
+    ar = ga.improve_from_arxiv(
+        aq,
+        repo=cfg.our_repo or None,
+        workdir=root,
+        max_results=max(1, int(cfg.arxiv_count or 10)),
+        apply=False,
+        post_issue=False,
+        also_scout=False,
+    )
+    report["steps"].append({
+        "step": "arxiv_review",
+        "query": aq,
+        "papers": ar.get("papers"),
+        "notes": ar.get("notes"),
+        "alias": "arxiv",
+    })
+    usage_mod.record(
+        800,
+        source="arxiv",
+        label=aq[:40],
+        workdir=root,
+        enforce=False,
+    )
+
+    # paper_improve: always when flag on (or legacy env)
+    want_pi = bool(getattr(cfg, "paper_improve", True)) or (
+        (os.environ.get("NEXUS_PAPER_IMPROVE") or "").strip().lower() in ("1", "true", "yes")
+    )
+    if want_pi:
+        try:
+            from . import paper_improve as _pi
+
+            pi_res = _pi.step_paper_improve(
+                root,
+                limit=max(1, int(cfg.arxiv_count or 10)),
+                use_llm=bool(cfg.use_ollama),
+            )
+            pi_res["phase"] = "arxiv_review"
+            report["steps"].append(pi_res)
+        except Exception as e:
+            report["steps"].append({"step": "paper_improve", "error": str(e)})
+
+
+def _phase_dual_review(
+    root: Path,
+    cfg: AliveConfig,
+    report: dict[str, Any],
+    *,
+    mine: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Synthesize GitHub + arXiv reviews into one implement brief."""
+    docs = root / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    gh_path = root / ".nexus_state" / "repo_mine" / "GITHUB_HIGHSTAR.md"
+    plan_path = root / ".nexus_state" / "repo_mine" / "IMPROVE_OURS.md"
+    paper_path = root / ".nexus_state" / "arxiv_improve" / "PAPER_IMPROVE.md"
+
+    gh = gh_path.read_text(encoding="utf-8")[:6000] if gh_path.is_file() else "(no high-star github review yet)"
+    plan = plan_path.read_text(encoding="utf-8")[:6000] if plan_path.is_file() else "(no improve-ours plan yet)"
+    paper = paper_path.read_text(encoding="utf-8")[:6000] if paper_path.is_file() else "(no paper_improve yet)"
+
+    body = "\n".join(
+        [
+            "# Dual review — GitHub (≥★) + arXiv → implement brief",
+            "",
+            f"Goal: {cfg.goal}",
+            f"Pipeline: {' → '.join(cfg.pipeline or [])}",
+            f"github_min_stars: {getattr(cfg, 'github_min_stars', 5000)}",
+            "",
+            "## 1. GitHub high-star review",
+            "",
+            gh,
+            "",
+            "## 2. Improve-ours plan (from mined/scored repos)",
+            "",
+            plan,
+            "",
+            "## 3. arXiv paper ranking",
+            "",
+            paper,
+            "",
+            "## 4. Implementer charter",
+            "",
+            "- Port **patterns** only (no whole-tree vendor).",
+            "- Prefer tests + small modules; keep pytest green.",
+            "- Prefer high-star + high paper-score items first.",
+            "- After apply, meta-review must re-check tests and residual gaps.",
+            "",
+        ]
+    )
+    dest = docs / "LATEST_DUAL_REVIEW.md"
+    dest.write_text(body, encoding="utf-8")
+    state_dest = root / ".nexus_state" / "DUAL_REVIEW.md"
+    state_dest.parent.mkdir(parents=True, exist_ok=True)
+    state_dest.write_text(body, encoding="utf-8")
+    return {
+        "step": "dual_review",
+        "ok": True,
+        "path": str(dest),
+        "state_path": str(state_dest),
+        "mine_used": ((mine or {}).get("use") or {}).get("used")
+        if isinstance(mine, dict)
+        else None,
+    }
+
+
+def _phase_meta_review(
+    root: Path,
+    cfg: AliveConfig,
+    report: dict[str, Any],
+    *,
+    checks: Optional[dict[str, Any]] = None,
+    applied: Any = None,
+) -> dict[str, Any]:
+    """Meta-review after implement (or plan-only): residual gaps + verdict."""
+    steps = report.get("steps") or []
+    names = [s.get("step") for s in steps if isinstance(s, dict)]
+    impl = next(
+        (
+            s
+            for s in reversed(steps)
+            if isinstance(s, dict) and s.get("step") in ("implement", "self_approve_apply")
+        ),
+        None,
+    )
+    gh = next(
+        (s for s in steps if isinstance(s, dict) and s.get("step") == "github_review"),
+        None,
+    )
+    ax = next(
+        (s for s in steps if isinstance(s, dict) and s.get("step") in ("arxiv_review", "arxiv")),
+        None,
+    )
+    tests_ok = bool((checks or {}).get("ok"))
+    impl_ok = bool(impl and impl.get("ok"))
+    impl_skipped = bool(impl and impl.get("skipped"))
+
+    verdict = "plan_only"
+    if impl_ok and tests_ok:
+        verdict = "implemented_green"
+    elif impl_ok and not tests_ok:
+        verdict = "implemented_tests_red"
+    elif impl_skipped:
+        verdict = "implement_skipped"
+    elif not tests_ok:
+        verdict = "blocked_tests_red"
+
+    lines = [
+        "# Meta-review (alive cycle)",
+        "",
+        f"ts: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+        f"goal: {cfg.goal}",
+        f"verdict: **{verdict}**",
+        f"tests_ok: {tests_ok}",
+        f"phases_seen: {', '.join(str(n) for n in names)}",
+        "",
+        "## Review phases",
+        "",
+        f"- github_review: {'ok' if gh and not gh.get('error') else gh}",
+        f"- arxiv_review: {'ok' if ax and not ax.get('error') else ax}",
+        f"- implement: {impl}",
+        "",
+        "## Artifacts",
+        "",
+        "- `docs/LATEST_GITHUB_REVIEW.md`",
+        "- `docs/LATEST_ARXIV_IMPROVE.md` / `.nexus_state/arxiv_improve/PAPER_IMPROVE.md`",
+        "- `docs/LATEST_DUAL_REVIEW.md`",
+        "- `docs/LATEST_IMPROVE_PLAN.md`",
+        "",
+        "## Residual / next",
+        "",
+    ]
+    if verdict == "implemented_green":
+        lines.append("- Landed apply; re-run official harness if SWE-Pro is the goal.")
+    elif verdict == "blocked_tests_red":
+        lines.append("- Fix pytest before next implement cycle.")
+    elif verdict == "plan_only":
+        lines.append("- Dual review ready; enable apply+self_approve or run implementer agent.")
+    else:
+        lines.append("- Inspect implement step + dual review; tighten gates or worker.")
+
+    if applied and isinstance(applied, dict):
+        lines += ["", "## Apply payload (truncated)", "", "```", json.dumps(applied, default=str)[:2500], "```"]
+
+    docs = root / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    dest = docs / "LATEST_META_REVIEW.md"
+    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (root / ".nexus_state" / "META_REVIEW.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+    return {
+        "step": "meta_review",
+        "ok": True,
+        "verdict": verdict,
+        "tests_ok": tests_ok,
+        "path": str(dest),
+    }
+
+
 def cycle_once(
     workdir: Optional[Path] = None,
     *,
@@ -687,189 +1318,279 @@ def cycle_once(
     if dry_run:
         report["dry_run"] = True
         report["steps"].append({"step": "dry_run", "ok": True})
+        report["pipeline"] = list(cfg.pipeline or [])
         _save_state(report, root)
         return report
 
-    # 2) mine for each query (rotate first query only per cycle to save tokens)
+    # REAL cycle always: GitHub ≥5K★ research INPUT → engine+judge steps → apply/meta.
+    # (DRY returns earlier. Do not make high-star + engine optional on REAL.)
+    report["pipeline"] = list(cfg.pipeline or [])
+    report["real_flow"] = [
+        "github_ge_5k_input",
+        "arxiv_input",
+        "dual_brief",
+        "canonical_engine_judge",
+        "idea_portfolio",  # ≥1 arXiv + ≥1 GitHub, max 10 + cross-pattern novels
+        "self_check_fix_loop",
+        "implement_portfolio",
+        "meta_review",
+    ]
     q = (cfg.queries or ["multi agent"])[0]
-    try:
-        mine = rm.run_pipeline(
-            root,
-            query=q,
-            fetch_count=cfg.fetch_count,
-            eval_limit=cfg.fetch_count,
-            min_score=cfg.min_score,
-            use_limit=max(1, int(cfg.use_limit or cfg.fetch_count or 10)),
-            use_ollama=cfg.use_ollama,
-            prove=cfg.prove,
-            improve=True,
-            apply_improve=False,
-            our_repo=cfg.our_repo or None,
-            grader=cfg.grader or "auto",
-            worker=cfg.worker or "auto",
-        )
-        report["steps"].append({
-            "step": "mine",
-            "query": q,
-            "fetch": (mine.get("fetch") or {}).get("inserted"),
-            "evaluated": (mine.get("evaluate") or {}).get("evaluated"),
-            "used": (mine.get("use") or {}).get("used"),
-            "improve_plan": ((mine.get("improve_ours") or {}).get("plan")),
-        })
-        # estimate tokens: digest-ish per eval
-        usage_mod.record(
-            1500 * int((mine.get("evaluate") or {}).get("evaluated") or 1),
-            source="mine",
-            label=f"mine:{q[:40]}",
-            workdir=root,
-            enforce=True,
-        )
-        # Offline preference pairs from ranked mine results (2602.04518)
-        # — auto each cycle when record_preferences, not only on self_approve.
-        if bool(getattr(cfg, "record_preferences", True)):
-            try:
-                from . import preference_pairs as pp
+    min_stars = max(5000, int(getattr(cfg, "github_min_stars", 5000) or 5000))
+    # Force high-star floor on REAL even if config was lowered
+    cfg.github_min_stars = min_stars
+    mine: dict[str, Any] = {}
 
-                ranked: list[dict[str, Any]] = []
-                for key in ("use", "evaluate", "improve_ours"):
-                    blob = mine.get(key) or {}
-                    for item in (
-                        blob.get("results")
-                        or blob.get("repos")
-                        or blob.get("grades")
-                        or blob.get("items")
-                        or []
-                    ):
-                        if isinstance(item, dict) and (
-                            item.get("repo") or item.get("full_name")
-                        ):
-                            ranked.append(
-                                {
-                                    "repo": item.get("repo")
-                                    or item.get("full_name"),
-                                    "score": item.get("score")
-                                    or item.get("total"),
-                                    "rank": item.get("rank"),
-                                }
-                            )
-                if len(ranked) >= 2:
-                    pref = pp.record_from_ranked(
-                        ranked,
-                        root,
-                        source="alive_cycle_mine",
-                    )
-                    if pref:
-                        report["steps"].append(
-                            {
-                                "step": "record_preferences",
-                                "ok": True,
-                                "better": pref.get("better"),
-                                "worse": pref.get("worse"),
-                                "source": "alive_cycle_mine",
-                            }
-                        )
-            except Exception as e:
-                report["steps"].append(
-                    {"step": "record_preferences", "error": str(e)}
-                )
+    # ── REQUIRED INPUT: GitHub ≥min_stars (labs→individuals) ──
+    try:
+        mine = _phase_github_review(root, cfg, q, report)
+        report["steps"].append({
+            "step": "github_ge_5k_input",
+            "ok": True,
+            "min_stars": min_stars,
+            "query": q,
+            "required_on_real": True,
+            "note": "research INPUT for engine — not optional on REAL",
+        })
     except usage_mod.BudgetExceeded as e:
-        report["steps"].append({"step": "mine", "blocked": str(e)})
+        report["steps"].append({"step": "github_ge_5k_input", "blocked": str(e), "required_on_real": True})
         _save_state(report, root)
         return report
     except Exception as e:
-        report["steps"].append({"step": "mine", "error": str(e)})
+        report["steps"].append({"step": "github_ge_5k_input", "error": str(e), "required_on_real": True})
+        # Continue with whatever brief we have; engine still runs
 
-    # 3) optional arXiv (cheap if heuristic)
-    if cfg.arxiv_queries:
+    # ── INPUT: arxiv_review (search + paper_improve rank) ──
+    if cfg.arxiv_queries or bool(getattr(cfg, "paper_improve", True)):
         try:
-            from . import github_autonomy as ga
-
-            aq = cfg.arxiv_queries[0]
-            ar = ga.improve_from_arxiv(
-                aq,
-                repo=cfg.our_repo or None,
-                workdir=root,
-                max_results=max(1, int(cfg.arxiv_count or 10)),
-                apply=False,
-                post_issue=False,
-                also_scout=False,
-            )
-            report["steps"].append({
-                "step": "arxiv",
-                "query": aq,
-                "papers": ar.get("papers"),
-                "notes": ar.get("notes"),
-            })
-            usage_mod.record(
-                800,
-                source="arxiv",
-                label=aq[:40],
-                workdir=root,
-                enforce=False,
-            )
+            _phase_arxiv_review(root, cfg, report)
         except Exception as e:
-            report["steps"].append({"step": "arxiv", "error": str(e)})
+            report["steps"].append({"step": "arxiv_review", "error": str(e)})
 
-    # 4) self-approve path: tests green → optional apply
-    checks = _run_checks(root)
-    report["steps"].append({"step": "self_check", **checks})
-    usage_mod.record(200, source="tests", label="alive_self_check", workdir=root, enforce=False)
+    # ── dual brief (feeds engine research_brief) ──
+    dual: dict[str, Any] = {}
+    try:
+        dual = _phase_dual_review(root, cfg, report, mine=mine)
+        report["steps"].append(dual)
+    except Exception as e:
+        report["steps"].append({"step": "dual_review", "error": str(e)})
 
-    applied = None
-    if cfg.apply and cfg.self_approve and checks.get("ok"):
+    # ── REQUIRED: DurableEngine + Judge (same as lab / MCP) ──
+    try:
+        from . import unified_pipeline as up
+
+        brief_parts: list[str] = []
+        # Prefer freshly written high-star review first
+        for p in (
+            root / "docs" / "LATEST_GITHUB_REVIEW.md",
+            root / ".nexus_state" / "repo_mine" / "GITHUB_HIGHSTAR.md",
+            root / "docs" / "LATEST_DUAL_REVIEW.md",
+            root / ".nexus_state" / "arxiv_improve" / "PAPER_IMPROVE.md",
+            root / "docs" / "LATEST_ARXIV_IMPROVE.md",
+        ):
+            if p.is_file():
+                brief_parts.append(
+                    f"### {p.name}\n"
+                    + p.read_text(encoding="utf-8", errors="replace")[:5000]
+                )
+        # Inline high-star list from this cycle if phase stored it
+        for st in report.get("steps") or []:
+            if isinstance(st, dict) and st.get("step") == "github_review":
+                hs = (st.get("high_star") or {}).get("repos") or []
+                if hs:
+                    lines = [f"### GitHub ≥{min_stars}★ (this cycle)"]
+                    for r in hs[:15]:
+                        lines.append(
+                            f"- {r.get('full_name')} ★{r.get('stars')}: "
+                            f"{(r.get('description') or '')[:100]}"
+                        )
+                    brief_parts.insert(0, "\n".join(lines))
+                break
+
+        eng_res = up.run_canonical(
+            root,
+            query=q,
+            research_brief="\n\n".join(brief_parts),
+            goal_hint=str(cfg.goal or "")[:400],
+            auto_approve=True,
+            source="alive_real",
+        )
+        report["steps"].append({
+            "step": "canonical_engine",
+            "ok": bool(eng_res.get("ok")),
+            "task_id": eng_res.get("task_id"),
+            "status": eng_res.get("status"),
+            "pipeline": eng_res.get("pipeline"),
+            "judge_steps": eng_res.get("steps"),
+            "error": eng_res.get("error"),
+            "required_on_real": True,
+            "github_min_stars": min_stars,
+            "note": (
+                f"REAL: GitHub ≥{min_stars}★ research INPUT then "
+                "DurableEngine+Judge (same as lab canonical_pipeline)"
+            ),
+        })
+        usage_mod.record(
+            2000,
+            source="canonical_engine",
+            label=str(eng_res.get("task_id") or "engine")[:40],
+            workdir=root,
+            enforce=False,
+        )
+    except Exception as e:
+        report["steps"].append({
+            "step": "canonical_engine",
+            "error": str(e),
+            "required_on_real": True,
+        })
+
+    # ── Build implement portfolio: ≥1 arXiv + ≥1 GitHub, max 10 + cross-pattern novels ──
+    portfolio_blob: dict[str, Any] = {}
+    try:
+        from . import idea_portfolio as ip
+
+        portfolio_blob = ip.build_portfolio(
+            root,
+            min_arxiv=int(getattr(cfg, "implement_min_arxiv", 1) or 1),
+            min_github=int(getattr(cfg, "implement_min_github", 1) or 1),
+            max_ideas=min(10, int(getattr(cfg, "implement_max_ideas", 10) or 10)),
+            min_github_score=float(cfg.min_score or 0),
+        )
+        if not bool(getattr(cfg, "cross_pattern_scan", True)):
+            portfolio_blob["novels"] = []
+        report["steps"].append({
+            "step": "idea_portfolio",
+            "ok": bool(portfolio_blob.get("ok")),
+            "path": portfolio_blob.get("path"),
+            "meta": portfolio_blob.get("meta"),
+            "error": portfolio_blob.get("error"),
+            "novels": len(portfolio_blob.get("novels") or []),
+            "ids": [p.get("id") for p in (portfolio_blob.get("portfolio") or [])],
+            "note": "≥1 arXiv + ≥1 GitHub idea, max 10; cross-pattern novel scan",
+        })
+    except Exception as e:
+        report["steps"].append({"step": "idea_portfolio", "error": str(e), "ok": False})
+
+    # ── self_check → if red, FIX LOOP until green → then implement portfolio ──
+    checks, fix_applied = _self_check_fix_loop(
+        root, cfg, report, phase="pre_implement"
+    )
+    applied = fix_applied
+
+    if not checks.get("ok"):
+        report["steps"].append({
+            "step": "implement",
+            "skipped": "tests still red after fix_loop — refusing feature implement/push",
+            "alias": "self_approve_apply",
+            "fix_max_attempts": int(getattr(cfg, "fix_max_attempts", 5) or 5),
+        })
+    elif cfg.apply and cfg.self_approve:
         try:
             # Decision package + board signal before hard apply (2511.15755 / zenith)
             gate = _self_approve_decision_gate(root, cfg, report=report)
             report["steps"].append({"step": "self_approve_decision", **gate})
             if not gate.get("allow"):
                 report["steps"].append({
-                    "step": "self_approve_apply",
+                    "step": "implement",
                     "skipped": gate.get("skip_reason") or "decision_or_signal_blocked",
                     "signal": gate.get("signal"),
                     "decision": gate.get("decision"),
+                    "alias": "self_approve_apply",
                 })
             else:
-                applied = rm.step_improve_ours(
-                    root,
-                    min_score=cfg.min_score,
-                    limit=3,
-                    apply=True,
-                    our_repo=cfg.our_repo or None,
-                    worker=cfg.worker or "auto",
-                )
-                apply_status = _improve_ours_apply_status(applied)
-                step_rec: dict[str, Any] = {
-                    "step": "self_approve_apply",
-                    "ok": bool(apply_status.get("ok")),
-                    "apply": applied.get("apply") if isinstance(applied, dict) else None,
-                    "plan": applied.get("plan") if isinstance(applied, dict) else None,
-                    "decision": gate.get("decision"),
-                    "signal": gate.get("signal"),
-                }
-                if not step_rec["ok"]:
-                    step_rec["reason"] = apply_status.get("reason") or "worker apply failed"
-                report["steps"].append(step_rec)
-                if step_rec["ok"]:
-                    usage_mod.record(
-                        5000,
-                        source="improve_apply",
-                        label="self_approve",
-                        workdir=root,
-                        enforce=True,
+                from . import idea_portfolio as ip
+
+                portfolio = list(portfolio_blob.get("portfolio") or [])
+                if not portfolio:
+                    # fallback single improve_ours if portfolio empty
+                    applied = rm.step_improve_ours(
+                        root,
+                        min_score=cfg.min_score,
+                        limit=3,
+                        apply=True,
+                        our_repo=cfg.our_repo or None,
+                        worker=cfg.worker or "auto",
                     )
+                    apply_status = _improve_ours_apply_status(applied)
+                    report["steps"].append({
+                        "step": "implement",
+                        "ok": bool(apply_status.get("ok")),
+                        "mode": "improve_ours_fallback",
+                        "reason": apply_status.get("reason"),
+                        "alias": "self_approve_apply",
+                        "phase": "implement",
+                    })
+                else:
+                    impl = ip.implement_portfolio(
+                        root,
+                        portfolio,
+                        worker=cfg.worker or "auto",
+                        our_repo=cfg.our_repo or "",
+                        apply=True,
+                    )
+                    applied = impl
+                    report["steps"].append({
+                        "step": "implement",
+                        "ok": bool(impl.get("ok")),
+                        "mode": "idea_portfolio",
+                        "implemented": impl.get("implemented"),
+                        "total": impl.get("total"),
+                        "arxiv_done": impl.get("arxiv_done"),
+                        "github_done": impl.get("github_done"),
+                        "cross_done": impl.get("cross_done"),
+                        "results": impl.get("results"),
+                        "decision": gate.get("decision"),
+                        "signal": gate.get("signal"),
+                        "alias": "self_approve_apply",
+                        "phase": "implement",
+                        "note": "min 1 arxiv + 1 github, max 10 ideas",
+                    })
+                    if impl.get("ok"):
+                        usage_mod.record(
+                            5000 * max(1, int(impl.get("implemented") or 1)),
+                            source="improve_apply",
+                            label="implement_portfolio",
+                            workdir=root,
+                            enforce=True,
+                        )
+                    # Quota hard requirement for REAL
+                    if int(impl.get("arxiv_done") or 0) < int(
+                        getattr(cfg, "implement_min_arxiv", 1) or 1
+                    ) or int(impl.get("github_done") or 0) < int(
+                        getattr(cfg, "implement_min_github", 1) or 1
+                    ):
+                        report["steps"].append({
+                            "step": "implement_quota",
+                            "ok": False,
+                            "arxiv_done": impl.get("arxiv_done"),
+                            "github_done": impl.get("github_done"),
+                            "required": {
+                                "arxiv": getattr(cfg, "implement_min_arxiv", 1),
+                                "github": getattr(cfg, "implement_min_github", 1),
+                            },
+                            "note": "REAL quota unmet — keep fix/implement before push",
+                        })
+                # After feature apply: re-check; if red, fix_loop until green again
+                checks, post_fix = _self_check_fix_loop(
+                    root, cfg, report, phase="post_implement"
+                )
+                if post_fix is not None:
+                    applied = post_fix
         except usage_mod.BudgetExceeded as e:
-            report["steps"].append({"step": "self_approve_apply", "blocked": str(e)})
+            report["steps"].append({"step": "implement", "blocked": str(e)})
         except Exception as e:
-            report["steps"].append({"step": "self_approve_apply", "error": str(e)})
+            report["steps"].append({"step": "implement", "error": str(e)})
     elif cfg.apply and not cfg.self_approve:
         report["steps"].append({
-            "step": "self_approve_apply",
+            "step": "implement",
             "skipped": "self_approve=false — set alive.json self_approve true to auto-apply when tests pass",
+            "alias": "self_approve_apply",
         })
-    elif cfg.self_approve and not checks.get("ok"):
+    else:
         report["steps"].append({
-            "step": "self_approve_apply",
-            "skipped": "tests not green — refusing self-approve",
+            "step": "implement",
+            "skipped": "apply/self_approve not both true — plan only (research+engine still ran)",
+            "alias": "self_approve_apply",
         })
 
     # 4a) optional promote gate after green checks (P3.2 / P3.3)
@@ -931,6 +1652,21 @@ def cycle_once(
         checks2 = _run_checks(root)
         report["steps"].append({"step": "self_check_after_apply", **checks2})
         checks = checks2
+
+    # ── PHASE: meta_review (always when enabled — plan-only or post-implement) ──
+    if bool(getattr(cfg, "meta_review", True)):
+        try:
+            # Fresh checks for meta verdict when implement ran
+            meta_checks = checks
+            if applied:
+                meta_checks = _run_checks(root)
+                report["steps"].append({"step": "self_check_meta", **meta_checks})
+            mr = _phase_meta_review(
+                root, cfg, report, checks=meta_checks, applied=applied
+            )
+            report["steps"].append(mr)
+        except Exception as e:
+            report["steps"].append({"step": "meta_review", "error": str(e)})
 
     # 4d) publish to GitHub (commit + optional push) — needs push_github
     if cfg.push_github:
@@ -1027,8 +1763,346 @@ def cycle_once(
             )
     except Exception as e:
         report["steps"].append({"step": "ops_store", "error": str(e)})
+
+    # REAL only: operator-facing "what was implemented" summary (skip dry)
+    if not dry_run:
+        try:
+            summary = write_implement_summary(root, report, cfg=cfg)
+            report["implement_summary_path"] = summary.get("path")
+            report["implement_summary"] = summary.get("text")
+            report["steps"].append({
+                "step": "implement_summary",
+                "ok": True,
+                "path": summary.get("path"),
+                "implemented_count": summary.get("implemented_count"),
+            })
+            # Always print so /tmp/nexus-alive-watch.log shows what landed
+            print("\n" + summary.get("text", ""), flush=True)
+        except Exception as e:
+            report["steps"].append({"step": "implement_summary", "error": str(e)})
+
     _save_state(report, root)
     return report
+
+
+def _pct(num: float, den: float) -> float:
+    if not den:
+        return 0.0
+    return round(100.0 * float(num) / float(den), 1)
+
+
+def write_implement_summary(
+    root: Path,
+    report: dict[str, Any],
+    *,
+    cfg: Optional[AliveConfig] = None,
+) -> dict[str, Any]:
+    """Executive review for REAL self-improve: hit rates, tokens, approvals, implement list."""
+    root = Path(root).resolve()
+    steps = [s for s in (report.get("steps") or []) if isinstance(s, dict)]
+    impl = next((s for s in reversed(steps) if s.get("step") == "implement"), None)
+    portfolio = next((s for s in steps if s.get("step") == "idea_portfolio"), None)
+    fix_loops = [s for s in steps if s.get("step") == "fix_loop"]
+    pub = next((s for s in steps if s.get("step") == "publish_github"), None)
+    eng = next((s for s in steps if s.get("step") == "canonical_engine"), None)
+    gate = next((s for s in steps if s.get("step") == "self_approve_decision"), None)
+    gh_in = next(
+        (s for s in steps if s.get("step") in ("github_review", "github_ge_5k_input")),
+        None,
+    )
+    ax_in = next(
+        (s for s in steps if s.get("step") in ("arxiv_review", "arxiv", "paper_improve")),
+        None,
+    )
+
+    tests_checks = [s for s in steps if s.get("step") in (
+        "self_check", "self_check_final", "self_check_meta", "self_check_after_apply"
+    )]
+    tests_final = tests_checks[-1] if tests_checks else None
+    tests_green_n = sum(1 for s in tests_checks if s.get("ok"))
+    tests_total_n = len(tests_checks)
+
+    results: list[dict[str, Any]] = []
+    if isinstance(impl, dict):
+        results = [r for r in (impl.get("results") or []) if isinstance(r, dict)]
+    implemented_ok = [r for r in results if r.get("ok")]
+    implemented_fail = [r for r in results if not r.get("ok")]
+    n_ideas = len(results)
+    n_ok = len(implemented_ok)
+    arxiv_ok = sum(1 for r in implemented_ok if r.get("source") == "arxiv")
+    github_ok = sum(1 for r in implemented_ok if r.get("source") == "github")
+    cross_ok = sum(1 for r in implemented_ok if r.get("source") == "cross_pattern")
+    arxiv_n = sum(1 for r in results if r.get("source") == "arxiv")
+    github_n = sum(1 for r in results if r.get("source") == "github")
+    cross_n = sum(1 for r in results if r.get("source") == "cross_pattern")
+
+    # Judge hit rates from engine steps
+    judge_steps = list((eng or {}).get("judge_steps") or [])
+    j_pass = sum(1 for j in judge_steps if str(j.get("judge_decision") or "").lower() == "pass")
+    j_revise = sum(1 for j in judge_steps if str(j.get("judge_decision") or "").lower() == "revise")
+    j_fail = sum(1 for j in judge_steps if str(j.get("judge_decision") or "").lower() == "fail")
+    j_n = len(judge_steps)
+    scores = [
+        float(j.get("judge_score"))
+        for j in judge_steps
+        if j.get("judge_score") is not None
+    ]
+    avg_judge = round(sum(scores) / len(scores), 3) if scores else None
+
+    # Fix loop hit rate
+    fix_attempts = [f for f in fix_loops if f.get("attempt") is not None or f.get("worker")]
+    fix_green = any(f.get("green") for f in fix_loops)
+
+    # Approvals / gates
+    gate_allow = None
+    if isinstance(gate, dict):
+        gate_allow = bool(gate.get("allow")) if "allow" in gate else None
+    impl_skipped = bool(isinstance(impl, dict) and impl.get("skipped"))
+    impl_ok = bool(isinstance(impl, dict) and impl.get("ok") and not impl_skipped)
+    pushed = bool(isinstance(pub, dict) and (pub.get("pushed") or pub.get("ok")))
+    pub_skipped = bool(isinstance(pub, dict) and pub.get("skipped"))
+
+    # Tokens / usage
+    usage_blob = report.get("usage") if isinstance(report.get("usage"), dict) else {}
+    try:
+        usage_blob = usage_blob or usage_mod.status(root)
+    except Exception:
+        pass
+    totals = (usage_blob.get("totals") or {}) if isinstance(usage_blob, dict) else {}
+    budget = (usage_blob.get("budget") or {}) if isinstance(usage_blob, dict) else {}
+    day_tok = int(totals.get("day_tokens") or 0)
+    month_tok = int(totals.get("month_tokens") or 0)
+    day_calls = int(totals.get("day_calls") or 0)
+    daily_cap = int(budget.get("daily_tokens") or 0) or 1
+    monthly_cap = int(budget.get("monthly_tokens") or 0) or 1
+    day_pct = float(usage_blob.get("day_pct") or _pct(day_tok, daily_cap))
+    month_pct = float(usage_blob.get("month_pct") or _pct(month_tok, monthly_cap))
+    by_source = dict(totals.get("by_source") or {})
+
+    # Cycle token estimate from steps we recorded this run
+    cycle_sources = ("mine", "arxiv", "canonical_engine", "improve_apply", "fix_loop", "tests", "paper_improve")
+    # We don't have per-cycle ledger isolation easily; show budget snapshot + step count
+    step_names = [s.get("step") for s in steps]
+    n_steps = len(steps)
+
+    metrics = {
+        "implement_hit_rate_pct": _pct(n_ok, n_ideas) if n_ideas else None,
+        "arxiv_hit_rate_pct": _pct(arxiv_ok, max(1, arxiv_n)) if arxiv_n else None,
+        "github_hit_rate_pct": _pct(github_ok, max(1, github_n)) if github_n else None,
+        "cross_hit_rate_pct": _pct(cross_ok, max(1, cross_n)) if cross_n else None,
+        "judge_pass_rate_pct": _pct(j_pass, j_n) if j_n else None,
+        "judge_revise_rate_pct": _pct(j_revise, j_n) if j_n else None,
+        "judge_fail_rate_pct": _pct(j_fail, j_n) if j_n else None,
+        "judge_avg_score": avg_judge,
+        "tests_green_rate_pct": _pct(tests_green_n, tests_total_n) if tests_total_n else None,
+        "tests_final_green": (tests_final or {}).get("ok"),
+        "approval_allow": gate_allow,
+        "implement_ok": impl_ok,
+        "implement_skipped": impl_skipped,
+        "pushed": pushed,
+        "publish_skipped": pub_skipped,
+        "fix_loop_attempts": len(fix_attempts),
+        "fix_loop_green": fix_green,
+        "day_tokens": day_tok,
+        "month_tokens": month_tok,
+        "day_calls": day_calls,
+        "day_budget_pct": round(day_pct, 1),
+        "month_budget_pct": round(month_pct, 1),
+        "by_source": by_source,
+        "steps_recorded": n_steps,
+        "ideas_total": n_ideas,
+        "ideas_ok": n_ok,
+        "arxiv_ok": arxiv_ok,
+        "github_ok": github_ok,
+        "cross_ok": cross_ok,
+    }
+
+    # Overall health score (simple weighted)
+    components = []
+    if metrics["implement_hit_rate_pct"] is not None:
+        components.append(metrics["implement_hit_rate_pct"])
+    if metrics["judge_pass_rate_pct"] is not None:
+        components.append(metrics["judge_pass_rate_pct"])
+    if metrics["tests_green_rate_pct"] is not None:
+        components.append(metrics["tests_green_rate_pct"])
+    if gate_allow is True:
+        components.append(100.0)
+    elif gate_allow is False:
+        components.append(0.0)
+    if metrics["tests_final_green"] is True:
+        components.append(100.0)
+    elif metrics["tests_final_green"] is False:
+        components.append(0.0)
+    overall = round(sum(components) / len(components), 1) if components else None
+    metrics["overall_health_pct"] = overall
+
+    lines = [
+        "▶ EXECUTIVE REVIEW — REAL SELF-IMPROVE",
+        f"ts: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+        f"goal: {(cfg.goal if cfg else report.get('goal') or '')[:220]}",
+        f"overall_health: {overall if overall is not None else 'n/a'}%",
+        "",
+        "## Scoreboard (hit rates)",
+        f"| Metric | Value |",
+        f"|---|---|",
+        f"| **Overall health** | **{overall if overall is not None else 'n/a'}%** |",
+        f"| Implement success | {n_ok}/{n_ideas or 0} = "
+        f"{metrics['implement_hit_rate_pct'] if metrics['implement_hit_rate_pct'] is not None else 'n/a'}% |",
+        f"| arXiv ideas landed | {arxiv_ok}/{arxiv_n or 0} = "
+        f"{metrics['arxiv_hit_rate_pct'] if metrics['arxiv_hit_rate_pct'] is not None else 'n/a'}% |",
+        f"| GitHub ideas landed | {github_ok}/{github_n or 0} = "
+        f"{metrics['github_hit_rate_pct'] if metrics['github_hit_rate_pct'] is not None else 'n/a'}% |",
+        f"| Cross-pattern novels | {cross_ok}/{cross_n or 0} = "
+        f"{metrics['cross_hit_rate_pct'] if metrics['cross_hit_rate_pct'] is not None else 'n/a'}% |",
+        f"| Judge pass rate | {j_pass}/{j_n or 0} = "
+        f"{metrics['judge_pass_rate_pct'] if metrics['judge_pass_rate_pct'] is not None else 'n/a'}% |",
+        f"| Judge revise rate | {j_revise}/{j_n or 0} = "
+        f"{metrics['judge_revise_rate_pct'] if metrics['judge_revise_rate_pct'] is not None else 'n/a'}% |",
+        f"| Judge fail rate | {j_fail}/{j_n or 0} = "
+        f"{metrics['judge_fail_rate_pct'] if metrics['judge_fail_rate_pct'] is not None else 'n/a'}% |",
+        f"| Judge avg score | {avg_judge if avg_judge is not None else 'n/a'} |",
+        f"| Tests green rate (this cycle) | {tests_green_n}/{tests_total_n or 0} = "
+        f"{metrics['tests_green_rate_pct'] if metrics['tests_green_rate_pct'] is not None else 'n/a'}% |",
+        f"| Final tests green | {metrics['tests_final_green']} |",
+        f"| Fix-loop attempts | {len(fix_attempts)} · green={fix_green} |",
+        "",
+        "## Approvals & gates",
+        f"| Gate | Result |",
+        f"|---|---|",
+        f"| Decision/board allow | {gate_allow if gate_allow is not None else 'n/a'} |",
+        f"| Board signal | {(gate or {}).get('signal') if gate else 'n/a'} |",
+        f"| Implement ok | {impl_ok} |",
+        f"| Implement skipped | {impl_skipped} "
+        f"{('— ' + str((impl or {}).get('skipped'))) if impl_skipped else ''} |",
+        f"| Publish pushed | {pushed} |",
+        f"| Publish skipped | {pub_skipped} "
+        f"{('— ' + str((pub or {}).get('skipped'))) if pub_skipped else ''} |",
+        "",
+        "## Tokens & budget",
+        f"| Metric | Value |",
+        f"|---|---|",
+        f"| Day tokens | {day_tok:,} ({day_pct:.1f}% of daily cap {daily_cap:,}) |",
+        f"| Month tokens | {month_tok:,} ({month_pct:.1f}% of monthly cap {monthly_cap:,}) |",
+        f"| Day API/CLI calls (ledger) | {day_calls} |",
+        f"| Steps recorded this cycle | {n_steps} |",
+        f"| Throttle | {usage_blob.get('throttle') if isinstance(usage_blob, dict) else 'n/a'} |",
+        "",
+    ]
+    if by_source:
+        lines.append("### Tokens by source (ledger totals)")
+        for src, tok in sorted(by_source.items(), key=lambda x: -int(x[1] or 0))[:12]:
+            lines.append(f"- `{src}`: {int(tok):,} ({_pct(int(tok), max(1, month_tok))}%)")
+        lines.append("")
+
+    # Research inputs
+    lines += [
+        "## Research inputs",
+        f"- GitHub ≥5K★ phase: {bool(gh_in)} "
+        f"{('(ok=' + str((gh_in or {}).get('ok')) + ')') if gh_in else ''}",
+        f"- arXiv phase: {bool(ax_in)}",
+        f"- Portfolio: arxiv_pool="
+        f"{(portfolio or {}).get('meta', {}).get('arxiv_pool') if isinstance(portfolio, dict) else '?'} "
+        f"github_pool="
+        f"{(portfolio or {}).get('meta', {}).get('github_pool') if isinstance(portfolio, dict) else '?'} "
+        f"novels="
+        f"{(portfolio or {}).get('novels') if isinstance(portfolio, dict) else '?'}",
+        "",
+    ]
+
+    # What was implemented
+    lines.append("## What was implemented")
+    if isinstance(impl, dict) and impl.get("skipped"):
+        lines.append(f"- SKIPPED: {impl.get('skipped')}")
+    elif results:
+        for r in results:
+            st = "OK" if r.get("ok") else "FAIL"
+            lines.append(
+                f"- [{st}] [{r.get('source')}] `{r.get('id')}` "
+                f"worker={r.get('worker') or '?'}"
+            )
+            if r.get("error"):
+                lines.append(f"  error: {str(r.get('error'))[:180]}")
+    elif isinstance(impl, dict):
+        lines.append(
+            f"- mode={impl.get('mode')} ok={impl.get('ok')} "
+            f"{impl.get('reason') or ''}"
+        )
+    else:
+        lines.append("- No implement step results.")
+    lines.append("")
+
+    if eng:
+        lines.append("## Engine + judge (per step)")
+        lines.append(f"- task `{eng.get('task_id')}` status={eng.get('status')}")
+        for js in judge_steps[:14]:
+            lines.append(
+                f"  · {js.get('step')}:{js.get('name')} → "
+                f"**{js.get('judge_decision')}** score={js.get('judge_score')}"
+            )
+        lines.append("")
+
+    if fix_loops:
+        lines.append("## Fix loop detail")
+        for f in fix_loops[-8:]:
+            lines.append(
+                f"- {f.get('phase')} #{f.get('attempt')}: "
+                f"green={f.get('green')} worker={f.get('worker')} "
+                f"{f.get('note') or f.get('skipped') or f.get('error') or ''}"
+            )
+        lines.append("")
+
+    lines += [
+        "## Artifacts",
+        "- `docs/LATEST_IMPLEMENT_SUMMARY.md` (this executive review)",
+        "- `docs/LATEST_IDEA_PORTFOLIO.md`",
+        "- `docs/LATEST_META_REVIEW.md`",
+        "- `.nexus_state/alive_state.json`",
+        "- `.nexus_state/LAST_IMPLEMENT_SUMMARY.json` (metrics machine-readable)",
+        "",
+        f"**Bottom line:** overall_health={overall}% · "
+        f"implemented {n_ok}/{n_ideas or 0} ideas · "
+        f"tests_final={metrics['tests_final_green']} · "
+        f"pushed={pushed} · day_budget={day_pct:.1f}%",
+        "",
+    ]
+
+    text = "\n".join(lines) + "\n"
+    docs = root / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    path = docs / "LATEST_IMPLEMENT_SUMMARY.md"
+    path.write_text(text, encoding="utf-8")
+    (root / ".nexus_state" / "LAST_IMPLEMENT_SUMMARY.md").write_text(text, encoding="utf-8")
+    (root / ".nexus_state" / "LAST_IMPLEMENT_SUMMARY.json").write_text(
+        json.dumps(
+            {
+                "ts": time.time(),
+                "metrics": metrics,
+                "implemented_ok": implemented_ok,
+                "implemented_fail": implemented_fail,
+                "implement_step": impl,
+                "portfolio": portfolio,
+                "tests_ok": (tests_final or {}).get("ok"),
+                "publish": pub,
+                "gate": gate,
+                "engine": {
+                    "task_id": (eng or {}).get("task_id"),
+                    "status": (eng or {}).get("status"),
+                    "judge_steps": judge_steps,
+                },
+                "text": text,
+            },
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "path": str(path),
+        "text": text,
+        "metrics": metrics,
+        "implemented_count": n_ok,
+        "failed_count": len(implemented_fail),
+    }
 
 
 def _save_state(report: dict[str, Any], workdir: Path) -> None:

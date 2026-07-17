@@ -7,6 +7,7 @@ dist/
 build/
 site/
 .nexus_workspaces/
+.nexus/                 # runtime workspace chat (not source)
 .mypy_cache/
 .ruff_cache/
 # runtime state from demos

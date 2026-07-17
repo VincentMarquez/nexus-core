@@ -335,17 +335,27 @@ def step_fetch(
     count: int = 8,
     language: Optional[str] = "Python",
     max_stars: Optional[int] = 500,
+    min_stars: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Pull N new repos from GitHub search into SQLite (no follow/star)."""
+    """Pull N new repos from GitHub search into SQLite (no follow/star).
+
+    Defaults keep legacy mid-tier mining (``max_stars=500``).
+    Lab high-star path passes ``min_stars=5000`` and ``max_stars=None``.
+    """
     conn = connect(workdir)
     skip = known_repos(conn)
     q = query.strip()
-    if language:
-        q = f"{q} language:{language}"
-    if max_stars is not None:
-        q = f"{q} stars:<={int(max_stars)}"
-    # over-fetch then filter known
-    hits = ga.search_github_repos(q, limit=min(50, max(count * 3, count)), language=None)
+    # If min_stars exceeds max_stars (e.g. lab 5k + legacy default 500), drop max.
+    if min_stars is not None and max_stars is not None and int(min_stars) > int(max_stars):
+        max_stars = None
+    # over-fetch then filter known; star bounds handled inside search
+    hits = ga.search_github_repos(
+        q,
+        limit=min(50, max(count * 3, count)),
+        language=language,
+        min_stars=min_stars,
+        max_stars=max_stars,
+    )
     inserted = 0
     new_names: list[str] = []
     for h in hits:
@@ -361,6 +371,8 @@ def step_fetch(
     return {
         "step": "fetch",
         "query": q,
+        "min_stars": min_stars,
+        "max_stars": max_stars,
         "inserted": inserted,
         "repos": new_names,
         "db": str(_db_path(workdir)),
@@ -821,6 +833,7 @@ def run_pipeline(
     fetch_count: int = 8,
     language: Optional[str] = "Python",
     max_stars: Optional[int] = 500,
+    min_stars: Optional[int] = None,
     eval_limit: int = 8,
     min_score: float = 12.0,
     use_limit: int = 5,
@@ -835,15 +848,20 @@ def run_pipeline(
     """fetch → evaluate → use → optional improve-ours (mine for code, never follow/star).
 
     Grading hard work defaults to **Grok**; local Ollama is light fallback.
+    Pass ``min_stars=5000, max_stars=None`` for lab high-star mining.
     """
     print(f"=== NEXUS repo mine (use, don't follow) ===")
-    print(f"  query: {query!r}  grader={grader}  worker={worker}")
+    print(
+        f"  query: {query!r}  grader={grader}  worker={worker}  "
+        f"min_stars={min_stars} max_stars={max_stars}"
+    )
     f = step_fetch(
         workdir,
         query=query,
         count=fetch_count,
         language=language,
-        max_stars=max_stars,
+        max_stars=max_stars if min_stars is None else max_stars,
+        min_stars=min_stars,
     )
     print(f"  fetch: +{f['inserted']} repos")
     e = step_evaluate(

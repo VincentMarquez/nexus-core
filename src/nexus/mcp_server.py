@@ -168,6 +168,78 @@ TOOLS = [
         }
     },
     {
+        "name": "github_mine",
+        "description": (
+            "Research INPUT only: find high-star public GitHub repos (default ≥5000★). "
+            "Does not replace the pipeline — feed results into canonical_pipeline. "
+            "mode=search (fast) or full (fetch/grade). Read-only; no apply."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search topic, e.g. multi-agent orchestration",
+                },
+                "min_stars": {
+                    "type": "integer",
+                    "description": "Minimum stars (default 5000)",
+                    "default": 5000,
+                },
+                "limit": {"type": "integer", "default": 15},
+                "language": {
+                    "type": "string",
+                    "description": "GitHub language filter (default Python; empty = any)",
+                    "default": "Python",
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "search | full (default search)",
+                    "default": "search",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "canonical_pipeline",
+        "description": (
+            "ONE unified flow for lab + alive + agents: optional GitHub≥5K★ research input, "
+            "then DurableEngine steps goal→plan→challenge→implement→test→review→log→"
+            "meta_review→approval→deliver with ConsensusJudge/RubricJudge on every step. "
+            "Not a parallel multi-agent invention. Prefer this over free-form debate."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Topic / goal for the pipeline",
+                },
+                "include_github_mine": {
+                    "type": "boolean",
+                    "description": "Prepend high-star GitHub mine as research brief",
+                    "default": True,
+                },
+                "min_stars": {"type": "integer", "default": 5000},
+                "research_brief": {
+                    "type": "string",
+                    "description": "Optional extra context (arXiv notes, dual review)",
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "description": "Optional cap on engine steps this run",
+                },
+                "auto_approve": {
+                    "type": "boolean",
+                    "description": "Skip human approval pause (default true for automation)",
+                    "default": True,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "github_loop",
         "description": "Run community test loop for an issue/PR number and post or dry-run results.",
         "inputSchema": {
@@ -1133,6 +1205,95 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 "query","hits","connected","check_steps_green","repos","notes","clone_root"
             )}
             return _tool_result(json.dumps(slim, indent=2))
+
+        if name == "github_mine":
+            from . import github_autonomy as ga
+            from . import repo_mine as rm
+
+            q = str(args.get("query") or "").strip()
+            if not q:
+                return _tool_result("query required", is_error=True)
+            min_stars = int(args.get("min_stars") if args.get("min_stars") is not None else 5000)
+            limit = int(args.get("limit") or 15)
+            lang_raw = args.get("language")
+            language = None if lang_raw in ("", "any", "all", None) else str(lang_raw or "Python")
+            mode = str(args.get("mode") or "search").strip().lower()
+            try:
+                if mode in ("full", "pipeline", "deep"):
+                    pipe = rm.run_pipeline(
+                        _root(),
+                        query=q,
+                        fetch_count=min(limit, 20),
+                        language=language or "Python",
+                        min_stars=min_stars,
+                        max_stars=None,
+                        eval_limit=min(limit, 12),
+                        use_limit=min(8, limit),
+                        prove=False,
+                        improve=False,
+                        apply_improve=False,
+                        grader="heuristic",
+                    )
+                    slim = {
+                        "ok": True,
+                        "mode": "full",
+                        "min_stars": min_stars,
+                        "fetch": pipe.get("fetch"),
+                        "evaluate": {
+                            k: (pipe.get("evaluate") or {}).get(k)
+                            for k in ("evaluated", "ok", "grader")
+                        },
+                        "use": pipe.get("use"),
+                        "next": "call canonical_pipeline with this research as research_brief",
+                    }
+                    return _tool_result(json.dumps(slim, indent=2, default=str)[:12000])
+                res = ga.search_high_star_repos(
+                    q,
+                    min_stars=min_stars,
+                    limit=limit,
+                    language=language,
+                )
+                res["next"] = "call canonical_pipeline(query=..., include_github_mine=false, research_brief=...) or include_github_mine=true"
+                return _tool_result(json.dumps(res, indent=2)[:12000])
+            except Exception as e:
+                return _tool_result(f"github_mine error: {e}", is_error=True)
+
+        if name == "canonical_pipeline":
+            from . import github_autonomy as ga
+            from . import unified_pipeline as up
+
+            q = str(args.get("query") or "").strip()
+            if not q:
+                return _tool_result("query required", is_error=True)
+            brief = str(args.get("research_brief") or "")
+            include_mine = bool(args.get("include_github_mine", True))
+            min_stars = int(args.get("min_stars") if args.get("min_stars") is not None else 5000)
+            try:
+                if include_mine and not brief.strip():
+                    hs = ga.search_high_star_repos(
+                        q, min_stars=min_stars, limit=12, language="Python"
+                    )
+                    lines = [f"GitHub ≥{min_stars}★ research ({hs.get('count')} repos):"]
+                    for r in hs.get("repos") or []:
+                        lines.append(
+                            f"- {r.get('full_name')} ★{r.get('stars')}: {(r.get('description') or '')[:100]}"
+                        )
+                    brief = "\n".join(lines)
+                max_steps = args.get("max_steps")
+                max_steps_i = int(max_steps) if max_steps is not None else None
+                res = up.run_canonical(
+                    _root(),
+                    query=q,
+                    research_brief=brief,
+                    goal_hint="MCP/agent canonical_pipeline",
+                    auto_approve=bool(args.get("auto_approve", True)),
+                    max_steps=max_steps_i,
+                    source="mcp",
+                )
+                res["summary"] = up.format_pipeline_summary(res)
+                return _tool_result(json.dumps(res, indent=2, default=str)[:14000])
+            except Exception as e:
+                return _tool_result(f"canonical_pipeline error: {e}", is_error=True)
 
         if name == "github_loop":
             from . import github_community as gc

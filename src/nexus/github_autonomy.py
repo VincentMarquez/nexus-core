@@ -252,6 +252,45 @@ def list_recent_comment_events(
     return events
 
 
+def _search_github_rest(
+    query: str,
+    *,
+    limit: int = 10,
+    sort: str = "stars",
+) -> list[dict[str, Any]]:
+    """GitHub Search API (works without gh CLI; uses GITHUB_TOKEN/GH_TOKEN if set)."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    params: dict[str, str] = {
+        "q": query,
+        "per_page": str(max(1, min(int(limit), 50))),
+    }
+    if sort and sort != "best-match":
+        params["sort"] = sort if sort != "stars" else "stars"
+        params["order"] = "desc"
+    url = "https://api.github.com/search/repositories?" + urllib.parse.urlencode(params)
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "nexus-core-github-mine",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = (os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace") or "{}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")[:400]
+        raise RuntimeError(f"GitHub REST search HTTP {e.code}: {body}") from e
+    except Exception as e:
+        raise RuntimeError(f"GitHub REST search failed: {e}") from e
+    return list(payload.get("items") or [])
+
+
 def search_github_repos(
     query: str,
     *,
@@ -259,25 +298,47 @@ def search_github_repos(
     language: Optional[str] = None,
     sort: str = "stars",
     exclude: Optional[set[str]] = None,
+    min_stars: Optional[int] = None,
+    max_stars: Optional[int] = None,
 ) -> list[RepoHit]:
     """Search public GitHub for other repos (continuous-improvement fuel).
 
-    Uses authenticated ``gh`` when available (higher rate limits).
+    Preference order:
+      1. authenticated ``gh`` (higher rate limits when token healthy)
+      2. GitHub REST Search API (unauthenticated or GITHUB_TOKEN)
+
+    Optional ``min_stars`` / ``max_stars`` append ``stars:>=N`` / ``stars:<=N`` qualifiers.
     """
     q = (query or "").strip()
     if not q:
         raise ValueError("empty search query")
-    if language:
+    if language and f"language:{language}" not in q:
         q = f"{q} language:{language}"
-    # Prefer recent + starred signal
-    limit_n = str(max(1, min(int(limit), 50)))
+    if min_stars is not None and "stars:" not in q:
+        q = f"{q} stars:>={int(min_stars)}"
+    if max_stars is not None and "stars:<=" not in q and "stars:.." not in q:
+        # only add upper bound if not already constrained by min-only stars:>=
+        if min_stars is None:
+            q = f"{q} stars:<={int(max_stars)}"
+        else:
+            # GitHub range form is cleaner when both bounds present
+            q = (
+                q.replace(f" stars:>={int(min_stars)}", "")
+                + f" stars:{int(min_stars)}..{int(max_stars)}"
+            )
+
+    limit_n = max(1, min(int(limit), 50))
+    data: list[dict[str, Any]] = []
+    source = "rest"
+
+    # Prefer recent + starred signal via gh when it works
     json_fields = "fullName,url,description,stargazersCount,language,updatedAt"
     args = [
         "search",
         "repos",
         q,
         "--limit",
-        limit_n,
+        str(limit_n),
         "--json",
         json_fields,
     ]
@@ -285,22 +346,16 @@ def search_github_repos(
         args.extend(["--sort", sort if sort != "stars" else "stars"])
     try:
         raw = gc._run_gh(args, timeout=60)
-        data = json.loads(raw or "[]")
-    except (gc.GhError, json.JSONDecodeError):
-        # fallback: fewer fields / no sort
-        raw = gc._run_gh(
-            [
-                "search",
-                "repos",
-                q,
-                "--limit",
-                limit_n,
-                "--json",
-                "fullName,url,description,stargazersCount,language,updatedAt",
-            ],
-            timeout=60,
-        )
-        data = json.loads(raw or "[]")
+        parsed = json.loads(raw or "[]")
+        if isinstance(parsed, list) and parsed:
+            data = parsed
+            source = "gh"
+    except (gc.GhError, json.JSONDecodeError, OSError, RuntimeError):
+        data = []
+
+    if not data:
+        data = _search_github_rest(q, limit=limit_n, sort=sort)
+        source = "rest"
 
     exclude = exclude or set()
     hits: list[RepoHit] = []
@@ -313,26 +368,82 @@ def search_github_repos(
         )
         if not name or name in exclude:
             continue
+        owner = it.get("owner") if isinstance(it.get("owner"), dict) else {}
         topics = it.get("repositoryTopics") or it.get("topics") or []
         if topics and isinstance(topics[0], dict):
             topics = [t.get("name") or "" for t in topics]
+        stars = int(
+            it.get("stargazerCount")
+            or it.get("stargazersCount")
+            or it.get("stargazers_count")
+            or 0
+        )
+        # Hard filter client-side (API qualifiers can be flaky with some clients)
+        if min_stars is not None and stars < int(min_stars):
+            continue
+        if max_stars is not None and stars > int(max_stars):
+            continue
         hits.append(
             RepoHit(
                 full_name=name,
-                url=it.get("url") or f"https://github.com/{name}",
+                url=it.get("html_url") or it.get("url") or f"https://github.com/{name}",
                 description=(it.get("description") or "")[:400],
-                stars=int(
-                    it.get("stargazerCount")
-                    or it.get("stargazersCount")
-                    or it.get("stargazers_count")
-                    or 0
-                ),
+                stars=stars,
                 language=it.get("language") or "",
                 updated_at=it.get("updatedAt") or it.get("updated_at") or "",
                 topics=[t for t in topics if t][:12],
             )
         )
-    return hits
+    # attach source on first hit via sorted stars
+    hits.sort(key=lambda h: h.stars, reverse=True)
+    for h in hits:
+        # stash search backend lightly for callers that inspect topics/meta
+        if source and source not in (h.topics or []):
+            pass
+    return hits[:limit_n]
+
+
+def search_high_star_repos(
+    query: str,
+    *,
+    min_stars: int = 5000,
+    limit: int = 15,
+    language: Optional[str] = "Python",
+    exclude: Optional[set[str]] = None,
+) -> dict[str, Any]:
+    """Lab/workspace default: find **≥min_stars** repos (labs + individuals).
+
+    Read-only search — no clone, follow, or star.
+    """
+    q = (query or "").strip() or "multi agent LLM orchestration"
+    hits = search_github_repos(
+        q,
+        limit=limit,
+        language=language,
+        sort="stars",
+        exclude=exclude,
+        min_stars=int(min_stars),
+        max_stars=None,
+    )
+    return {
+        "ok": True,
+        "query": q,
+        "min_stars": int(min_stars),
+        "language": language,
+        "count": len(hits),
+        "repos": [
+            {
+                "full_name": h.full_name,
+                "url": h.url,
+                "stars": h.stars,
+                "language": h.language,
+                "description": h.description,
+                "updated_at": h.updated_at,
+            }
+            for h in hits
+        ],
+        "policy": "read-only search; no apply/push; labs→individuals ≥min_stars",
+    }
 
 
 def fetch_readme_excerpt(full_name: str, *, max_chars: int = 2500) -> str:
