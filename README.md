@@ -34,26 +34,25 @@
 
 ---
 
-## Watch · clone · run
+## Demo
 
 <p align="center">
-  <a href="docs/assets/last-real-badge.svg"><img src="docs/assets/last-real-badge.svg" alt="Last REAL badge"></a>
+  <a href="docs/assets/last-real-badge.svg"><img src="docs/assets/last-real-badge.svg" alt="Latest self-improve cycle status"></a>
 </p>
 
 <p align="center">
-  <b>It runs ~3 hours alone.</b> Lands product changes. Mints skills from its own failures.<br>
-  Refuses to push when the judge fails. <b>Governed self-improve + capability factory.</b>
+  Unattended multi-LLM self-improve: product changes, a <b>capability factory</b> that mints skills from failures,<br>
+  and <b>fail-closed publish</b> when the judge or inputs fail.
 </p>
 
 <p align="center">
-  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS multi-LLM self-improve and skill factory demo reel" width="900">
+  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS multi-LLM self-improve and skill factory demo" width="900">
 </p>
 
 <p align="center">
-  <a href="docs/assets/nexus-demo-reel.mp4"><b>Full demo video (MP4)</b></a>
-  · <a href="docs/hype/"><b>Hype pack</b></a>
-  · <a href="docs/hype/X_THREAD.md"><b>X thread</b></a>
-  · <a href="docs/hype/SHOW_HN.md"><b>Show HN</b></a>
+  <a href="docs/assets/nexus-demo-reel.mp4"><b>Demo video (MP4)</b></a>
+  · <a href="docs/share/"><b>Share kit</b></a>
+  · <a href="docs/share/SHOW_HN.md"><b>Show HN draft</b></a>
 </p>
 
 ```bash
@@ -62,22 +61,22 @@ cd nexus-core
 make install && make start && make demo-all-quick
 ```
 
-Keys optional — mocks + Ollama when CLIs are missing. Self-improve push stays fail-closed unless gates pass.
+API keys are optional. Without them, mocks and local Ollama (if installed) still exercise the bus. Self-improve push remains fail-closed unless gates pass.
 
 <p align="center">
   <img src="docs/assets/arch-governed-self-improve-capability-factory.png" alt="Governed self-improvement Phase A spine plus Phase B capability factory" width="100%">
 </p>
 
-| Last REAL (example cycle) | |
-|---------------------------|--|
+| Documented self-improve cycle | |
+|-------------------------------|--|
 | Wall clock | **~2h 54m** unattended |
 | Ideas landed | **10/10** (arXiv + GitHub + cross-pattern) |
 | Multi-LLM panel | Claude · GPT · Antigravity → Grok synthesis |
 | Skill factory | e.g. `engine-fail-aware-brief` from lesson `engine_failed_open` |
 | Final tests | **green** |
-| Publish | **gated** when engine judge fails (by design) |
+| Publish | **gated** when the engine judge fails (by design) |
 
-Regenerate the badge after a cycle: `python3 scripts/last_real_badge.py --runtime "~XhYm"`.
+Refresh the status badge after a cycle: `python3 scripts/last_real_badge.py --runtime "~XhYm"`.
 
 ---
 
@@ -860,7 +859,8 @@ make test && make smoke
 | Doc | Purpose |
 |-----|---------|
 | [docs/COMPARE.md](docs/COMPARE.md) | vs Cursor / LangGraph / CrewAI / AutoGen |
-| [docs/SHOW_HN.md](docs/SHOW_HN.md) | Show HN draft |
+| [docs/share/](docs/share/) | Demo video, social copy, status badge |
+| [docs/share/SHOW_HN.md](docs/share/SHOW_HN.md) | Show HN draft |
 | [docs/GROWTH.md](docs/GROWTH.md) | Distribution research |
 | [docs/GITHUB_COMMUNITY.md](docs/GITHUB_COMMUNITY.md) | Auto-reply bot + maintainer inbox |
 | [docs/PYPI.md](docs/PYPI.md) | Publish `nexus-multi-agent` |
