@@ -703,9 +703,63 @@ class DurableEngine:
         blob = result.to_dict()
         blob["step"] = step_number
         blob["gate"] = gate.to_dict()
+
+        # arXiv 2606.26649: Cedar policy-as-code validation before promote
+        # (consensus module gate; also runs for single-judge Verdict shape).
+        cedar_blob: dict[str, Any] | None = None
+        cedar_ok = True
+        try:
+            from .consensus import promote_decision as consensus_promote_decision
+
+            findings = getattr(verdict, "findings", None)
+            # Multi-grader consensus requires ≥2; single-judge uses n=1.
+            min_g = 2 if findings is not None else 1
+            if task.meta.get("cedar_min_graders") is not None:
+                try:
+                    min_g = int(task.meta["cedar_min_graders"])
+                except (TypeError, ValueError):
+                    pass
+            min_score_cedar = None
+            if task.meta.get("cedar_min_score") is not None:
+                try:
+                    min_score_cedar = float(task.meta["cedar_min_score"])
+                except (TypeError, ValueError):
+                    min_score_cedar = None
+            elif task.meta.get("verify_min_score") is not None:
+                # Align Cedar floor with IndependentVerify when operator set it
+                try:
+                    min_score_cedar = float(task.meta["verify_min_score"])
+                except (TypeError, ValueError):
+                    min_score_cedar = None
+
+            cedar_report = consensus_promote_decision(
+                verdict,
+                principal=reviewer or "reviewer",
+                min_score=min_score_cedar,
+                min_graders=min_g,
+                require=bool(
+                    task.meta.get("cedar_require")
+                    or task.meta.get("promote_require")
+                ),
+            )
+            cedar_blob = cedar_report.get("cedar_policy") or cedar_report
+            cedar_ok = bool(cedar_report.get("ok", cedar_report.get("allowed")))
+            blob["cedar_policy"] = cedar_blob
+            blob["cedar_ok"] = cedar_ok
+            # Respect explicit opt-out: meta.cedar_policy=false / 0 / off
+            cedar_flag = task.meta.get("cedar_policy", True)
+            if str(cedar_flag).strip().lower() in {"0", "false", "no", "off"}:
+                cedar_ok = True
+                blob["cedar_skipped"] = True
+        except Exception as e:  # pragma: no cover — never block on import glitch
+            blob["cedar_error"] = str(e)[:200]
+            # Fail-closed only when promote_require or cedar_require is set
+            if task.meta.get("cedar_require") or task.meta.get("promote_require"):
+                cedar_ok = False
+
         task.meta["promote"] = blob
 
-        if result.ok:
+        if result.ok and cedar_ok:
             promoted_keys: list[str] = []
             raw_keys = task.meta.get("promote_keys") or []
             if isinstance(raw_keys, str):
@@ -760,7 +814,16 @@ class DurableEngine:
             )
             return
 
-        # denied
+        # denied (independent verify and/or Cedar policy-as-code)
+        deny_reason = result.reason
+        if result.ok and not cedar_ok:
+            deny_reason = "cedar_policy_denied"
+            if isinstance(cedar_blob, dict):
+                reasons = cedar_blob.get("reasons") or []
+                if reasons:
+                    deny_reason = f"cedar_policy_denied:{reasons[0]}"
+            blob["ok"] = False
+            blob["reason"] = deny_reason
         self.save(task)
         self.record_event(
             task.task_id,
@@ -768,14 +831,14 @@ class DurableEngine:
             step=step_number,
             agent=reviewer,
             status=task.status.value,
-            detail=result.reason,
+            detail=deny_reason,
             extra=blob,
         )
         if task.meta.get("promote_require") or str(
             task.meta.get("promote_require", "")
         ).lower() in {"1", "true", "yes"}:
             task.status = TaskStatus.failed
-            task.meta["error"] = f"promote denied after review: {result.reason}"
+            task.meta["error"] = f"promote denied after review: {deny_reason}"
             self.save(task)
             self.record_event(
                 task.task_id,
@@ -1257,6 +1320,15 @@ class DurableEngine:
                         grader_names.append(str(f.get("grader") or ""))
                     else:
                         grader_names.append(str(getattr(f, "grader", "") or ""))
+                cedar_extra: dict[str, Any] = {}
+                if getattr(verdict, "promote_allowed", None) is not None:
+                    cedar_extra["promote_allowed"] = bool(
+                        getattr(verdict, "promote_allowed")
+                    )
+                cp = getattr(verdict, "cedar_policy", None)
+                if isinstance(cp, dict):
+                    cedar_extra["cedar_decision"] = cp.get("decision")
+                    cedar_extra["cedar_allowed"] = cp.get("allowed")
                 self.record_event(
                     task.task_id, "consensus",
                     step=step.number, agent=agent_name, status=task.status.value,
@@ -1270,6 +1342,7 @@ class DurableEngine:
                         "graders": grader_names,
                         "degraded": bool(getattr(verdict, "degraded", False)),
                         "schema": getattr(verdict, "schema", CONSENSUS_SCHEMA),
+                        **cedar_extra,
                     },
                 )
             self.record_event(

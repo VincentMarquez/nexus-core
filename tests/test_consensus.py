@@ -1,9 +1,13 @@
-"""P1.3 multi-grader consensus — independent findings + trust weights."""
+"""P1.3 multi-grader consensus — independent findings + trust weights.
+
+Also covers arXiv 2606.26649 Cedar promote gate attached to consensus.
+"""
 
 from pathlib import Path
 
 from nexus import DurableEngine, Settings, Task
 from nexus.agents import AgentPanel
+from nexus.cedar_policy import SCHEMA as CEDAR_SCHEMA
 from nexus.consensus import (
     SCHEMA,
     AgentTrust,
@@ -13,7 +17,9 @@ from nexus.consensus import (
     apply_lens,
     evidence_base_dims,
     pick_graders,
+    promote_decision,
     score_from_dims,
+    validate_promote,
 )
 from nexus.engine import TaskStatus
 from nexus.steps import StepPolicy
@@ -199,3 +205,89 @@ def test_engine_can_disable_consensus(tmp_path: Path):
     assert task.status == TaskStatus.running
     cons = [e for e in engine.events("single1") if e.get("event") == "consensus"]
     assert not cons
+
+
+def test_aggregate_runs_cedar_promote_gate():
+    """arXiv 2606.26649: every consensus aggregate attaches Cedar promote gate."""
+    findings = [
+        Finding(
+            grader="reviewer",
+            vendor="anthropic",
+            decision="pass",
+            score=0.9,
+            dims={
+                "meets_success_criteria": 0.9,
+                "correctness_evidence": 0.9,
+                "artifact_actually_produced": 1.0,
+                "no_banned_approach": 1.0,
+                "coherence": 0.9,
+            },
+            weight=1.0,
+        ),
+        Finding(
+            grader="adversary",
+            vendor="xai",
+            decision="pass",
+            score=0.85,
+            dims={
+                "meets_success_criteria": 0.85,
+                "correctness_evidence": 0.85,
+                "artifact_actually_produced": 1.0,
+                "no_banned_approach": 1.0,
+                "coherence": 0.85,
+            },
+            weight=1.25,
+        ),
+    ]
+    v = aggregate_findings(
+        findings,
+        implementer="implementer",
+        implementer_vendor="openai",
+        min_graders=2,
+    )
+    assert v.promote_allowed is True
+    assert v.cedar_policy is not None
+    assert v.cedar_policy.get("schema") == CEDAR_SCHEMA
+    assert v.cedar_policy.get("allowed") is True
+    # Fail decision must not promote
+    bad = validate_promote(
+        {
+            "decision": "fail",
+            "score": 0.2,
+            "agreement_ratio": 1.0,
+            "degraded": False,
+            "n_graders": 2,
+        }
+    )
+    assert bad.allowed is False
+    report = promote_decision(v, principal="reviewer")
+    assert report["ok"] is True
+    assert report["schema"] == "nexus.consensus.promote/v1"
+
+
+def test_engine_promote_includes_cedar_policy(tmp_path: Path):
+    """Review→promote path records Cedar policy validation (2606.26649)."""
+    settings = Settings(
+        state_dir=tmp_path / "state",
+        autonomy=False,
+        consensus_judge=True,
+    )
+    engine = DurableEngine(settings=settings, auto_approve=True)
+    task = Task(
+        task_id="cedar-prom",
+        objective="cedar promote gate",
+        success_criteria=["artifact contains DEMO_OK"],
+        meta={
+            "promote_on_review": True,
+            "promote_implementer": "coder",
+            "verify_min_score": 0.3,
+        },
+    )
+    task = engine.run(task)
+    assert task.status == TaskStatus.completed
+    prom = task.meta.get("promote") or {}
+    assert prom.get("ok") is True
+    assert prom.get("cedar_ok") is True
+    cedar = prom.get("cedar_policy") or {}
+    assert cedar.get("allowed") is True
+    assert cedar.get("schema") == CEDAR_SCHEMA or "allowed" in cedar

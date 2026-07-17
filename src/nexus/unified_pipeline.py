@@ -118,7 +118,35 @@ def run_canonical(
         criteria = list(success_criteria)
 
     tid = (task_id or f"canon-{int(time.time())}").replace("/", "-")[:80]
-    engine = DurableEngine(auto_approve=auto_approve, journal=True)
+
+    # Multi-LLM panel via lab bus (Claude plan/review, GPT adversary, Grok implement,
+    # local light). Was defaulting to AgentPanel.demo() mocks — so REAL looked
+    # "unified" in docs but only Grok hard-worker showed up later.
+    panel_mode = "demo_mock"
+    panel = None
+    panel_health: dict[str, Any] = {}
+    try:
+        from .agents import AgentPanel
+        from .bus_client import BusClient
+
+        bus = BusClient(base_url="http://127.0.0.1:3099")
+        if bus.is_reachable():
+            panel = AgentPanel.from_bus(bus, mock_fallback=True)
+            panel_mode = "bus_multi_llm"
+            try:
+                panel_health = panel.health()
+            except Exception:
+                panel_health = {}
+        else:
+            panel = AgentPanel.demo()
+            panel_mode = "demo_mock_bus_down"
+    except Exception as e:
+        from .agents import AgentPanel
+
+        panel = AgentPanel.demo()
+        panel_mode = f"demo_mock_error:{type(e).__name__}"
+
+    engine = DurableEngine(auto_approve=auto_approve, journal=True, panel=panel)
     task = Task(
         task_id=tid,
         objective=objective,
@@ -129,6 +157,7 @@ def run_canonical(
             "no independent lab phase machine",
             "judge gates implement/test hard-fail",
             "review veto fail-closed",
+            "multi-LLM via bus when online (not demo mocks)",
         ],
         meta={
             "source": source,
@@ -139,6 +168,8 @@ def run_canonical(
             "judge": "ConsensusJudge|RubricJudge",
             "thresholds": decision_thresholds(),
             "auto_created": False,
+            "panel_mode": panel_mode,
+            "panel_health": panel_health,
         },
     )
     engine.save(task)
@@ -183,6 +214,8 @@ def run_canonical(
                     "steps": steps_out,
                     "ts": time.time(),
                     "source": source,
+                    "panel_mode": panel_mode,
+                    "panel_health": panel_health,
                 },
                 indent=2,
             ),
@@ -199,6 +232,8 @@ def run_canonical(
         or task.status == TaskStatus.waiting_human,
         "pipeline": list(CANONICAL_FLOW),
         "pipeline_kind": "canonical_engine",
+        "panel_mode": panel_mode,
+        "panel_health": panel_health,
         "task_id": task.task_id,
         "status": task.status.value,
         "current_step": task.current_step,

@@ -173,8 +173,11 @@ def detect_project(root: Path) -> ProjectProfile:
         prof.languages.append("python")
         prof.package_managers.append("pip")
         if "pyproject.toml" in files or "setup.py" in files:
-            prof.install_cmds.append(["python3", "-m", "pip", "install", "-e", ".[dev]"])
+            # Prefer lightweight editable install — `.[dev]` often pulls docs/npm
+            # builds that hang mine/prove for many minutes (solace-agent-mesh etc).
+            prof.install_cmds.append(["python3", "-m", "pip", "install", "-e", ".", "--no-deps"])
             prof.install_cmds.append(["python3", "-m", "pip", "install", "-e", "."])
+            prof.install_cmds.append(["python3", "-m", "pip", "install", "-e", ".[dev]"])
         if "requirements.txt" in files:
             prof.install_cmds.append(
                 ["python3", "-m", "pip", "install", "-r", "requirements.txt"]

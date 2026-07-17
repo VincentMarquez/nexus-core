@@ -58,3 +58,31 @@ def test_filter_new(tmp_path: Path, monkeypatch):
 def test_canon_strips_version():
     assert al._canon_id("https://arxiv.org/abs/2203.08975v2") == "2203.08975"
     assert al._canon_id("arXiv:2401.07324v3") == "2401.07324"
+
+
+def test_select_portfolio_caps_arxiv_seed():
+    from nexus.idea_portfolio import select_portfolio, _arxiv_seed
+    from collections import Counter
+
+    arxiv = [
+        {"id": "arxiv:2401.07324v3", "score": 9.0, "source": "arxiv"},
+        {"id": "arxiv:2602.03128v1", "score": 8.0, "source": "arxiv"},
+        {"id": "arxiv:2501.00001v1", "score": 7.0, "source": "arxiv"},
+    ]
+    github = [{"id": "org/repo-a", "score": 16.0, "source": "github"}]
+    novels = [
+        {
+            "id": f"novel:arxiv:2401.07324v3+org/repo-a-{i}",
+            "score": 8.5,
+            "source": "cross_pattern",
+            "arxiv_id": "arxiv:2401.07324v3",
+        }
+        for i in range(8)
+    ]
+    port = select_portfolio(
+        arxiv, github, novels, max_ideas=10, max_per_arxiv_seed=2, min_distinct_arxiv=3
+    )
+    seeds = Counter(_arxiv_seed(p) for p in port if _arxiv_seed(p))
+    assert seeds.get("2401.07324", 0) <= 2
+    assert len(port) >= 4
+

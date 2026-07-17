@@ -247,11 +247,74 @@ def _run_checks(workdir: Path) -> dict[str, Any]:
     from .github_community import run_project_checks
 
     checks = run_project_checks(workdir, timeout_each=180)
-    required = [c for c in checks if c.name != "install"]
-    ok = all(c.ok for c in required) if required else all(c.ok for c in checks)
+    rows = [
+        {"name": c.name, "ok": c.ok, "returncode": c.returncode} for c in checks
+    ]
+    # In-process marketplace structural gate (wshobson-shaped validate/collisions).
+    # Soft-skip when plugins/ is absent (non-nexus workdirs / empty checkouts).
+    try:
+        from . import marketplace as mp
+
+        if (Path(workdir) / mp.DEFAULT_PLUGINS_DIR).is_dir():
+            sc = mp.self_check(workdir)
+            rows.append(
+                {
+                    "name": "marketplace",
+                    "ok": bool(sc.get("ok")),
+                    "returncode": 0 if sc.get("ok") else 1,
+                    "errors": sc.get("errors"),
+                }
+            )
+    except Exception as e:
+        rows.append(
+            {
+                "name": "marketplace",
+                "ok": False,
+                "returncode": 1,
+                "error": str(e)[:300],
+            }
+        )
+    # Advisory MAFBench brief (arXiv 2602.03128 + AssetOpsBench hybrid):
+    # consensus_overhead_x + multi-domain MCP hub + pack pass_rate.
+    # Soft: failure is reported but does not fail overall self_check (bench
+    # noise must not block apply). Full gate remains `nexus eval maf`.
+    try:
+        from . import maf_bench as maf
+
+        brief = maf.maf_brief(workdir, iters=2, include_pack=True)
+        rows.append(
+            {
+                "name": "maf_brief",
+                "ok": True,  # advisory — always soft-ok
+                "returncode": 0 if brief.get("ok") else 1,
+                "advisory": True,
+                "brief_ok": bool(brief.get("ok")),
+                "consensus_overhead_x": brief.get("consensus_overhead_x"),
+                "domain_mcp_overhead_x": brief.get("domain_mcp_overhead_x"),
+                "domain_mcp_n_servers": brief.get("domain_mcp_n_servers"),
+                "domain_mcp_pass_rate": brief.get("domain_mcp_pass_rate"),
+                "pack_pass_rate": brief.get("pack_pass_rate"),
+                "wall_ms": brief.get("wall_ms"),
+            }
+        )
+    except Exception as e:
+        rows.append(
+            {
+                "name": "maf_brief",
+                "ok": True,  # advisory soft-skip on import/runtime errors
+                "returncode": 1,
+                "advisory": True,
+                "brief_ok": False,
+                "error": str(e)[:300],
+            }
+        )
+    required = [c for c in rows if c.get("name") != "install"]
+    ok = all(c.get("ok") for c in required) if required else all(
+        c.get("ok") for c in rows
+    )
     return {
         "ok": ok,
-        "checks": [{"name": c.name, "ok": c.ok, "returncode": c.returncode} for c in checks],
+        "checks": rows,
     }
 
 
@@ -909,17 +972,23 @@ def _phase_github_review(
         "ok": True,
     }
 
-    # Fast catalog of ≥min_stars repos (labs → individuals)
+    # Fast catalog of ≥min_stars repos (labs → individuals).
+    # Fallbacks when the goal phrase is too narrow (found: 0).
+    alt_queries = list(cfg.queries or [])
     try:
         hs = ga.search_high_star_repos(
             query,
             min_stars=min_stars,
             limit=max(5, int(cfg.use_limit or 15)),
             language="Python",
+            fallback_queries=alt_queries[1:] if len(alt_queries) > 1 else None,
         )
         phase["high_star"] = {
             "count": hs.get("count"),
             "repos": (hs.get("repos") or [])[:20],
+            "query_used": hs.get("query"),
+            "fallback_used": hs.get("fallback_used"),
+            "tried": hs.get("tried"),
         }
         # Persist for dual_review / multi-agent
         mine_dir = root / ".nexus_state" / "repo_mine"
@@ -927,7 +996,9 @@ def _phase_github_review(
         lines = [
             f"# GitHub high-star review (≥{min_stars}★)",
             "",
-            f"query: `{query}`",
+            f"query_requested: `{query}`",
+            f"query_used: `{hs.get('query')}`",
+            f"fallback_used: {hs.get('fallback_used')}",
             f"found: {hs.get('count')}",
             "",
         ]
@@ -944,6 +1015,10 @@ def _phase_github_review(
             "\n".join(lines) + "\n", encoding="utf-8"
         )
         phase["notes"] = str(mine_dir / "GITHUB_HIGHSTAR.md")
+        # Prefer the query that actually found high-star repos for the mine pipeline
+        if hs.get("query") and int(hs.get("count") or 0) > 0:
+            query = str(hs.get("query"))
+            phase["query"] = query
     except Exception as e:
         phase["high_star_error"] = str(e)
 
@@ -1082,7 +1157,14 @@ def _phase_arxiv_review(
         })
         return
 
-    aq = queries[0]
+    # Rotate primary query each hour so REAL is not stuck on one saturated search
+    rot = int(time.time() // 3600) % max(1, len(queries))
+    aq = queries[rot]
+    extras = [q for i, q in enumerate(queries) if i != rot]
+    # Also sprinkle goal-derived / sibling alive queries for diversity
+    for q in list(cfg.queries or [])[:3]:
+        if q and q not in extras and q != aq:
+            extras.append(q)
     ar = ga.improve_from_arxiv(
         aq,
         repo=cfg.our_repo or None,
@@ -1091,13 +1173,19 @@ def _phase_arxiv_review(
         apply=False,
         post_issue=False,
         also_scout=False,
+        skip_seen=True,
+        extra_queries=extras[:5],
+        reuse_policy="lru",
     )
     report["steps"].append({
         "step": "arxiv_review",
         "query": aq,
+        "extra_queries": extras[:5],
         "papers": ar.get("papers"),
         "notes": ar.get("notes"),
+        "ledger": ar.get("ledger"),
         "alias": "arxiv",
+        "note": "prefer NEW papers; multi-query; LRU reuse if ledger full",
     })
     usage_mod.record(
         800,

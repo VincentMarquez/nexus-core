@@ -1,0 +1,868 @@
+{
+  "task_id": "canon-1784257375",
+  "found": true,
+  "schema": "nexus.evidence/v1",
+  "generated_at": 1784268104.7772973,
+  "compact": false,
+  "task": {
+    "task_id": "canon-1784257375",
+    "status": "running",
+    "current_step": 4,
+    "objective": "Follow the canonical pipeline (goal\u2192plan\u2192challenge\u2192implement\u2192test\u2192review\u2192log\u2192meta_review\u2192approval\u2192deliver) with RubricJudge/ConsensusJudge on every step. Topic: smoke unify. Product root only; no GitHub push unless approval step says so. Prefer patterns from high-star GitHub + arXiv brief when present.\n\n--- RESEARCH BRIEF (GitHub/arXiv; context only) ---\nhigh star demo",
+    "success_criteria": [
+      "plan artifact or approach recorded",
+      "review or meta_review verdict present",
+      "judge decision is pass or revise (not silent drop)",
+      "addresses: smoke unify",
+      "uses research brief where relevant"
+    ],
+    "namespace": "proj/nexus-core",
+    "constraints": [
+      "product tree only",
+      "no independent lab phase machine",
+      "judge gates implement/test hard-fail",
+      "review veto fail-closed"
+    ],
+    "last_agent": "implementer",
+    "error": null,
+    "tokens_total": 3377,
+    "max_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": 10729.472,
+    "budget_exhausted": false,
+    "wall_exhausted": false,
+    "waiting_step": null,
+    "started_at": 1784257375.297395,
+    "completed_at": null
+  },
+  "norms": {
+    "raw": [
+      "product tree only",
+      "no independent lab phase machine",
+      "judge gates implement/test hard-fail",
+      "review veto fail-closed"
+    ],
+    "rules": [
+      {
+        "kind": "constraint",
+        "value": "product tree only",
+        "source": "product tree only"
+      },
+      {
+        "kind": "constraint",
+        "value": "no independent lab phase machine",
+        "source": "no independent lab phase machine"
+      },
+      {
+        "kind": "constraint",
+        "value": "judge gates implement/test hard-fail",
+        "source": "judge gates implement/test hard-fail"
+      },
+      {
+        "kind": "constraint",
+        "value": "review veto fail-closed",
+        "source": "review veto fail-closed"
+      }
+    ],
+    "require": [],
+    "deny": [],
+    "max_tokens": null,
+    "max_wall_s": null,
+    "enforce": false,
+    "n_rules": 4
+  },
+  "gates": {
+    "integrity_ok": true,
+    "budget_ok": true,
+    "has_timeline": true,
+    "terminal": false,
+    "completed": false,
+    "no_veto": true,
+    "not_waiting_human": true,
+    "norms_ok": true,
+    "ready": false
+  },
+  "gate_failures": [
+    "terminal",
+    "completed"
+  ],
+  "ready": false,
+  "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192revise",
+  "explain": {
+    "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192revise",
+    "status": "running",
+    "n_events": 17,
+    "handoffs": [
+      {
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "detail": "operator->planner"
+      },
+      {
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "detail": "planner->adversary"
+      },
+      {
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "detail": "adversary->implementer"
+      }
+    ],
+    "vetoes": [],
+    "failures": [],
+    "steps": [
+      {
+        "step": 1,
+        "name": "goal",
+        "agent": "operator",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+        "score": 0.5954,
+        "tokens": 476
+      },
+      {
+        "step": 2,
+        "name": "plan",
+        "agent": "planner",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.5955,
+        "tokens": 982
+      },
+      {
+        "step": 3,
+        "name": "challenge",
+        "agent": "adversary",
+        "decision": "pass",
+        "why": "consensus n=3 score=0.56 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']",
+        "score": 0.5556,
+        "tokens": 957
+      },
+      {
+        "step": 4,
+        "name": "implement",
+        "agent": "implementer",
+        "decision": "revise",
+        "why": "consensus n=3 score=0.61 decision=revise agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+        "score": 0.6089,
+        "tokens": 962
+      }
+    ],
+    "cost": {
+      "total_tokens": 3377,
+      "avg_score": 0.5888,
+      "by_agent": {
+        "operator": 476,
+        "planner": 982,
+        "adversary": 957,
+        "implementer": 962
+      },
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      },
+      "max_tokens": null,
+      "max_wall_s": null,
+      "elapsed_s": 10729.469,
+      "remaining_wall_s": null,
+      "wall_exhausted": false,
+      "budget_exhausted": false
+    },
+    "error": "",
+    "last_agent": "implementer"
+  },
+  "cost": {
+    "total_tokens": 3377,
+    "avg_score": 0.5888,
+    "request_count": 4,
+    "max_tokens": null,
+    "remaining_tokens": null,
+    "max_wall_s": null,
+    "elapsed_s": 10729.472,
+    "remaining_wall_s": null,
+    "wall_exhausted": false,
+    "budget_exhausted": false,
+    "by_agent": {
+      "operator": 476,
+      "planner": 982,
+      "adversary": 957,
+      "implementer": 962
+    },
+    "thresholds": {
+      "pass": 0.7,
+      "revise": 0.45
+    }
+  },
+  "verify": {
+    "ok": true,
+    "n_errors": 0,
+    "n_warns": 0,
+    "issues": [],
+    "checks": {
+      "checkpoint_parseable": true,
+      "checkpoint_exists": true,
+      "journal_exists": true,
+      "journal_parseable": true,
+      "step_alignment": true,
+      "status_alignment": true,
+      "agent_alignment": true,
+      "token_alignment": true,
+      "outputs_bounded": true
+    },
+    "journal_tokens": 3377,
+    "meta_tokens": 3377
+  },
+  "timeline": [
+    {
+      "i": 0,
+      "ts": 1784257375.2975209,
+      "event": "status",
+      "step": 0,
+      "agent": "",
+      "status": "running",
+      "detail": "pending->running"
+    },
+    {
+      "i": 1,
+      "ts": 1784257375.3051586,
+      "event": "step_start",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal"
+    },
+    {
+      "i": 2,
+      "ts": 1784257375.3095942,
+      "event": "consensus",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal",
+      "decision": "pass",
+      "score": 0.5954
+    },
+    {
+      "i": 3,
+      "ts": 1784257375.3128889,
+      "event": "step_complete",
+      "step": 1,
+      "agent": "operator",
+      "status": "running",
+      "detail": "goal",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']",
+      "score": 0.5954,
+      "tokens": 476,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 4,
+      "ts": 1784257375.3168879,
+      "event": "handoff",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "operator->planner",
+      "from_agent": "operator",
+      "to_agent": "planner"
+    },
+    {
+      "i": 5,
+      "ts": 1784257375.3197045,
+      "event": "step_start",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan"
+    },
+    {
+      "i": 6,
+      "ts": 1784257375.3248832,
+      "event": "consensus",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan",
+      "decision": "pass",
+      "score": 0.5955
+    },
+    {
+      "i": 7,
+      "ts": 1784257375.3281925,
+      "event": "step_complete",
+      "step": 2,
+      "agent": "planner",
+      "status": "running",
+      "detail": "plan",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.5955,
+      "tokens": 982,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 8,
+      "ts": 1784257375.3315015,
+      "event": "handoff",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "planner->adversary",
+      "from_agent": "planner",
+      "to_agent": "adversary"
+    },
+    {
+      "i": 9,
+      "ts": 1784257375.334159,
+      "event": "step_start",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge"
+    },
+    {
+      "i": 10,
+      "ts": 1784257375.3390195,
+      "event": "consensus",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge",
+      "decision": "pass",
+      "score": 0.5556
+    },
+    {
+      "i": 11,
+      "ts": 1784257375.3417683,
+      "event": "step_complete",
+      "step": 3,
+      "agent": "adversary",
+      "status": "running",
+      "detail": "challenge",
+      "decision": "pass",
+      "why": "consensus n=3 score=0.56 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']",
+      "score": 0.5556,
+      "tokens": 957,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 12,
+      "ts": 1784257375.345082,
+      "event": "handoff",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "adversary->implementer",
+      "from_agent": "adversary",
+      "to_agent": "implementer"
+    },
+    {
+      "i": 13,
+      "ts": 1784257375.3480604,
+      "event": "step_start",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement"
+    },
+    {
+      "i": 14,
+      "ts": 1784257375.352733,
+      "event": "consensus",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement",
+      "decision": "revise",
+      "score": 0.6089
+    },
+    {
+      "i": 15,
+      "ts": 1784257375.3556945,
+      "event": "step_complete",
+      "step": 4,
+      "agent": "implementer",
+      "status": "running",
+      "detail": "implement",
+      "decision": "revise",
+      "why": "consensus n=3 score=0.61 decision=revise agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']",
+      "score": 0.6089,
+      "tokens": 962,
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    {
+      "i": 16,
+      "ts": 1784257375.3597124,
+      "event": "checkpoint",
+      "step": 4,
+      "agent": "",
+      "status": "running",
+      "detail": "stopped early after 4"
+    }
+  ],
+  "n_timeline": 17,
+  "provenance": {
+    "task_id": "canon-1784257375",
+    "found": true,
+    "schema": "nexus.prov/v1",
+    "status": "running",
+    "current_step": 4,
+    "objective": "Follow the canonical pipeline (goal\u2192plan\u2192challenge\u2192implement\u2192test\u2192review\u2192log\u2192meta_review\u2192approval\u2192deliver) with RubricJudge/ConsensusJudge on every step. Topic: smoke unify. Product root only; no GitHub push unless approval step says so. Prefer patterns from high-star GitHub + arXiv brief when present.\n\n--- RESEARCH BRIEF (GitHub/arXiv; context only) ---\nhigh star demo",
+    "agents": [
+      {
+        "id": "adversary",
+        "type": "agent",
+        "steps": [
+          3
+        ],
+        "vendor": "xai",
+        "tokens": 957
+      },
+      {
+        "id": "implementer",
+        "type": "agent",
+        "steps": [
+          4
+        ],
+        "vendor": "openai",
+        "tokens": 962
+      },
+      {
+        "id": "operator",
+        "type": "agent",
+        "steps": [
+          1
+        ],
+        "vendor": "human",
+        "tokens": 476
+      },
+      {
+        "id": "planner",
+        "type": "agent",
+        "steps": [
+          2
+        ],
+        "vendor": "openai",
+        "tokens": 982
+      }
+    ],
+    "activities": [
+      {
+        "id": "act-1",
+        "type": "activity",
+        "step": 1,
+        "name": "goal",
+        "agent": "operator",
+        "decision": "pass",
+        "score": 0.5954,
+        "tokens": 476,
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'tester']"
+      },
+      {
+        "id": "act-2",
+        "type": "activity",
+        "step": 2,
+        "name": "plan",
+        "agent": "planner",
+        "decision": "pass",
+        "score": 0.5955,
+        "tokens": 982,
+        "why": "consensus n=3 score=0.60 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      },
+      {
+        "id": "act-3",
+        "type": "activity",
+        "step": 3,
+        "name": "challenge",
+        "agent": "adversary",
+        "decision": "pass",
+        "score": 0.5556,
+        "tokens": 957,
+        "why": "consensus n=3 score=0.56 decision=pass agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'tester', 'planner']"
+      },
+      {
+        "id": "act-4",
+        "type": "activity",
+        "step": 4,
+        "name": "implement",
+        "agent": "implementer",
+        "decision": "revise",
+        "score": 0.6089,
+        "tokens": 962,
+        "why": "consensus n=3 score=0.61 decision=revise agree=1.00 method=weighted_mean degraded=False graders=['reviewer', 'adversary', 'local']"
+      }
+    ],
+    "entities": [
+      {
+        "id": "task:canon-1784257375",
+        "type": "task",
+        "objective": "Follow the canonical pipeline (goal\u2192plan\u2192challenge\u2192implement\u2192test\u2192review\u2192log\u2192meta_review\u2192approval\u2192deliver) with RubricJudge/ConsensusJudge on every step. Topic: smoke unify. Product root only; no GitHub push unless approval step says so. Prefer patterns from high-star GitHub + arXiv brief when present.\n\n--- RESEARCH BRIEF (GitHub/arXiv; context only) ---\nhigh star demo",
+        "status": "running",
+        "current_step": 4,
+        "namespace": "proj/nexus-core"
+      },
+      {
+        "id": "artifact:canon-1784257375_artifact.txt",
+        "type": "artifact",
+        "path": "results/canon-1784257375_artifact.txt"
+      },
+      {
+        "id": "journal:canon-1784257375",
+        "type": "journal",
+        "path": "/path/to/nexus-core/.nexus_state/tasks/canon-1784257375.events.jsonl",
+        "n_events": 17
+      }
+    ],
+    "relations": [
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-1",
+        "agent": "operator"
+      },
+      {
+        "type": "used",
+        "activity": "act-1",
+        "entity": "task:canon-1784257375"
+      },
+      {
+        "type": "generated",
+        "activity": "act-1",
+        "entity": "artifact:canon-1784257375_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-2",
+        "agent": "planner"
+      },
+      {
+        "type": "used",
+        "activity": "act-2",
+        "entity": "task:canon-1784257375"
+      },
+      {
+        "type": "generated",
+        "activity": "act-2",
+        "entity": "artifact:canon-1784257375_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-3",
+        "agent": "adversary"
+      },
+      {
+        "type": "used",
+        "activity": "act-3",
+        "entity": "task:canon-1784257375"
+      },
+      {
+        "type": "generated",
+        "activity": "act-3",
+        "entity": "artifact:canon-1784257375_artifact.txt"
+      },
+      {
+        "type": "wasAssociatedWith",
+        "activity": "act-4",
+        "agent": "implementer"
+      },
+      {
+        "type": "used",
+        "activity": "act-4",
+        "entity": "task:canon-1784257375"
+      },
+      {
+        "type": "generated",
+        "activity": "act-4",
+        "entity": "artifact:canon-1784257375_artifact.txt"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-2",
+        "informed_by": "act-1"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-3",
+        "informed_by": "act-2"
+      },
+      {
+        "type": "wasInformedBy",
+        "activity": "act-4",
+        "informed_by": "act-3"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "planner",
+        "derived_from": "operator",
+        "step": 2,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "adversary",
+        "derived_from": "planner",
+        "step": 3,
+        "kind": "handoff"
+      },
+      {
+        "type": "wasDerivedFrom",
+        "agent": "implementer",
+        "derived_from": "adversary",
+        "step": 4,
+        "kind": "handoff"
+      }
+    ],
+    "handoffs": [
+      {
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "detail": "operator->planner"
+      },
+      {
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "detail": "planner->adversary"
+      },
+      {
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "detail": "adversary->implementer"
+      }
+    ],
+    "vetoes": [],
+    "failures": [],
+    "trust": [],
+    "story": "s1 goal@operator\u2192pass | s2 plan@planner\u2192pass | s3 challenge@adversary\u2192pass | s4 implement@implementer\u2192revise",
+    "cost": {
+      "total_tokens": 3377,
+      "avg_score": 0.5888,
+      "by_agent": {
+        "operator": 476,
+        "planner": 982,
+        "adversary": 957,
+        "implementer": 962
+      },
+      "thresholds": {
+        "pass": 0.7,
+        "revise": 0.45
+      }
+    },
+    "n_events": 17
+  },
+  "graph": {
+    "task_id": "canon-1784257375",
+    "found": true,
+    "schema": "nexus.graph/v1",
+    "status": "running",
+    "current_step": 4,
+    "objective": "Follow the canonical pipeline (goal\u2192plan\u2192challenge\u2192implement\u2192test\u2192review\u2192log\u2192meta_review\u2192approval\u2192deliver) with RubricJudge/ConsensusJudge on every step. Topic: smoke unify. Product root only; no GitHub push unless approval step says so. Prefer patterns from high-star GitHub + arXiv brief when present.\n\n--- RESEARCH BRIEF (GitHub/arXiv; context only) ---\nhigh star demo",
+    "nodes": [
+      {
+        "id": "adversary",
+        "type": "agent",
+        "vendor": "xai",
+        "steps": [
+          3
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 957
+      },
+      {
+        "id": "implementer",
+        "type": "agent",
+        "vendor": "openai",
+        "steps": [
+          4
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 962
+      },
+      {
+        "id": "operator",
+        "type": "agent",
+        "vendor": "human",
+        "steps": [
+          1
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 476
+      },
+      {
+        "id": "planner",
+        "type": "agent",
+        "vendor": "openai",
+        "steps": [
+          2
+        ],
+        "n_starts": 1,
+        "n_completes": 1,
+        "tokens": 982
+      }
+    ],
+    "edges": [
+      {
+        "from": "adversary",
+        "to": "implementer",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "operator",
+        "to": "planner",
+        "count": 1,
+        "kind": "handoff"
+      },
+      {
+        "from": "planner",
+        "to": "adversary",
+        "count": 1,
+        "kind": "handoff"
+      }
+    ],
+    "sequence": [
+      {
+        "event": "status",
+        "step": 0,
+        "agent": "",
+        "detail": "pending->running",
+        "ts": 1784257375.2975209
+      },
+      {
+        "event": "step_start",
+        "step": 1,
+        "agent": "operator",
+        "name": "goal",
+        "ts": 1784257375.3051586
+      },
+      {
+        "event": "step_complete",
+        "step": 1,
+        "agent": "operator",
+        "name": "goal",
+        "decision": "pass",
+        "tokens": 476,
+        "score": 0.5954,
+        "ts": 1784257375.3128889
+      },
+      {
+        "event": "handoff",
+        "step": 2,
+        "from_agent": "operator",
+        "to_agent": "planner",
+        "ts": 1784257375.3168879
+      },
+      {
+        "event": "step_start",
+        "step": 2,
+        "agent": "planner",
+        "name": "plan",
+        "ts": 1784257375.3197045
+      },
+      {
+        "event": "step_complete",
+        "step": 2,
+        "agent": "planner",
+        "name": "plan",
+        "decision": "pass",
+        "tokens": 982,
+        "score": 0.5955,
+        "ts": 1784257375.3281925
+      },
+      {
+        "event": "handoff",
+        "step": 3,
+        "from_agent": "planner",
+        "to_agent": "adversary",
+        "ts": 1784257375.3315015
+      },
+      {
+        "event": "step_start",
+        "step": 3,
+        "agent": "adversary",
+        "name": "challenge",
+        "ts": 1784257375.334159
+      },
+      {
+        "event": "step_complete",
+        "step": 3,
+        "agent": "adversary",
+        "name": "challenge",
+        "decision": "pass",
+        "tokens": 957,
+        "score": 0.5556,
+        "ts": 1784257375.3417683
+      },
+      {
+        "event": "handoff",
+        "step": 4,
+        "from_agent": "adversary",
+        "to_agent": "implementer",
+        "ts": 1784257375.345082
+      },
+      {
+        "event": "step_start",
+        "step": 4,
+        "agent": "implementer",
+        "name": "implement",
+        "ts": 1784257375.3480604
+      },
+      {
+        "event": "step_complete",
+        "step": 4,
+        "agent": "implementer",
+        "name": "implement",
+        "decision": "revise",
+        "tokens": 962,
+        "score": 0.6089,
+        "ts": 1784257375.3556945
+      },
+      {
+        "event": "checkpoint",
+        "step": 4,
+        "agent": "",
+        "detail": "stopped early after 4",
+        "ts": 1784257375.3597124
+      }
+    ],
+    "n_handoffs": 3,
+    "n_agents": 4,
+    "mermaid": "flowchart LR\n  adversary[\"adversary\\ntok=957 steps=1\"]\n  implementer[\"implementer\\ntok=962 steps=1\"]\n  operator[\"operator\\ntok=476 steps=1\"]\n  planner[\"planner\\ntok=982 steps=1\"]\n  adversary --> implementer\n  operator --> planner\n  planner --> adversary",
+    "cost": {
+      "total_tokens": 3377,
+      "max_tokens": null,
+      "remaining_tokens": null,
+      "budget_exhausted": false,
+      "by_agent": {
+        "operator": 476,
+        "planner": 982,
+        "adversary": 957,
+        "implementer": 962
+      }
+    },
+    "n_events": 17
+  },
+  "n_vetoes": 0,
+  "n_failures": 0
+}

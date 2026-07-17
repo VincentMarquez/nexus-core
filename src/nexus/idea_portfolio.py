@@ -250,6 +250,25 @@ def cross_pattern_novel_ideas(
     return out
 
 
+def _arxiv_seed(item: dict[str, Any]) -> str:
+    """Canonical paper id for diversity caps (strip novel:/version)."""
+    aid = str(item.get("arxiv_id") or item.get("id") or "")
+    if aid.startswith("novel:"):
+        # novel:arxiv:2401.07324v3+owner/repo
+        body = aid[6:]
+        if body.startswith("arxiv:"):
+            body = body[6:]
+        aid = body.split("+", 1)[0]
+    if aid.startswith("arxiv:"):
+        aid = aid[6:]
+    # strip version vN
+    if "v" in aid:
+        base, _, rest = aid.rpartition("v")
+        if rest.isdigit() and base:
+            aid = base
+    return aid.strip()
+
+
 def select_portfolio(
     arxiv: list[dict[str, Any]],
     github: list[dict[str, Any]],
@@ -258,50 +277,92 @@ def select_portfolio(
     min_arxiv: int = 1,
     min_github: int = 1,
     max_ideas: int = 10,
+    max_per_arxiv_seed: int = 2,
+    min_distinct_arxiv: int = 3,
 ) -> list[dict[str, Any]]:
-    """Ensure ≥min_arxiv + ≥min_github, fill with novels then remaining best, cap max_ideas."""
+    """Ensure ≥min_arxiv + ≥min_github, fill with novels then remaining best, cap max_ideas.
+
+    Diversity (anti-monoculture):
+      - at most ``max_per_arxiv_seed`` ideas (incl. cross_pattern) share one paper seed
+      - try to include at least ``min_distinct_arxiv`` different papers when pool allows
+    """
     max_ideas = max(2, min(int(max_ideas), 10))  # hard ceiling 10
     min_arxiv = max(1, int(min_arxiv))
     min_github = max(1, int(min_github))
+    max_per_seed = max(1, int(max_per_arxiv_seed))
+    min_distinct = max(1, int(min_distinct_arxiv))
     if min_arxiv + min_github > max_ideas:
-        # keep both sources; shrink mins proportionally
         min_arxiv = 1
         min_github = 1
 
     portfolio: list[dict[str, Any]] = []
     used_ids: set[str] = set()
+    seed_counts: dict[str, int] = {}
 
-    def take(items: list[dict[str, Any]], n: int, source_tag: str) -> int:
+    def can_take(it: dict[str, Any], *, enforce_seed: bool) -> bool:
+        iid = str(it.get("id") or "")
+        if not iid or iid in used_ids:
+            return False
+        if not enforce_seed:
+            return True
+        seed = _arxiv_seed(it)
+        if not seed:
+            return True
+        return seed_counts.get(seed, 0) < max_per_seed
+
+    def take(
+        items: list[dict[str, Any]],
+        n: int,
+        source_tag: str,
+        *,
+        enforce_seed: bool = True,
+    ) -> int:
         got = 0
         for it in items:
-            if len(portfolio) >= max_ideas:
+            if len(portfolio) >= max_ideas or got >= n:
                 break
-            iid = str(it.get("id") or "")
-            if not iid or iid in used_ids:
+            if not can_take(it, enforce_seed=enforce_seed):
                 continue
+            iid = str(it.get("id") or "")
             used_ids.add(iid)
+            seed = _arxiv_seed(it)
+            if seed and enforce_seed:
+                seed_counts[seed] = seed_counts.get(seed, 0) + 1
             row = dict(it)
             row["selected_as"] = source_tag
             portfolio.append(row)
             got += 1
-            if got >= n:
-                break
         return got
 
-    a_got = take(arxiv, min_arxiv, "required_arxiv")
-    g_got = take(github, min_github, "required_github")
+    # Required quotas first (single arxiv + github seed ok)
+    take(arxiv, min_arxiv, "required_arxiv", enforce_seed=True)
+    take(github, min_github, "required_github", enforce_seed=False)
 
-    # Prefer novel cross-patterns next
-    take(novels, max_ideas - len(portfolio), "cross_pattern")
+    # Pull additional distinct arXiv papers before flooding with same-seed crosses
+    distinct_now = len({_arxiv_seed(p) for p in portfolio if _arxiv_seed(p)})
+    need_distinct = max(0, min_distinct - distinct_now)
+    if need_distinct > 0:
+        # skip already-used seeds
+        extra_arxiv = [
+            a
+            for a in arxiv
+            if _arxiv_seed(a) and seed_counts.get(_arxiv_seed(a), 0) == 0
+        ]
+        take(extra_arxiv, need_distinct, "diversity_arxiv", enforce_seed=True)
 
-    # Fill remainder with best remaining from either source
+    # Cross-patterns with seed cap (stops 7× same paper remixes)
+    take(novels, max_ideas - len(portfolio), "cross_pattern", enforce_seed=True)
+
+    # Fill remainder (still enforce seed cap — no flood of same-paper remixes)
     rest = sorted(
         list(arxiv) + list(github),
         key=lambda x: -float(x.get("score") or 0),
     )
-    take(rest, max_ideas - len(portfolio), "fill")
+    take(rest, max_ideas - len(portfolio), "fill", enforce_seed=True)
+    # Last resort: more github-only / arxiv-only items without cross_pattern flood
+    if len(portfolio) < max_ideas:
+        take(github + arxiv, max_ideas - len(portfolio), "fill_sources", enforce_seed=True)
 
-    # Annotate quota satisfaction
     for i, p in enumerate(portfolio, 1):
         p["rank"] = i
 

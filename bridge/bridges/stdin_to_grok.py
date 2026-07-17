@@ -24,19 +24,20 @@ def main() -> int:
         or os.environ.get("NEXUS_GROK_REASONING_EFFORT")
         or "xhigh"
     ).strip().lower()
+    # Grok CLI accepts only high|medium|low — clamp everything else.
     effort_map = {
-        "max": "xhigh",
-        "ultra": "xhigh",
-        "xhigh": "xhigh",
-        "highest": "xhigh",
+        "max": "high",
+        "ultra": "high",
+        "xhigh": "high",
+        "highest": "high",
         "high": "high",
         "medium": "medium",
         "med": "medium",
         "low": "low",
-        "minimal": "minimal",
-        "none": "none",
+        "minimal": "low",
+        "none": "low",
     }
-    effort = effort_map.get(raw_effort, "xhigh")
+    effort = effort_map.get(raw_effort, "high")
     cmd = [
         "grok",
         "-p",

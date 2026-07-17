@@ -389,6 +389,69 @@ TOOLS = [
         },
     },
     {
+        "name": "compute_budget",
+        "description": (
+            "FutureWeaver × mission-control budget plane: plan multi-agent "
+            "test-time compute, hard-limit per-agent usage, reclaim modular "
+            "shares, and report agent spend on the SQLite ops board. "
+            "action=plan|status|record|report|brief|rebalance|finish."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "plan | status | record | report | brief | rebalance | finish"
+                    ),
+                    "default": "status",
+                },
+                "job_id": {
+                    "type": "string",
+                    "description": "Ops job / task id (omit for pure plan)",
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "Agent id for record/finish",
+                },
+                "tokens": {
+                    "type": "integer",
+                    "description": "Tokens for record",
+                    "default": 0,
+                },
+                "steps": {"type": "integer", "default": 0},
+                "total_tokens": {
+                    "type": "integer",
+                    "description": "Pool size for plan",
+                },
+                "strategy": {
+                    "type": "string",
+                    "description": "equal | weighted | modular",
+                    "default": "weighted",
+                },
+                "agents": {
+                    "type": "string",
+                    "description": "Comma-separated agent roster for plan",
+                },
+                "hard": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Hard-fail when share exhausted",
+                },
+                "finish": {"type": "boolean", "default": False},
+                "rebalance": {"type": "boolean", "default": False},
+                "status": {
+                    "type": "string",
+                    "description": "Terminal job status when action=finish without agent",
+                },
+                "title": {"type": "string"},
+                "goal": {"type": "string"},
+                "kind": {"type": "string", "default": "task"},
+                "limit": {"type": "integer", "default": 500},
+            },
+        },
+    },
+    {
         "name": "context_pack",
         "description": (
             "Build a bounded multi-source context pack (goal/grade/preference/"
@@ -782,7 +845,9 @@ TOOLS = [
             "Orchestrator: start an async durable task (kind=task|research). "
             "Returns task_id immediately; poll with get_task_status. "
             "agent_mode=demo (default/auto) uses MockAgent panel; fake completes instantly; "
-            "bus uses event bus if up else blocked. Does not auto-start the bus."
+            "bus uses event bus if up else blocked. Does not auto-start the bus. "
+            "with_plan=true runs dedicated multi-LLM Planner (arXiv 2401.07324) before "
+            "orchestration; structured plan is stored on envelope and returned in status."
         ),
         "inputSchema": {
             "type": "object",
@@ -819,6 +884,24 @@ TOOLS = [
                     "type": "boolean",
                     "description": "Research only: request brief (default false)",
                     "default": False,
+                },
+                "with_plan": {
+                    "type": "boolean",
+                    "description": (
+                        "Run dedicated Planner (arXiv 2401.07324) before Orchestrator; "
+                        "no tool side effects in plan phase"
+                    ),
+                    "default": False,
+                },
+                "require_plan": {
+                    "type": "boolean",
+                    "description": "Fail closed if Planner cannot produce a ready plan",
+                    "default": False,
+                },
+                "plan_max_steps": {
+                    "type": "integer",
+                    "description": "Max Planner steps when with_plan=true",
+                    "default": 5,
                 },
             },
             "required": ["description"],
@@ -878,6 +961,74 @@ TOOLS = [
                     "type": "boolean",
                     "default": False,
                     "description": "With generate: remove prior artifacts first",
+                },
+            },
+        },
+    },
+    {
+        "name": "marketplace",
+        "description": (
+            "Plugin marketplace (wshobson-shaped): list / validate / catalog / "
+            "collisions / self_check / capabilities / portability / garden / "
+            "export multi-harness registries + stubs; generate multi-harness "
+            "adapters (frontmatter rewrite, command→skill, skill body cap) + "
+            "validate_generated + round_trip count integrity; skillpacks as "
+            "thin plugins."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "list | validate | catalog | collisions | self_check | "
+                        "capabilities | portability | garden | export | "
+                        "generate | validate_generated | round_trip"
+                    ),
+                    "default": "list",
+                },
+                "plugin": {
+                    "type": "string",
+                    "description": (
+                        "Optional plugin id for validate / generate / round_trip"
+                    ),
+                },
+                "harness": {
+                    "type": "string",
+                    "description": (
+                        "Optional single harness for export / portability / "
+                        "capabilities / generate / validate_generated / "
+                        "round_trip"
+                    ),
+                },
+                "max_privilege": {
+                    "type": "string",
+                    "description": "read|write|ops|admin filter (least-privilege)",
+                },
+                "include_skillpacks": {
+                    "type": "boolean",
+                    "description": (
+                        "Index skillpacks/ as thin plugins (list/catalog/export/"
+                        "self_check/portability/garden). Default true for "
+                        "catalog/export/self_check/portability/garden; false "
+                        "for round_trip smoke."
+                    ),
+                },
+                "strict_size": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": (
+                        "With garden/portability/self_check: treat Codex 8KiB "
+                        "skill oversize as error"
+                    ),
+                },
+                "clean": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": (
+                        "With export: remove prior registry files first. "
+                        "With round_trip: clean generated trees (default true)."
+                    ),
                 },
             },
         },
@@ -961,6 +1112,140 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "maf_bench",
+        "description": (
+            "MAFBench proxy × AssetOpsBench hybrid (arXiv 2602.03128): list "
+            "mechanisms, multi-domain MCP hub, framework overhead bench, "
+            "JSON scenario packs with overhead gates, or fast brief "
+            "(consensus_overhead_x + pack pass_rate)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "list | run | smoke | pack | packs | brief "
+                        "(default: smoke)"
+                    ),
+                    "default": "smoke",
+                },
+                "mechanism": {
+                    "type": "string",
+                    "description": (
+                        "Comma-separated mechanism ids "
+                        "(single_judge,consensus,trust_log,orch_linear,"
+                        "orch_dag,domain_mcp,marketplace,control_plane,"
+                        "delivery_board)"
+                    ),
+                },
+                "iters": {
+                    "type": "integer",
+                    "description": "Iterations per mechanism (default 5 for smoke)",
+                },
+                "pack": {
+                    "type": "string",
+                    "description": (
+                        "JSON MAF scenario pack path(s), comma-separated "
+                        "(AssetOpsBench shape)"
+                    ),
+                },
+                "no_builtin": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "With pack: skip built-in gate suite",
+                },
+                "discover_packs": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Also load *.json under .nexus_state/bench/packs",
+                },
+                "install_samples": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": (
+                        "Copy fixtures/maf_bench/packs into .nexus_state/bench/packs"
+                    ),
+                },
+                "export": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Write report under .nexus_state/bench",
+                },
+                "out_dir": {
+                    "type": "string",
+                    "description": "Relative export dir (default .nexus_state/bench)",
+                },
+            },
+        },
+    },
+    {
+        "name": "tool_agent",
+        "description": (
+            "Multi-LLM tool agent (arXiv 2401.07324): dedicated Planner emits a "
+            "structured JSON plan (steps/tools/args) before any Caller tool "
+            "execution. Actions: plan (structure only), run (mock Caller), "
+            "prompt (Planner LLM block), validate (plan JSON gate), handoff "
+            "(Planner → Orchestrator with_plan). Fail-closed without ready plan."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "plan | run | prompt | validate | handoff",
+                    "default": "plan",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "Task description for Planner",
+                },
+                "tools": {
+                    "type": "string",
+                    "description": (
+                        "Comma-separated allowed tool names (default: live "
+                        "read-tier catalog or built-in stubs)"
+                    ),
+                },
+                "max_steps": {
+                    "type": "integer",
+                    "description": "Max Planner steps",
+                    "default": 5,
+                },
+                "plan_json": {
+                    "type": "string",
+                    "description": (
+                        "Injected Planner LLM JSON (plan/run/validate/handoff); "
+                        "skips heuristic when set"
+                    ),
+                },
+                "plan_text": {
+                    "type": "string",
+                    "description": "Alias of plan_json (fenced JSON ok)",
+                },
+                "auto_ready": {
+                    "type": "boolean",
+                    "description": "Mark plan ready after validate (default true)",
+                    "default": True,
+                },
+                "require_ready": {
+                    "type": "boolean",
+                    "description": "Handoff: fail closed if plan not ready",
+                    "default": True,
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "Handoff: optional Orchestrator task id",
+                },
+                "agent_mode": {
+                    "type": "string",
+                    "description": "Handoff agent_mode: fake|demo|auto|bus (default fake)",
+                    "default": "fake",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -1010,6 +1295,10 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                     wait=bool(args.get("wait") or False),
                     wait_timeout_s=float(args.get("wait_timeout_s") or 120),
                     with_brief=bool(args.get("with_brief") or False),
+                    with_plan=bool(args.get("with_plan") or False),
+                    require_plan=bool(args.get("require_plan") or False),
+                    plan_max_steps=int(args.get("plan_max_steps") or 5),
+                    plan_text=str(args["plan_text"]) if args.get("plan_text") else None,
                     sync_fake=(str(args.get("agent_mode") or "").lower() == "fake"),
                 )
                 return _tool_result(json.dumps(out, indent=2, default=str)[:16000])
@@ -1989,6 +2278,178 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 is_error=True,
             )
 
+        if name == "marketplace":
+            from . import marketplace as mp
+
+            root = _root()
+            action = str(args.get("action") or "list").lower().strip()
+            plugin = str(args.get("plugin") or "").strip() or None
+            max_priv = args.get("max_privilege") or None
+            strict_size = bool(args.get("strict_size"))
+            # Default: skillpacks indexed for catalog/export/self_check/portability/garden
+            if "include_skillpacks" in args:
+                include_sp = bool(args.get("include_skillpacks"))
+            elif action in (
+                "catalog",
+                "export",
+                "generate",
+                "self_check",
+                "self-check",
+                "portability",
+                "garden",
+            ):
+                include_sp = True
+            else:
+                include_sp = False
+            try:
+                if action == "list":
+                    rows = mp.list_plugins(
+                        root,
+                        max_privilege=max_priv,
+                        include_skillpacks=include_sp,
+                    )
+                    return _tool_result(
+                        json.dumps(
+                            {
+                                "schema": mp.SCHEMA_VERSION,
+                                "count": len(rows),
+                                "plugins": [r.to_dict() for r in rows],
+                            },
+                            indent=2,
+                            default=str,
+                        )
+                    )
+                if action == "validate":
+                    if plugin:
+                        pdir = root / mp.DEFAULT_PLUGINS_DIR / plugin
+                        rep = mp.validate_plugin(pdir)
+                        data = {
+                            "schema": mp.SCHEMA_VERSION,
+                            "ok": rep.ok,
+                            "count": 1,
+                            "plugins": [rep.to_dict()],
+                            "errors": sum(
+                                1 for f in rep.findings if f.severity == "error"
+                            ),
+                            "warnings": sum(
+                                1 for f in rep.findings if f.severity == "warning"
+                            ),
+                        }
+                    else:
+                        data = mp.validate_all(root)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "catalog":
+                    data = mp.build_catalog(root, include_skillpacks=include_sp)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "collisions":
+                    data = mp.collisions(root)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action in ("self_check", "self-check"):
+                    data = mp.self_check(
+                        root,
+                        include_skillpacks=include_sp,
+                        fail_on_oversize=strict_size,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action in ("capabilities", "capability"):
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    data = mp.capabilities_matrix(harnesses)
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "portability":
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    data = mp.portability(
+                        root,
+                        include_skillpacks=include_sp,
+                        harnesses=harnesses,
+                        fail_on_oversize=strict_size,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "garden":
+                    data = mp.garden(
+                        root,
+                        include_skillpacks=include_sp,
+                        fail_on_oversize=strict_size,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "export":
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    clean = bool(args.get("clean"))
+                    data = mp.export_registries(
+                        root,
+                        harnesses=harnesses,
+                        clean=clean,
+                        include_skillpacks=include_sp,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action == "generate":
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    clean = bool(args.get("clean"))
+                    data = mp.generate_adapters(
+                        root,
+                        harnesses=harnesses,
+                        clean=clean,
+                        include_skillpacks=include_sp,
+                        plugin=plugin,
+                        max_privilege=max_priv,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action in ("validate_generated", "validate-generated"):
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    out = args.get("out") or mp.generate_adapters_root(root)
+                    data = mp.validate_generated(
+                        out,
+                        harnesses=harnesses,
+                        fail_on_oversize=strict_size if "strict_size" in args else True,
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+                if action in ("round_trip", "round-trip"):
+                    harnesses = None
+                    if args.get("harness"):
+                        harnesses = [str(args.get("harness"))]
+                    # smoke default: no skillpacks unless explicitly true
+                    if "include_skillpacks" in args:
+                        rt_sp = bool(args.get("include_skillpacks"))
+                    else:
+                        rt_sp = False
+                    clean_rt = (
+                        bool(args.get("clean"))
+                        if "clean" in args
+                        else True
+                    )
+                    data = mp.round_trip(
+                        root,
+                        harnesses=harnesses,
+                        include_skillpacks=rt_sp,
+                        clean=clean_rt,
+                        plugin=plugin,
+                        max_privilege=max_priv,
+                        fail_on_oversize=(
+                            strict_size if "strict_size" in args else True
+                        ),
+                    )
+                    return _tool_result(json.dumps(data, indent=2, default=str))
+            except mp.MarketplaceError as e:
+                return _tool_result(f"MarketplaceError: {e}", is_error=True)
+            except Exception as e:
+                return _tool_result(f"marketplace error: {e}", is_error=True)
+            return _tool_result(
+                f"unknown marketplace action: {action} "
+                "(list|validate|catalog|collisions|self_check|"
+                "capabilities|portability|garden|export|generate|"
+                "validate_generated|round_trip)",
+                is_error=True,
+            )
+
         if name == "tool_catalog":
             from . import tool_catalog as tc
 
@@ -2152,6 +2613,179 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 is_error=True,
             )
 
+        if name == "maf_bench":
+            from . import maf_bench as maf
+
+            action = str(args.get("action") or "smoke").lower()
+            root = _root()
+            pack_raw = str(args.get("pack") or "").strip()
+            pack_paths: list[str] = []
+            for part in pack_raw.split(",") if pack_raw else []:
+                part = part.strip()
+                if not part:
+                    continue
+                pp = Path(part)
+                pack_paths.append(str(pp if pp.is_absolute() else (root / pp)))
+            include_builtin = not bool(args.get("no_builtin", False))
+            discover = bool(args.get("discover_packs", False))
+            install_samples = bool(args.get("install_samples", False))
+            do_export = bool(args.get("export", True))
+            out_dir = str(args.get("out_dir") or maf.DEFAULT_OUT_DIR).lstrip("/\\")
+            if ".." in Path(out_dir).parts:
+                return _tool_result(
+                    "out_dir escapes project root", is_error=True
+                )
+            try:
+                if install_samples and action in (
+                    "packs",
+                    "pack",
+                    "list",
+                    "run",
+                    "smoke",
+                    "brief",
+                ):
+                    install_result = maf.ensure_sample_maf_packs(root)
+                else:
+                    install_result = None
+
+                if action == "packs":
+                    found = maf.discover_maf_packs(root)
+                    bundled = maf.list_bundled_maf_packs(root)
+                    payload: dict[str, Any] = {
+                        "schema": maf.PACK_SCHEMA,
+                        "count": len(found),
+                        "packs": [str(p) for p in found],
+                        "bundled": [str(p) for p in bundled],
+                        "bundled_count": len(bundled),
+                    }
+                    if install_result is not None:
+                        payload["install"] = install_result
+                    return _tool_result(
+                        json.dumps(payload, indent=2, default=str)
+                    )
+
+                if action == "list":
+                    rows = maf.list_mechanisms()
+                    payload = {
+                        "schema": maf.SCHEMA,
+                        "paper": maf.PAPER,
+                        "count": len(rows),
+                        "mechanisms": rows,
+                        "domain_mcp_servers": maf.list_domain_mcp_servers(),
+                    }
+                    if install_result is not None:
+                        payload["install"] = install_result
+                    return _tool_result(
+                        json.dumps(payload, indent=2, default=str)
+                    )
+
+                if action == "brief":
+                    iters_raw = args.get("iters")
+                    iters = int(iters_raw) if iters_raw is not None else 2
+                    brief = maf.maf_brief(
+                        root, iters=iters, include_pack=True
+                    )
+                    return _tool_result(
+                        json.dumps(brief, indent=2, default=str)
+                    )
+
+                mech_raw = str(args.get("mechanism") or "").strip()
+                mechanisms = (
+                    [m.strip() for m in mech_raw.split(",") if m.strip()]
+                    if mech_raw
+                    else None
+                )
+                iters_raw = args.get("iters")
+                if action in ("pack",) or pack_paths or discover:
+                    iters = int(iters_raw) if iters_raw is not None else 5
+                    if install_samples:
+                        discover = True
+                    report = maf.run_maf_scenarios(
+                        root,
+                        packs=pack_paths or None,
+                        include_builtin=include_builtin,
+                        discover=discover,
+                        iters=iters,
+                        export=do_export,
+                        out_dir=out_dir,
+                    )
+                    return _tool_result(
+                        json.dumps(report, indent=2, default=str)
+                    )
+
+                if action in ("run", "smoke", "bench", "evaluate"):
+                    default_iters = 5 if action == "smoke" else maf.DEFAULT_ITERS
+                    iters = int(iters_raw) if iters_raw is not None else default_iters
+                    report = maf.run_maf_bench(
+                        root,
+                        iters=iters,
+                        mechanisms=mechanisms,
+                        export=do_export if action != "smoke" else do_export,
+                        out_dir=out_dir,
+                    )
+                    if action == "smoke" and not do_export:
+                        # already handled by export flag
+                        pass
+                    return _tool_result(
+                        json.dumps(report, indent=2, default=str)
+                    )
+            except Exception as e:
+                return _tool_result(f"maf_bench error: {e}", is_error=True)
+            return _tool_result(
+                f"unknown maf_bench action: {action} "
+                "(list|run|smoke|pack|packs|brief)",
+                is_error=True,
+            )
+
+        if name == "tool_agent":
+            # arXiv 2401.07324 — Planner before Caller (structure-only by default)
+            from . import multi_llm_agent as mla
+
+            action = str(args.get("action") or "plan").lower().strip()
+            task = str(args.get("task") or args.get("description") or "").strip()
+            tools_csv = str(args.get("tools") or "").strip()
+            max_steps = int(args.get("max_steps") or 5)
+            plan_json = args.get("plan_json")
+            plan_text = args.get("plan_text")
+            if plan_json is not None:
+                plan_json = str(plan_json)
+            if plan_text is not None:
+                plan_text = str(plan_text)
+            auto_ready = True if args.get("auto_ready") is None else bool(args.get("auto_ready"))
+            require_ready = (
+                True if args.get("require_ready") is None else bool(args.get("require_ready"))
+            )
+            task_id = str(args.get("task_id") or "").strip() or None
+            agent_mode = str(args.get("agent_mode") or "fake").strip() or "fake"
+            try:
+                report = mla.dispatch_action(
+                    action,
+                    task=task,
+                    tools_csv=tools_csv,
+                    max_steps=max_steps,
+                    plan_text=plan_text,
+                    plan_json=plan_json,
+                    auto_ready=auto_ready,
+                    require_ready=require_ready,
+                    workdir=_root(),
+                    task_id=task_id,
+                    agent_mode=agent_mode,
+                )
+                is_err = not bool(report.get("ok")) and action not in ("plan",)
+                # plan with zero steps is soft-fail but still returns structure
+                if action == "plan":
+                    is_err = bool(report.get("error"))
+                return _tool_result(
+                    json.dumps(report, indent=2, default=str),
+                    is_error=is_err,
+                )
+            except mla.PlanError as e:
+                return _tool_result(f"PlanError: {e}", is_error=True)
+            except mla.CallGateError as e:
+                return _tool_result(f"CallGateError: {e}", is_error=True)
+            except Exception as e:
+                return _tool_result(f"tool_agent error: {e}", is_error=True)
+
         if name == "ops_control":
             from .ops_store import OpsStore, OpsError
 
@@ -2212,6 +2846,36 @@ def call_tool(name: str, arguments: Optional[dict[str, Any]]) -> dict[str, Any]:
                 f"unknown ops action: {action} (list|show|spend|status|record)",
                 is_error=True,
             )
+
+        if name == "compute_budget":
+            from .budget_plane import BudgetPlaneError, dispatch
+
+            action = str(args.get("action") or "status").lower()
+            try:
+                payload = dispatch(
+                    action,
+                    workdir=_root(),
+                    job_id=str(args.get("job_id") or ""),
+                    agent=str(args.get("agent") or ""),
+                    tokens=int(args.get("tokens") or 0),
+                    steps=int(args.get("steps") or 0),
+                    total_tokens=int(args.get("total_tokens") or 0),
+                    strategy=str(args.get("strategy") or "weighted"),
+                    agents=args.get("agents"),
+                    hard=bool(args.get("hard", True)),
+                    finish=bool(args.get("finish") or False),
+                    rebalance=bool(args.get("rebalance") or False),
+                    status=str(args.get("status") or ""),
+                    title=str(args.get("title") or ""),
+                    goal=str(args.get("goal") or ""),
+                    kind=str(args.get("kind") or "task"),
+                    limit=int(args.get("limit") or 500),
+                )
+                return _tool_result(json.dumps(payload, indent=2, default=str))
+            except BudgetPlaneError as e:
+                return _tool_result(f"BudgetPlaneError: {e}", is_error=True)
+            except Exception as e:
+                return _tool_result(f"compute_budget error: {e}", is_error=True)
 
         return _tool_result(f"unknown tool: {name}", is_error=True)
 

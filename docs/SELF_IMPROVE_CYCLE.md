@@ -1,32 +1,27 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-16_
+_Generated 2026-07-17_
 
-Model: `grok-4.5` · repos≥10 · arXiv≈20
+Model: `grok-4.5` · portfolio **[github] builderz-labs/mission-control**
 
 ## Reasoning plan (this cycle)
 
-1. **Read evidence** — `IMPROVE_OURS.md` (top mined clones), latest arXiv notes (`improve-rx-2a3280d550`, `rx-00eb6c8e07`), and prior `ALIVE_IMPROVEMENTS` open items.
-2. **Pick First apply slice** — close the last cycle’s open list with small, tested code:
-   - APPLY_CANDIDATE → worktree dry-run
-   - plan-reuse cache
-   - more sample packs
-   - alive auto preference pairs from ranked mine results
-3. **Hard apply** — implement modules + tests; keep `pytest` green; no force-push; no secrets; no vendored trees.
-4. **Document** — update `LATEST_IMPROVE_PLAN.md` + append this cycle to `ALIVE_IMPROVEMENTS.md`.
+1. **Read evidence** — mission-control is a self-hosted SQLite control plane: task governance, spend tracking, Aegis quality reviews, completion/audit receipts, multi-surface operators (CLI/MCP/TUI). Local clone under `.nexus_workspaces/scout_repos/builderz-labs__mission-control`.
+2. **Map to NEXUS** — already have `ops_store` (jobs+spend), `budget_plane`, `control_plane_planner`, maf_bench `control_plane`. Gap: quality-review gate before complete + signed completion receipts + job-level spend hard-caps.
+3. **Pick First apply slice** — `mission_gate.py` on top of OpsStore: reviews table, fail-closed complete, HMAC receipts, gated spend.
+4. **Hard apply** — module + tests; docs; keep pytest green. No tree vendor.
+5. **Document** — update `LATEST_IMPROVE_PLAN.md` + append to `ALIVE_IMPROVEMENTS.md`.
 
 ## Evidence → engineering map
 
 | Source | Pattern (shape only) | Landed |
 |--------|----------------------|--------|
-| wshobson/agents | Markdown SoT skillpack validate | worktree pattern dry-run |
-| cas / forge | Worktree isolation | APPLY_CANDIDATE sandbox apply |
-| multi-stage ABM 2604.03350 | Plan reuse across stages | `plan_reuse` cache |
-| context eng 2508.08322 | Bounded reusable context | plan fingerprint reuse |
-| preference IRL 2602.04518 | Offline better>worse | alive `record_from_ranked` after mine |
-| AssetOpsBench / mission-control | Scenario pack smoke | `improve_board_smoke.json` |
-| Thucy 2512.03278 | Claim gate before apply | existing mine_eval_slice claims |
-| AOAD-MAT 2510.13343 | Ordered stages | MINED→…→APPLY_CANDIDATE |
+| mission-control quality_reviews | Aegis approve/reject/needs_work | **MissionGate.record_review** |
+| mission-control task complete gate | Block complete until review | **check_complete** / **complete** |
+| mission-control task-costs | Spend attribution + caps | **gated_record_spend** + max_tokens |
+| mission-control receipt-signing | Canonicalize → hash → sign | **sign_receipt** / **verify_receipt** (HMAC) |
+| mission-control ops board | Operator inspect surfaces | Module CLI + **summary** |
+| Existing ops_store | SQLite jobs + spend | Reused; new tables in same DB |
 
 ## First apply slice (session result)
 
@@ -35,7 +30,6 @@ See `docs/LATEST_IMPROVE_PLAN.md` — **landed**.
 Prove with:
 
 ```bash
+PYTHONPATH=src python3 -m pytest -q tests/test_mission_gate.py
 PYTHONPATH=src python3 -m pytest -q
-PYTHONPATH=src python3 -m nexus.cli improve plan-slice --repo wshobson/agents
-# second call should show worktree cache_hit=true
 ```

@@ -67,6 +67,8 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "context_get": "read",
     "tool_catalog": "read",
     "mcp_eval": "read",
+    "maf_bench": "read",
+    "tool_agent": "read",  # Planner-only default; run uses mock Caller
     # side-effecting ops
     "run_project_checks": "ops",
     "github_scout": "ops",
@@ -79,8 +81,10 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "handoff": "write",
     "demo_loop": "ops",
     "ops_control": "ops",
+    "compute_budget": "ops",  # FutureWeaver × mission-control budget plane
     "gap_board": "ops",
     "skillpacks": "ops",
+    "marketplace": "read",
 }
 
 

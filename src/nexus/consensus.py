@@ -5,6 +5,7 @@ Port of gossipcat-style multi-agent review patterns (not the tree):
 - trust weights per agent (static defaults + optional adaptive history)
 - agreement / disagreement / unique signals
 - weighted mean score + majority decision
+- **Cedar policy-as-code validation before promote** (arXiv 2606.26649)
 
 Works fully offline with role lenses (adversary stricter, tester evidence-
 heavy, etc.) so demos and pytest stay deterministic.
@@ -14,6 +15,7 @@ Evidence drivers:
 - openai/swarm — multi-agent coordination without shared brain
 - arXiv 2203.08975 — multi-agent communication / agreement
 - arXiv 2502.07165 — principle-based multi-agent prompting
+- arXiv 2606.26649 — Autoformalization of Agent Instructions into Policy-as-Code
 - NEXUS RubricJudge cross-vendor preference
 """
 
@@ -24,6 +26,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .agents import AgentPanel
+from .cedar_policy import (
+    SCHEMA as CEDAR_SCHEMA,
+    CedarDecision,
+    default_promote_cedar_text,
+    validate_promote as cedar_validate_promote,
+)
+
+# Optional AssetOps work-plane hybrid (lazy import in promote_work_decision).
 from .judge import (
     PASS_THRESHOLD,
     REVISE_THRESHOLD,
@@ -272,9 +282,12 @@ class ConsensusVerdict:
     method: str = "weighted_mean"
     schema: str = SCHEMA
     counts: dict[str, int] = field(default_factory=dict)
+    # arXiv 2606.26649: Cedar policy-as-code gate before promote
+    promote_allowed: Optional[bool] = None
+    cedar_policy: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "decision": self.decision,
             "score": round(float(self.score), 4),
             "dims": {k: round(float(v), 4) for k, v in self.dims.items()},
@@ -293,6 +306,11 @@ class ConsensusVerdict:
             "counts": dict(self.counts),
             "consensus": True,
         }
+        if self.promote_allowed is not None:
+            out["promote_allowed"] = self.promote_allowed
+        if self.cedar_policy is not None:
+            out["cedar_policy"] = dict(self.cedar_policy)
+        return out
 
     def to_verdict(self) -> Verdict:
         """Flatten to single-judge Verdict for callers that only need core fields."""
@@ -308,6 +326,32 @@ class ConsensusVerdict:
             rationale=self.rationale,
             thresholds=dict(self.thresholds),
         )
+
+    def apply_promote_gate(
+        self,
+        *,
+        principal: str = "consensus",
+        min_score: Optional[float] = None,
+        min_agreement: float = 0.5,
+        min_graders: Optional[int] = None,
+    ) -> "ConsensusVerdict":
+        """Run Cedar policy validation and attach promote_allowed / cedar_policy."""
+        thr_pass = float((self.thresholds or {}).get("pass", PASS_THRESHOLD))
+        ms = float(min_score) if min_score is not None else thr_pass
+        mg = int(min_graders) if min_graders is not None else max(1, int(self.n_graders or 1))
+        # When min_graders not set, use policy default of 2 for multi-grader shape
+        if min_graders is None:
+            mg = 2
+        gate = cedar_validate_promote(
+            self,
+            principal=principal or self.judge_agent or "consensus",
+            min_score=ms,
+            min_agreement=float(min_agreement),
+            min_graders=mg,
+        )
+        self.promote_allowed = bool(gate.allowed)
+        self.cedar_policy = gate.to_dict()
+        return self
 
 
 def pick_graders(
@@ -447,7 +491,7 @@ def aggregate_findings(
         f"agree={agree:.2f} method={method} degraded={degraded} "
         f"graders={[f.grader for f in findings]}"
     )
-    return ConsensusVerdict(
+    verdict = ConsensusVerdict(
         decision=decision,
         score=score,
         dims=dims,
@@ -464,6 +508,152 @@ def aggregate_findings(
         method=method,
         counts=counts,
     )
+    # arXiv 2606.26649: attach Cedar promote gate on every aggregate
+    verdict.apply_promote_gate(
+        principal="consensus",
+        min_score=float(thr.get("pass", PASS_THRESHOLD)),
+        min_agreement=0.5,
+        min_graders=min_graders,
+    )
+    return verdict
+
+
+def validate_promote(
+    verdict: Any,
+    *,
+    principal: str = "consensus",
+    min_score: Optional[float] = None,
+    min_agreement: float = 0.5,
+    min_graders: int = 2,
+) -> CedarDecision:
+    """Cedar Policy Language validation step before promoting a consensus decision.
+
+    Public integration point for arXiv 2606.26649 inside the consensus module.
+    Fail-closed: deny unless an explicit permit matches and no forbid matches.
+    """
+    thr_pass = PASS_THRESHOLD
+    if hasattr(verdict, "thresholds") and isinstance(verdict.thresholds, dict):
+        thr_pass = float(verdict.thresholds.get("pass", PASS_THRESHOLD))
+    elif isinstance(verdict, dict) and isinstance(verdict.get("thresholds"), dict):
+        thr_pass = float(verdict["thresholds"].get("pass", PASS_THRESHOLD))
+    ms = float(min_score) if min_score is not None else thr_pass
+    return cedar_validate_promote(
+        verdict,
+        principal=principal,
+        min_score=ms,
+        min_agreement=float(min_agreement),
+        min_graders=int(min_graders),
+    )
+
+
+def promote_decision(
+    verdict: Any,
+    *,
+    principal: str = "consensus",
+    min_score: Optional[float] = None,
+    min_agreement: float = 0.5,
+    min_graders: int = 2,
+    require: bool = True,
+    domain_plan: Any = None,
+    min_domains: int = 3,
+) -> dict[str, Any]:
+    """Validate then (soft) promote a consensus decision under Cedar policy.
+
+    Returns a ``nexus.consensus.promote/v1`` audit blob. When *require* is True
+    and policy denies, ``ok`` is False (callers fail-closed). Does not mutate
+    external state — pure gate + audit.
+
+    When *domain_plan* is provided (AssetOpsBench-shaped ToolPlan), the hybrid
+    work-plane gate (:mod:`nexus.assetops_work_gate`) runs instead — Cedar
+    policies cover multi-domain readiness and work-order write safety
+    (arXiv 2606.26649 × IBM/AssetOpsBench).
+    """
+    if domain_plan is not None:
+        from . import assetops_work_gate as awg
+
+        thr = float(min_score) if min_score is not None else PASS_THRESHOLD
+        if min_score is None and hasattr(verdict, "thresholds"):
+            thr_map = getattr(verdict, "thresholds", None) or {}
+            if isinstance(thr_map, dict):
+                thr = float(thr_map.get("pass", PASS_THRESHOLD))
+        hybrid = awg.consensus_with_work_gate(
+            verdict,
+            domain_plan,
+            principal=principal,
+            min_score=thr,
+            min_agreement=min_agreement,
+            min_graders=min_graders,
+            min_domains=min_domains,
+            require=require,
+        )
+        # Preserve consensus promote schema while attaching hybrid audit.
+        hybrid = dict(hybrid)
+        hybrid["consensus_schema"] = "nexus.consensus.promote/v1"
+        hybrid["domain_plan"] = True
+        return hybrid
+
+    gate = validate_promote(
+        verdict,
+        principal=principal,
+        min_score=min_score,
+        min_agreement=min_agreement,
+        min_graders=min_graders,
+    )
+    if isinstance(verdict, ConsensusVerdict):
+        verdict.promote_allowed = bool(gate.allowed)
+        verdict.cedar_policy = gate.to_dict()
+    ok = bool(gate.allowed)
+    return {
+        "schema": "nexus.consensus.promote/v1",
+        "ok": ok,
+        "allowed": ok,
+        "require": bool(require),
+        "principal": principal,
+        "cedar_policy": gate.to_dict(),
+        "cedar_schema": CEDAR_SCHEMA,
+        "decision": (
+            getattr(verdict, "decision", None)
+            if not isinstance(verdict, dict)
+            else verdict.get("decision")
+        ),
+        "score": (
+            getattr(verdict, "score", None)
+            if not isinstance(verdict, dict)
+            else verdict.get("score")
+        ),
+        "reason": (gate.reasons[0] if gate.reasons else gate.decision),
+        "policy_text_preview": _promote_policy_preview(
+            min_score=float(min_score) if min_score is not None else PASS_THRESHOLD,
+            min_agreement=float(min_agreement),
+            min_graders=int(min_graders),
+        ),
+    }
+
+
+def _promote_policy_preview(
+    *,
+    min_score: float,
+    min_agreement: float,
+    min_graders: int,
+    limit: int = 500,
+) -> str:
+    """Short Cedar dump highlighting forbid+permit heads for audit logs."""
+    full = default_promote_cedar_text(
+        min_score=min_score,
+        min_agreement=min_agreement,
+        min_graders=min_graders,
+    )
+    # Prefer a window that includes both a forbid and a permit statement.
+    perm_i = full.find("\npermit ")
+    if perm_i < 0:
+        perm_i = full.find("permit ")
+    if perm_i >= 0:
+        start = max(0, perm_i - 120)
+        window = full[start : start + limit]
+        if "forbid" not in window:
+            window = full[:200] + "\n…\n" + full[perm_i : perm_i + 280]
+        return window[:limit]
+    return full[:limit]
 
 
 class ConsensusJudge:

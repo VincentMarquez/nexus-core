@@ -2,8 +2,8 @@
 
 Written by alive/publish when self-improve runs. Safe to commit.
 
-- [`gap-demo.json`](gap-demo.json)
-- [`hitl-demo-3a6a46ef.json`](hitl-demo-3a6a46ef.json)
-- [`hitl-demo-3a6a46ef.json`](hitl-demo-3a6a46ef.json)
-- [`hitl-demo-7bcfe84d.json`](hitl-demo-7bcfe84d.json)
-- [`hitl-demo-7bcfe84d.json`](hitl-demo-7bcfe84d.json)
+- [`canon-1784257375.json`](canon-1784257375.json)
+- [`canon-1784257551.json`](canon-1784257551.json)
+- [`canon-1784259317.json`](canon-1784259317.json)
+- [`canon-1784260265.json`](canon-1784260265.json)
+- [`canon-1784261206.json`](canon-1784261206.json)

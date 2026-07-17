@@ -212,6 +212,24 @@ def record_papers(
     }
 
 
+def _last_seen_map(workdir: Optional[Path] = None) -> dict[str, str]:
+    """canonical_id → last_seen ISO string (empty if unknown)."""
+    out: dict[str, str] = {}
+    for r in load_rows(workdir):
+        cid = _canon_id(r.get("arxiv_id") or "")
+        if cid:
+            out[cid] = str(r.get("last_seen") or r.get("first_seen") or "")
+    return out
+
+
+def _paper_id(p: Any) -> str:
+    if hasattr(p, "arxiv_id"):
+        return _canon_id(str(p.arxiv_id))
+    if isinstance(p, dict):
+        return _canon_id(str(p.get("arxiv_id") or p.get("id") or ""))
+    return ""
+
+
 def search_new(
     query: str,
     *,
@@ -219,12 +237,17 @@ def search_new(
     workdir: Optional[Path] = None,
     overfetch: int = 5,
     allow_reuse_if_short: bool = True,
+    reuse_policy: str = "lru",
 ) -> dict[str, Any]:
     """Search arXiv, prefer papers not yet in the ledger.
 
     Over-fetches then filters. If not enough new papers and
-    ``allow_reuse_if_short``, pads with already-seen hits so the
-    cycle still has material.
+    ``allow_reuse_if_short``, pads with already-seen hits.
+
+    ``reuse_policy``:
+      - ``lru`` (default): when reusing, pick least-recently-seen first
+        so REAL does not always remix the same top API hits
+      - ``api``: keep arXiv API order for reused papers
     """
     want = max(1, int(max_results))
     fetch_n = min(50, max(want * overfetch, want))
@@ -235,7 +258,15 @@ def search_new(
     reused: list[Any] = []
     if len(chosen) < want and allow_reuse_if_short:
         need = want - len(chosen)
-        reused = list(old[:need])
+        if (reuse_policy or "lru").lower() == "lru":
+            last_map = _last_seen_map(workdir)
+            old_sorted = sorted(
+                old,
+                key=lambda p: (last_map.get(_paper_id(p) or "", "9999"), _paper_id(p)),
+            )
+            reused = list(old_sorted[:need])
+        else:
+            reused = list(old[:need])
         chosen.extend(reused)
     return {
         "query": query,
@@ -245,10 +276,106 @@ def search_new(
         "already_seen": len(old),
         "returned": len(chosen),
         "reused": len(reused),
+        "reuse_policy": reuse_policy,
         "papers": chosen,
         "skipped_ids": [
             (p.arxiv_id if hasattr(p, "arxiv_id") else p.get("arxiv_id"))
             for p in old
         ][:30],
         "ledger_size": len(known),
+    }
+
+
+def search_fresh_diverse(
+    queries: Sequence[str],
+    *,
+    max_results: int = 10,
+    workdir: Optional[Path] = None,
+    overfetch: int = 4,
+    reuse_policy: str = "lru",
+) -> dict[str, Any]:
+    """Run several arXiv queries; prefer **new** papers across all of them.
+
+    Used by REAL alive so one saturated query does not freeze research on a
+    single paper seed. Falls back to LRU reuse only after exhausting new hits.
+    """
+    want = max(1, int(max_results))
+    qs = [str(q).strip() for q in (queries or []) if str(q).strip()]
+    if not qs:
+        qs = ["multi agent LLM orchestration"]
+
+    known = seen_ids(workdir)
+    all_raw: list[Any] = []
+    fresh_pool: list[Any] = []
+    old_pool: list[Any] = []
+    seen_ids_cycle: set[str] = set()
+    per_query: list[dict[str, Any]] = []
+
+    for q in qs:
+        fetch_n = min(50, max(want * overfetch, want))
+        try:
+            raw = arxiv_client.search(q, max_results=fetch_n)
+        except Exception as e:
+            per_query.append({"query": q, "error": str(e)[:200]})
+            continue
+        all_raw.extend(raw)
+        fresh, old = filter_new(raw, workdir, known=known)
+        n_new = 0
+        for p in fresh:
+            pid = _paper_id(p)
+            if not pid or pid in seen_ids_cycle:
+                continue
+            seen_ids_cycle.add(pid)
+            fresh_pool.append(p)
+            n_new += 1
+        for p in old:
+            pid = _paper_id(p)
+            if not pid or pid in seen_ids_cycle:
+                continue
+            # keep for LRU later; mark so we don't double-count across queries
+            old_pool.append(p)
+        per_query.append(
+            {
+                "query": q,
+                "fetched": len(raw),
+                "new_in_query": n_new,
+                "already_seen_in_query": len(old),
+            }
+        )
+
+    chosen = list(fresh_pool[:want])
+    reused: list[Any] = []
+    if len(chosen) < want:
+        need = want - len(chosen)
+        # de-dupe old_pool
+        old_dedup: list[Any] = []
+        old_seen: set[str] = set(seen_ids_cycle)
+        for p in old_pool:
+            pid = _paper_id(p)
+            if not pid or pid in old_seen:
+                continue
+            old_seen.add(pid)
+            old_dedup.append(p)
+        if (reuse_policy or "lru").lower() == "lru":
+            last_map = _last_seen_map(workdir)
+            old_dedup = sorted(
+                old_dedup,
+                key=lambda p: (last_map.get(_paper_id(p) or "", "9999"), _paper_id(p)),
+            )
+        reused = list(old_dedup[:need])
+        chosen.extend(reused)
+
+    return {
+        "queries": qs,
+        "requested": want,
+        "fetched": len(all_raw),
+        "new": len(fresh_pool),
+        "already_seen": max(0, len(all_raw) - len(fresh_pool)),
+        "returned": len(chosen),
+        "reused": len(reused),
+        "reuse_policy": reuse_policy,
+        "papers": chosen,
+        "per_query": per_query,
+        "ledger_size": len(known),
+        "mode": "fresh_diverse",
     }

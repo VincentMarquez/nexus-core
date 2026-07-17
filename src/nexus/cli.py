@@ -2127,10 +2127,61 @@ def cmd_ops(args: argparse.Namespace) -> int:
                 job = store.set_status(jid, st)
                 print(json.dumps(job, indent=2, default=str))
                 return 0
+            if sub == "budget":
+                # FutureWeaver × mission-control budget plane
+                from .budget_plane import (
+                    BudgetPlaneError,
+                    dispatch,
+                    format_operator_table,
+                )
+
+                bcmd = str(getattr(args, "budget_cmd", None) or "status").lower()
+                try:
+                    payload = dispatch(
+                        bcmd,
+                        workdir=root,
+                        job_id=str(getattr(args, "job_id", None) or ""),
+                        agent=str(getattr(args, "agent", None) or ""),
+                        tokens=int(getattr(args, "tokens", 0) or 0),
+                        steps=int(getattr(args, "steps", 0) or 0),
+                        total_tokens=int(getattr(args, "total_tokens", 0) or 0),
+                        strategy=str(getattr(args, "strategy", None) or "weighted"),
+                        agents=getattr(args, "agents", None),
+                        hard=bool(getattr(args, "hard", True)),
+                        finish=bool(getattr(args, "finish", False)),
+                        rebalance=bool(getattr(args, "rebalance", False)),
+                        status=str(getattr(args, "status", None) or ""),
+                        title=str(getattr(args, "title", None) or ""),
+                        goal=str(getattr(args, "goal", None) or ""),
+                        kind=str(getattr(args, "kind", None) or "task"),
+                        limit=int(getattr(args, "limit", 500) or 500),
+                    )
+                except BudgetPlaneError as e:
+                    print(f"budget plane error: {e}", file=sys.stderr)
+                    return 1
+                if getattr(args, "json", False) or bcmd in (
+                    "plan",
+                    "record",
+                    "report",
+                    "rebalance",
+                    "finish",
+                ):
+                    print(json.dumps(payload, indent=2, default=str))
+                    return 0
+                # human status / brief
+                table = format_operator_table(payload)
+                if table:
+                    print(table)
+                else:
+                    print(json.dumps(payload, indent=2, default=str))
+                return 0
     except OpsError as e:
         print(f"ops error: {e}", file=sys.stderr)
         return 1
-    print("usage: nexus ops list|show|spend|record|status|ingest|set-status", file=sys.stderr)
+    print(
+        "usage: nexus ops list|show|spend|record|status|ingest|set-status|budget",
+        file=sys.stderr,
+    )
     return 2
 
 
@@ -2265,6 +2316,267 @@ def cmd_vault(args: argparse.Namespace) -> int:
         print(vault.redact(text), end="" if text.endswith("\n") else "\n")
         return 0
     print("usage: nexus vault status|check|redact", file=sys.stderr)
+    return 2
+
+
+def cmd_marketplace(args: argparse.Namespace) -> int:
+    """Plugin marketplace: list / validate / catalog / collisions / export / self-check / capabilities / portability / garden / generate / validate-generated / round-trip."""
+    from . import marketplace as mp
+
+    root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
+    sub = getattr(args, "marketplace_cmd", None) or "list"
+    as_json = bool(getattr(args, "json", False))
+    plugins_dir = str(getattr(args, "plugins_dir", None) or mp.DEFAULT_PLUGINS_DIR)
+    max_priv = getattr(args, "max_privilege", None)
+    include_sp = bool(getattr(args, "include_skillpacks", False))
+    # catalog/export/self-check/portability/garden default to including skillpacks
+    if sub in (
+        "catalog",
+        "export",
+        "generate",
+        "self-check",
+        "self_check",
+        "portability",
+        "garden",
+    ):
+        if getattr(args, "no_skillpacks", False):
+            include_sp = False
+        elif not include_sp:
+            include_sp = True  # default on for unified marketplace views
+
+    if sub == "list":
+        rows = mp.list_plugins(
+            root,
+            plugins_dir=plugins_dir,
+            validate=bool(getattr(args, "validate", False)),
+            max_privilege=max_priv,
+            include_skillpacks=bool(getattr(args, "include_skillpacks", False)),
+        )
+        if as_json:
+            print(
+                json.dumps(
+                    {
+                        "schema": mp.SCHEMA_VERSION,
+                        "plugins": [r.to_dict() for r in rows],
+                        "count": len(rows),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(mp.format_list(rows))
+        return 0
+
+    if sub == "validate":
+        plugin = getattr(args, "plugin", None)
+        if plugin:
+            ppath = root / plugins_dir / str(plugin)
+            if not ppath.is_dir():
+                ppath = Path(plugin)
+            rep = mp.validate_plugin(ppath)
+            data = {
+                "schema": mp.SCHEMA_VERSION,
+                "ok": rep.ok,
+                "count": 1,
+                "plugins": [rep.to_dict()],
+                "errors": sum(1 for f in rep.findings if f.severity == "error"),
+                "warnings": sum(1 for f in rep.findings if f.severity == "warning"),
+            }
+        else:
+            data = mp.validate_all(root, plugins_dir=plugins_dir)
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_validate(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "catalog":
+        data = mp.build_catalog(
+            root,
+            plugins_dir=plugins_dir,
+            include_skillpacks=include_sp,
+        )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_catalog(data))
+        return 0
+
+    if sub == "collisions":
+        data = mp.collisions(root, plugins_dir=plugins_dir)
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_collisions(data))
+        return 0 if data.get("ok") else 1
+
+    if sub in ("self-check", "self_check"):
+        data = mp.self_check(
+            root,
+            plugins_dir=plugins_dir,
+            include_skillpacks=include_sp,
+            fail_on_oversize=bool(getattr(args, "strict_size", False)),
+        )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_self_check(data))
+        return 0 if data.get("ok") else 1
+
+    if sub in ("capabilities", "capability"):
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        data = mp.capabilities_matrix(harnesses)
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_capabilities(data))
+        return 0
+
+    if sub == "portability":
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        data = mp.portability(
+            root,
+            plugins_dir=plugins_dir,
+            include_skillpacks=include_sp,
+            harnesses=harnesses,
+            fail_on_oversize=bool(getattr(args, "strict_size", False)),
+        )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_portability(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "garden":
+        data = mp.garden(
+            root,
+            plugins_dir=plugins_dir,
+            include_skillpacks=include_sp,
+            fail_on_oversize=bool(getattr(args, "strict_size", False)),
+        )
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_garden(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "export":
+        out_root = getattr(args, "out", None)
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        clean = bool(getattr(args, "clean", False))
+        with_stubs = not bool(getattr(args, "no_stubs", False))
+        try:
+            data = mp.export_registries(
+                root,
+                plugins_dir=plugins_dir,
+                out_root=out_root,
+                harnesses=harnesses,
+                clean=clean,
+                include_skillpacks=include_sp,
+                with_stubs=with_stubs,
+            )
+        except mp.MarketplaceError as e:
+            print(f"MarketplaceError: {e}", file=sys.stderr)
+            return 1
+        if as_json:
+            print(json.dumps(data, indent=2))
+        else:
+            print(mp.format_export(data))
+        return 0 if data.get("ok") else 1
+
+    if sub == "generate":
+        # Multi-harness adapters (wshobson tools/adapters shape)
+        out_root = getattr(args, "out", None)
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        clean = bool(getattr(args, "clean", False))
+        plugin = getattr(args, "plugin", None)
+        try:
+            data = mp.generate_adapters(
+                root,
+                plugins_dir=plugins_dir,
+                out_root=out_root,
+                harnesses=harnesses,
+                clean=clean,
+                include_skillpacks=include_sp,
+                plugin=plugin,
+                max_privilege=max_priv,
+            )
+        except mp.MarketplaceError as e:
+            print(f"MarketplaceError: {e}", file=sys.stderr)
+            return 1
+        if as_json:
+            print(json.dumps(data, indent=2, default=str))
+        else:
+            print(mp.format_generate(data))
+        return 0 if data.get("ok") else 1
+
+    if sub in ("validate-generated", "validate_generated"):
+        out_root = getattr(args, "out", None)
+        if not out_root:
+            out_root = mp.generate_adapters_root(root)
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        data = mp.validate_generated(
+            out_root,
+            harnesses=harnesses,
+            fail_on_oversize=bool(getattr(args, "strict_size", True)),
+        )
+        if as_json:
+            print(json.dumps(data, indent=2, default=str))
+        else:
+            print(mp.format_validate_generated(data))
+        return 0 if data.get("ok") else 1
+
+    if sub in ("round-trip", "round_trip"):
+        # wshobson-shaped: generate → count integrity → validate_generated
+        out_root = getattr(args, "out", None)
+        harnesses = getattr(args, "harness", None)
+        if harnesses:
+            harnesses = list(harnesses)
+        # default skillpacks off for fast CI smoke unless explicitly requested
+        if getattr(args, "no_skillpacks", False):
+            include_sp_rt = False
+        elif bool(getattr(args, "include_skillpacks", False)):
+            include_sp_rt = True
+        else:
+            include_sp_rt = False
+        plugin = getattr(args, "plugin", None)
+        try:
+            data = mp.round_trip(
+                root,
+                plugins_dir=plugins_dir,
+                out_root=out_root,
+                harnesses=harnesses,
+                include_skillpacks=include_sp_rt,
+                clean=bool(getattr(args, "clean", True)),
+                plugin=plugin,
+                max_privilege=max_priv,
+                fail_on_oversize=bool(getattr(args, "strict_size", True)),
+            )
+        except mp.MarketplaceError as e:
+            print(f"MarketplaceError: {e}", file=sys.stderr)
+            return 1
+        if as_json:
+            print(json.dumps(data, indent=2, default=str))
+        else:
+            print(mp.format_round_trip(data))
+        return 0 if data.get("ok") else 1
+
+    print(
+        "usage: nexus marketplace list|validate|catalog|collisions|self-check|"
+        "capabilities|portability|garden|export|generate|validate-generated|"
+        "round-trip",
+        file=sys.stderr,
+    )
     return 2
 
 
@@ -2445,6 +2757,695 @@ def cmd_tools(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_tool_agent(args: argparse.Namespace) -> int:
+    """Multi-LLM Planner → Caller / Orchestrator (arXiv 2401.07324)."""
+    from . import multi_llm_agent as mla
+
+    sub = getattr(args, "tool_agent_cmd", None) or "plan"
+    as_json = bool(getattr(args, "json", False))
+    task = str(getattr(args, "task", "") or "").strip()
+    tools_raw = str(getattr(args, "tools", "") or "").strip()
+    max_steps = int(getattr(args, "max_steps", 5) or 5)
+
+    def _tools() -> list[str]:
+        if tools_raw:
+            return [t.strip() for t in tools_raw.split(",") if t.strip()]
+        # Prefer live catalog names (read-tier); fall back to stubs.
+        live = mla.default_tools_from_catalog(max_privilege="read")
+        if live:
+            return [str(t.get("name")) for t in live if t.get("name")]
+        return list(mla.DEFAULT_ORCH_TOOLS)
+
+    if sub == "plan":
+        if not task:
+            print("usage: nexus tool-agent plan <task>", file=sys.stderr)
+            return 2
+        tools = _tools()
+        planner = mla.Planner(
+            tools=tools,
+            max_steps=max_steps,
+            auto_ready=not bool(getattr(args, "no_ready", False)),
+        )
+        plan = planner.plan(
+            task, auto_ready=not bool(getattr(args, "no_ready", False))
+        )
+        if as_json:
+            print(plan.to_json())
+        else:
+            print(mla.format_plan(plan))
+        return 0 if plan.steps else 1
+
+    if sub == "run":
+        if not task:
+            print("usage: nexus tool-agent run <task>", file=sys.stderr)
+            return 2
+        tools = _tools()
+        # Mock registry: proves Planner→Caller gate without side effects.
+        registry = {
+            t: (lambda _t=t, **kw: {"ok": True, "tool": _t, "args": kw, "mock": True})
+            for t in tools
+        }
+        agent = mla.MultiLLMToolAgent(
+            tools=tools, registry=registry, max_steps=max_steps
+        )
+        report = agent.run(task)
+        if as_json:
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(mla.format_report(report))
+            if report.get("plan"):
+                print()
+                print(mla.format_plan(report["plan"]))
+        return 0 if report.get("ok") else 1
+
+    if sub == "handoff":
+        # Dedicated Planner → Orchestrator (portfolio concrete for arXiv 2401.07324)
+        if not task:
+            print("usage: nexus tool-agent handoff <task>", file=sys.stderr)
+            return 2
+        tools = _tools()
+        workdir = getattr(args, "workdir", None) or None
+        if workdir:
+            workdir = str(workdir)
+        tid = str(getattr(args, "task_id", "") or "").strip() or None
+        agent_mode = str(getattr(args, "agent_mode", "fake") or "fake")
+        report = mla.plan_and_handoff(
+            task,
+            workdir=workdir,
+            tools=tools,
+            max_steps=max_steps,
+            agent_mode=agent_mode,
+            task_id=tid,
+            require_ready=not bool(getattr(args, "no_require", False)),
+            sync_fake=True,
+        )
+        if as_json:
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(mla.format_report(report))
+            if report.get("plan"):
+                print()
+                print(mla.format_plan(report["plan"]))
+            orch = report.get("orchestrator") or {}
+            if orch:
+                print(
+                    f"\norchestrator: task_id={orch.get('task_id')} "
+                    f"status={orch.get('status')} pre_planned={orch.get('pre_planned')}"
+                )
+                ps = orch.get("plan_summary") or {}
+                if ps:
+                    print(f"plan_summary: {json.dumps(ps, default=str)}")
+        ok = bool(report.get("ok")) and (report.get("orchestrator") or {}).get(
+            "status"
+        ) not in ("failed", None)
+        return 0 if ok else 1
+
+    if sub == "prompt":
+        if not task:
+            print("usage: nexus tool-agent prompt <task>", file=sys.stderr)
+            return 2
+        tools = _tools()
+        # Prefer full catalog entries for descriptions when available.
+        live = mla.default_tools_from_catalog(max_privilege="read")
+        catalog: list = live if live else tools
+        planner = mla.Planner(tools=catalog)
+        print(planner.prompt_block(task, tools=catalog))
+        return 0
+
+    if sub == "validate":
+        path = getattr(args, "file", None)
+        if path:
+            text = Path(path).read_text(encoding="utf-8")
+        else:
+            text = sys.stdin.read()
+        try:
+            plan = mla.parse_plan_json(text)
+        except mla.PlanError as e:
+            print(json.dumps({"ok": False, "error": str(e)}))
+            return 1
+        allowed = _tools() if tools_raw else None
+        rep = mla.validate_plan(plan, allowed_tools=allowed)
+        print(json.dumps(rep, indent=2))
+        return 0 if rep.get("ok") else 1
+
+    # arXiv 2401.07324 × wshobson/agents — Planner over Markdown marketplace catalog
+    if sub in ("market-plan", "market-handoff", "market-catalog", "market-prompt"):
+        from . import marketplace_planner as mplan
+
+        workdir = getattr(args, "workdir", None) or None
+        if workdir:
+            workdir = str(workdir)
+        else:
+            workdir = str(Path.cwd())
+        kinds_raw = str(getattr(args, "kinds", "") or "agent,skill,command")
+        kinds = tuple(k.strip() for k in kinds_raw.split(",") if k.strip()) or (
+            "agent",
+            "skill",
+            "command",
+        )
+        plugins_dir = str(getattr(args, "plugins_dir", None) or "plugins")
+
+        if sub == "market-catalog":
+            tools = mplan.marketplace_as_tools(
+                workdir, plugins_dir=plugins_dir, kinds=kinds
+            )
+            summary = mplan.catalog_summary(tools)
+            if as_json:
+                print(
+                    json.dumps(
+                        {
+                            "schema": mplan.SCHEMA,
+                            "summary": summary,
+                            "tools": tools,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                print(
+                    f"schema={mplan.SCHEMA} tools={summary['n_tools']} "
+                    f"plugins={summary['n_plugins']} by_kind={summary['by_kind']}"
+                )
+                for t in tools:
+                    print(f"  - {t['name']}: {(t.get('description') or '')[:80]}")
+            return 0 if tools else 1
+
+        if sub == "market-prompt":
+            if not task:
+                print(
+                    "usage: nexus tool-agent market-prompt <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            planner = mplan.MarketplacePlanner(
+                workdir=workdir, plugins_dir=plugins_dir, kinds=kinds
+            )
+            print(planner.prompt_block(task))
+            return 0
+
+        if sub == "market-plan":
+            if not task:
+                print(
+                    "usage: nexus tool-agent market-plan <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            plan = mplan.plan_from_marketplace(
+                task,
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                kinds=kinds,
+                max_steps=max_steps,
+                auto_ready=not bool(getattr(args, "no_ready", False)),
+            )
+            if as_json:
+                print(plan.to_json())
+            else:
+                print(mplan.format_market_plan(plan))
+            return 0 if plan.steps else 1
+
+        if sub == "market-handoff":
+            if not task:
+                print(
+                    "usage: nexus tool-agent market-handoff <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            tid = str(getattr(args, "task_id", "") or "").strip() or None
+            agent_mode = str(getattr(args, "agent_mode", "fake") or "fake")
+            report = mplan.plan_and_handoff(
+                task,
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                kinds=kinds,
+                max_steps=max_steps,
+                agent_mode=agent_mode,
+                task_id=tid,
+                require_ready=not bool(getattr(args, "no_require", False)),
+                sync_fake=True,
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(mplan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(mplan.format_market_plan(report["plan"]))
+                orch = report.get("orchestrator") or {}
+                if orch:
+                    print(
+                        f"\norchestrator: task_id={orch.get('task_id')} "
+                        f"status={orch.get('status')} "
+                        f"pre_planned={orch.get('pre_planned')}"
+                    )
+            ok = bool(report.get("ok")) and (report.get("orchestrator") or {}).get(
+                "status"
+            ) not in ("failed", None)
+            return 0 if ok else 1
+
+    # arXiv 2401.07324 × builderz-labs/mission-control — Planner over SQLite plane
+    if sub in (
+        "plane-plan",
+        "plane-govern",
+        "plane-handoff",
+        "plane-catalog",
+        "plane-prompt",
+    ):
+        from . import control_plane_planner as cplan
+
+        workdir = getattr(args, "workdir", None) or None
+        if workdir:
+            workdir = str(workdir)
+        else:
+            workdir = str(Path.cwd())
+
+        if sub == "plane-catalog":
+            tools = cplan.control_plane_as_tools()
+            summary = cplan.catalog_summary(tools)
+            if as_json:
+                print(
+                    json.dumps(
+                        {
+                            "schema": cplan.SCHEMA,
+                            "summary": summary,
+                            "tools": tools,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                print(
+                    f"schema={cplan.SCHEMA} tools={summary['n_tools']} "
+                    f"by_kind={summary['by_kind']}"
+                )
+                for t in tools:
+                    print(f"  - {t['name']}: {(t.get('description') or '')[:80]}")
+            return 0 if tools else 1
+
+        if sub == "plane-prompt":
+            if not task:
+                print(
+                    "usage: nexus tool-agent plane-prompt <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            print(cplan.ControlPlanePlanner().prompt_block(task))
+            return 0
+
+        if sub == "plane-plan":
+            if not task:
+                print(
+                    "usage: nexus tool-agent plane-plan <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            plan = cplan.plan_from_control_plane(
+                task,
+                max_steps=max_steps,
+                auto_ready=not bool(getattr(args, "no_ready", False)),
+                job_id=str(getattr(args, "job_id", "") or ""),
+                use_lifecycle=(
+                    False if bool(getattr(args, "no_lifecycle", False)) else None
+                ),
+            )
+            if as_json:
+                print(plan.to_json())
+            else:
+                print(cplan.format_plane_plan(plan))
+            return 0 if plan.steps else 1
+
+        if sub == "plane-govern":
+            if not task:
+                print(
+                    "usage: nexus tool-agent plane-govern <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            report = cplan.plan_and_govern(
+                task,
+                workdir=workdir,
+                max_steps=max_steps,
+                job_id=str(getattr(args, "job_id", "") or ""),
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(cplan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(cplan.format_plane_plan(report["plan"]))
+            return 0 if report.get("ok") else 1
+
+        if sub == "plane-handoff":
+            if not task:
+                print(
+                    "usage: nexus tool-agent plane-handoff <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            tid = str(getattr(args, "task_id", "") or "").strip() or None
+            agent_mode = str(getattr(args, "agent_mode", "fake") or "fake")
+            report = cplan.plan_and_handoff(
+                task,
+                workdir=workdir,
+                max_steps=max_steps,
+                agent_mode=agent_mode,
+                task_id=tid,
+                require_ready=not bool(getattr(args, "no_require", False)),
+                govern=not bool(getattr(args, "no_govern", False)),
+                sync_fake=True,
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(cplan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(cplan.format_plane_plan(report["plan"]))
+            ok = bool(report.get("ok")) and (report.get("orchestrator") or {}).get(
+                "status"
+            ) not in ("failed", None)
+            return 0 if ok else 1
+
+    # arXiv 2407.01476 × wshobson/agents — beam/A* search over marketplace → plane
+    if sub in (
+        "search-plan",
+        "search-guide",
+        "search-handoff",
+        "search-catalog",
+        "search-prompt",
+    ):
+        from . import search_plane_planner as splan
+
+        workdir = getattr(args, "workdir", None) or None
+        if workdir:
+            workdir = str(workdir)
+        else:
+            workdir = str(Path.cwd())
+        plugins_dir = str(getattr(args, "plugins_dir", None) or "plugins")
+        algorithm = str(getattr(args, "algorithm", None) or "beam")
+        beam_width = int(getattr(args, "beam_width", 3) or 3)
+        max_depth = int(getattr(args, "max_depth", 4) or 4)
+
+        if sub == "search-catalog":
+            tools = splan.hybrid_catalog(
+                workdir,
+                plugins_dir=plugins_dir,
+                include_plane=not bool(getattr(args, "no_plane", False)),
+            )
+            summary = splan.catalog_summary(tools)
+            if as_json:
+                print(
+                    json.dumps(
+                        {
+                            "schema": splan.SCHEMA,
+                            "summary": summary,
+                            "tools": tools,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                print(
+                    f"schema={splan.SCHEMA} tools={summary['n_tools']} "
+                    f"by_family={summary['by_family']} by_kind={summary['by_kind']}"
+                )
+                for t in tools:
+                    print(f"  - {t['name']}: {(t.get('description') or '')[:80]}")
+            return 0 if tools else 1
+
+        if sub == "search-prompt":
+            if not task:
+                print(
+                    "usage: nexus tool-agent search-prompt <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            planner = splan.SearchPlanePlanner(
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                algorithm=algorithm,
+                beam_width=beam_width,
+                max_depth=max_depth,
+            )
+            print(planner.prompt_block(task))
+            return 0
+
+        if sub == "search-plan":
+            if not task:
+                print(
+                    "usage: nexus tool-agent search-plan <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            plan = splan.plan_from_search(
+                task,
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                algorithm=algorithm,
+                beam_width=beam_width,
+                max_depth=max_depth,
+                guide_plane=not bool(getattr(args, "no_plane_guide", False)),
+                job_id=str(getattr(args, "job_id", "") or ""),
+            )
+            if as_json:
+                print(plan.to_json())
+            else:
+                print(splan.format_search_plan(plan))
+            return 0 if plan.steps else 1
+
+        if sub == "search-guide":
+            if not task:
+                print(
+                    "usage: nexus tool-agent search-guide <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            report = splan.plan_and_guide(
+                task,
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                algorithm=algorithm,
+                beam_width=beam_width,
+                max_depth=max_depth,
+                job_id=str(getattr(args, "job_id", "") or ""),
+                govern=not bool(getattr(args, "no_govern", False)),
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(splan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(splan.format_search_plan(report["plan"]))
+            return 0 if report.get("ok") else 1
+
+        if sub == "search-handoff":
+            if not task:
+                print(
+                    "usage: nexus tool-agent search-handoff <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            tid = str(getattr(args, "task_id", "") or "").strip() or None
+            agent_mode = str(getattr(args, "agent_mode", "fake") or "fake")
+            report = splan.plan_and_handoff(
+                task,
+                workdir=workdir,
+                plugins_dir=plugins_dir,
+                algorithm=algorithm,
+                beam_width=beam_width,
+                max_depth=max_depth,
+                agent_mode=agent_mode,
+                task_id=tid,
+                require_ready=not bool(getattr(args, "no_require", False)),
+                govern=not bool(getattr(args, "no_govern", False)),
+                sync_fake=True,
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(splan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(splan.format_search_plan(report["plan"]))
+                orch = report.get("orchestrator") or {}
+                if orch:
+                    print(
+                        f"\norchestrator: task_id={orch.get('task_id')} "
+                        f"status={orch.get('status')} "
+                        f"pre_planned={orch.get('pre_planned')}"
+                    )
+            ok = bool(report.get("ok")) and (report.get("orchestrator") or {}).get(
+                "status"
+            ) not in ("failed", None)
+            return 0 if ok else 1
+
+    # arXiv 2401.07324 × IBM/AssetOpsBench — Planner over domain MCP catalog
+    if sub in (
+        "aob-plan",
+        "aob-run",
+        "aob-handoff",
+        "aob-catalog",
+        "aob-prompt",
+        "aob-servers",
+    ):
+        from . import assetops_planner as aplan
+
+        workdir = getattr(args, "workdir", None) or None
+        if workdir:
+            workdir = str(workdir)
+        else:
+            workdir = str(Path.cwd())
+
+        if sub == "aob-catalog":
+            tools = aplan.domain_mcp_as_tools()
+            summary = aplan.catalog_summary(tools)
+            if as_json:
+                print(
+                    json.dumps(
+                        {
+                            "schema": aplan.SCHEMA,
+                            "summary": summary,
+                            "tools": tools,
+                        },
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                print(
+                    f"schema={aplan.SCHEMA} tools={summary['n_tools']} "
+                    f"servers={summary['n_servers']} by_server={summary['by_server']}"
+                )
+                for t in tools:
+                    print(f"  - {t['name']}: {(t.get('description') or '')[:80]}")
+            return 0 if tools else 1
+
+        if sub == "aob-servers":
+            servers = aplan.list_domain_servers()
+            if as_json:
+                print(
+                    json.dumps(
+                        {"schema": aplan.SCHEMA, "servers": servers},
+                        indent=2,
+                        default=str,
+                    )
+                )
+            else:
+                print(f"schema={aplan.SCHEMA} n_servers={len(servers)}")
+                for s in servers:
+                    print(
+                        f"  - {s['id']}: n_tools={s['n_tools']} "
+                        f"{(s.get('description') or '')[:60]}"
+                    )
+            return 0 if servers else 1
+
+        if sub == "aob-prompt":
+            if not task:
+                print(
+                    "usage: nexus tool-agent aob-prompt <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            print(aplan.AssetOpsPlanner().prompt_block(task))
+            return 0
+
+        if sub == "aob-plan":
+            if not task:
+                print(
+                    "usage: nexus tool-agent aob-plan <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            plan = aplan.plan_from_assetops(
+                task,
+                max_steps=max_steps,
+                auto_ready=not bool(getattr(args, "no_ready", False)),
+                use_diagnostic=(
+                    False if bool(getattr(args, "no_diagnostic", False)) else None
+                ),
+                site_name=str(getattr(args, "site_name", None) or "MAIN"),
+                asset_id=str(getattr(args, "asset_id", None) or "asset-1"),
+                asset_class=str(getattr(args, "asset_class", None) or "chiller"),
+                sensor=str(getattr(args, "sensor", None) or "temperature"),
+            )
+            if as_json:
+                print(plan.to_json())
+            else:
+                print(aplan.format_assetops_plan(plan))
+            return 0 if plan.steps else 1
+
+        if sub == "aob-run":
+            if not task:
+                print(
+                    "usage: nexus tool-agent aob-run <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            report = aplan.plan_and_run(
+                task,
+                max_steps=max_steps,
+                use_diagnostic=(
+                    False if bool(getattr(args, "no_diagnostic", False)) else None
+                ),
+                site_name=str(getattr(args, "site_name", None) or "MAIN"),
+                asset_id=str(getattr(args, "asset_id", None) or "asset-1"),
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(aplan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(aplan.format_assetops_plan(report["plan"]))
+            return 0 if report.get("ok") else 1
+
+        if sub == "aob-handoff":
+            if not task:
+                print(
+                    "usage: nexus tool-agent aob-handoff <task>",
+                    file=sys.stderr,
+                )
+                return 2
+            tid = str(getattr(args, "task_id", "") or "").strip() or None
+            agent_mode = str(getattr(args, "agent_mode", "fake") or "fake")
+            report = aplan.plan_and_handoff(
+                task,
+                workdir=workdir,
+                max_steps=max_steps,
+                agent_mode=agent_mode,
+                task_id=tid,
+                require_ready=not bool(getattr(args, "no_require", False)),
+                run_mock=bool(getattr(args, "run_mock", False)),
+                sync_fake=True,
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(aplan.format_report(report))
+                if report.get("plan"):
+                    print()
+                    print(aplan.format_assetops_plan(report["plan"]))
+            ok = bool(report.get("ok")) and (report.get("orchestrator") or {}).get(
+                "status"
+            ) not in ("failed", None)
+            return 0 if ok else 1
+
+    print(
+        "usage: nexus tool-agent plan|run|handoff|prompt|validate|"
+        "market-plan|market-handoff|market-catalog|market-prompt|"
+        "plane-plan|plane-govern|plane-handoff|plane-catalog|plane-prompt|"
+        "search-plan|search-guide|search-handoff|search-catalog|search-prompt|"
+        "aob-plan|aob-run|aob-handoff|aob-catalog|aob-servers|aob-prompt",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def cmd_grade(args: argparse.Namespace) -> int:
     """Mine-eval grade ledger CLI (First apply slice / AssetOpsBench-shaped).
 
@@ -2577,12 +3578,183 @@ def cmd_grade(args: argparse.Namespace) -> int:
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
-    """P2.3/P2.4 domain MCP eval smoke + JSON scenario packs."""
+    """P2.3/P2.4 domain MCP eval smoke + JSON scenario packs + MAFBench proxy."""
     from . import mcp_eval as me
 
     root = Path(getattr(args, "path", None) or Path.cwd()).resolve()
     sub = getattr(args, "eval_cmd", None) or "smoke"
     as_json = bool(getattr(args, "json", False))
+
+    # arXiv 2602.03128 — framework-level consensus/orchestration overhead
+    # + AssetOpsBench scenario packs (cross-pattern hybrid)
+    if sub in ("maf", "mafbench"):
+        from . import maf_bench as maf
+
+        if bool(getattr(args, "install_samples", False)):
+            inst = maf.ensure_sample_maf_packs(root)
+            if as_json and bool(getattr(args, "list", False)) is False:
+                # continue after install when also running pack/bench
+                pass
+            if bool(getattr(args, "list_packs", False)):
+                found = maf.discover_maf_packs(root)
+                bundled = maf.list_bundled_maf_packs(root)
+                payload = {
+                    "schema": maf.PACK_SCHEMA,
+                    "install": inst,
+                    "count": len(found),
+                    "packs": [str(p) for p in found],
+                    "bundled": [str(p) for p in bundled],
+                    "bundled_count": len(bundled),
+                }
+                if as_json:
+                    print(json.dumps(payload, indent=2, default=str))
+                else:
+                    print(
+                        f"schema: {maf.PACK_SCHEMA}  installed={inst.get('installed')}  "
+                        f"skipped={inst.get('skipped')}"
+                    )
+                    for p in bundled:
+                        print(f"  bundled: {p}")
+                    for p in found:
+                        print(f"  runtime: {p}")
+                return 0 if inst.get("ok") else 1
+
+        if bool(getattr(args, "list_packs", False)):
+            found = maf.discover_maf_packs(root)
+            bundled = maf.list_bundled_maf_packs(root)
+            payload = {
+                "schema": maf.PACK_SCHEMA,
+                "count": len(found),
+                "packs": [str(p) for p in found],
+                "bundled": [str(p) for p in bundled],
+                "bundled_count": len(bundled),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2, default=str))
+            else:
+                print(
+                    f"schema: {maf.PACK_SCHEMA}  runtime={len(found)}  "
+                    f"bundled={len(bundled)}"
+                )
+                for p in bundled:
+                    print(f"  bundled: {p}")
+                for p in found:
+                    print(f"  runtime: {p}")
+            return 0
+
+        if bool(getattr(args, "list", False)):
+            rows = maf.list_mechanisms()
+            payload = {
+                "schema": maf.SCHEMA,
+                "paper": maf.PAPER,
+                "count": len(rows),
+                "mechanisms": rows,
+                "domain_mcp_servers": maf.list_domain_mcp_servers(),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2, default=str))
+            else:
+                print(f"schema: {maf.SCHEMA}  paper={maf.PAPER}  count={len(rows)}")
+                print(f"{'ID':16} {'FAMILY':14} DESCRIPTION")
+                for r in rows:
+                    print(
+                        f"{r.get('id', ''):16} {r.get('family', ''):14} "
+                        f"{r.get('description', '')}"
+                    )
+                print("\ndomain_mcp servers (AssetOpsBench multi-server shape):")
+                for s in maf.list_domain_mcp_servers():
+                    print(
+                        f"  {s['id']:10} → {s['assetops_analogue']:12} "
+                        f"{s.get('description', '')}"
+                    )
+            return 0
+
+        if bool(getattr(args, "brief", False)):
+            iters = int(getattr(args, "iters", None) or 2)
+            brief = maf.maf_brief(root, iters=iters, include_pack=True)
+            if as_json:
+                print(json.dumps(brief, indent=2, default=str))
+            else:
+                print(maf.format_brief(brief))
+            return 0 if brief.get("ok") else 1
+
+        pack_raw = getattr(args, "pack", None) or ""
+        packs: list[str] = []
+        if pack_raw:
+            packs = [p.strip() for p in str(pack_raw).split(",") if p.strip()]
+        pack_paths: list[str] = []
+        for p in packs:
+            pp = Path(p)
+            pack_paths.append(str(pp if pp.is_absolute() else (root / pp)))
+        discover = bool(getattr(args, "discover_packs", False))
+        use_pack_mode = bool(pack_paths) or discover or bool(
+            getattr(args, "pack_mode", False)
+        )
+
+        mech_raw = getattr(args, "mechanism", None) or ""
+        mechanisms = (
+            [m.strip() for m in str(mech_raw).split(",") if m.strip()]
+            if mech_raw
+            else None
+        )
+        iters = int(getattr(args, "iters", None) or maf.DEFAULT_ITERS)
+        do_export = not bool(getattr(args, "no_export", False))
+        out_dir = getattr(args, "out", None) or maf.DEFAULT_OUT_DIR
+
+        if use_pack_mode:
+            include_builtin = not bool(getattr(args, "no_builtin", False))
+            if bool(getattr(args, "install_samples", False)):
+                maf.ensure_sample_maf_packs(root)
+                discover = True
+            report = maf.run_maf_scenarios(
+                root,
+                packs=pack_paths or None,
+                include_builtin=include_builtin,
+                discover=discover,
+                iters=iters,
+                export=do_export,
+                out_dir=str(out_dir),
+            )
+            if as_json:
+                print(json.dumps(report, indent=2, default=str))
+            else:
+                print(maf.format_pack_report(report))
+                exp = report.get("export") or {}
+                if exp:
+                    print(f"export: json={exp.get('json')}  md={exp.get('md')}")
+                if report.get("error"):
+                    print(f"error: {report['error']}", file=sys.stderr)
+            return 0 if report.get("ok") else 1
+
+        if bool(getattr(args, "install_samples", False)):
+            inst = maf.ensure_sample_maf_packs(root)
+            if as_json:
+                print(json.dumps(inst, indent=2, default=str))
+            else:
+                print(
+                    f"installed={inst.get('installed')}  skipped={inst.get('skipped')}  "
+                    f"dest={inst.get('dest')}"
+                )
+            return 0 if inst.get("ok") else 1
+
+        report = maf.run_maf_bench(
+            root,
+            iters=iters,
+            mechanisms=mechanisms,
+            export=do_export,
+            out_dir=str(out_dir),
+        )
+        if as_json:
+            print(json.dumps(report, indent=2, default=str))
+        else:
+            print(maf.format_report(report))
+            exp = report.get("export") or {}
+            if exp:
+                print(f"export: json={exp.get('json')}  md={exp.get('md')}")
+            if report.get("error"):
+                print(f"error: {report['error']}", file=sys.stderr)
+        return 0 if report.get("ok") else 1
+
     max_priv = getattr(args, "max_privilege", None)
     domain_raw = getattr(args, "domain", None) or ""
     domains = (
@@ -2725,7 +3897,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
                 print(f"packs:  {', '.join(pack_paths)}")
         return 0 if report.get("ok") else 1
 
-    print("usage: nexus eval list|smoke|run|packs", file=sys.stderr)
+    print("usage: nexus eval list|smoke|run|packs|maf", file=sys.stderr)
     return 2
 
 
@@ -3243,7 +4415,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         "alive",
         "vault",
         "skillpacks",
+        "marketplace",
         "tools",
+        "tool-agent",
         "eval",
         "grade",
         "improve",
@@ -3995,6 +5169,57 @@ def main(argv: Optional[list[str]] = None) -> int:
     ops_ss.add_argument("status", help="inbox|running|blocked|completed|failed|cancelled")
     ops_ss.add_argument("--path", default=".")
     ops_ss.set_defaults(func=cmd_ops)
+    # FutureWeaver × mission-control: multi-agent compute budget on ops plane
+    ops_bud = ops_sub.add_parser(
+        "budget",
+        help=(
+            "multi-agent compute budget plane (FutureWeaver plan/track/limit "
+            "+ SQLite job governance)"
+        ),
+    )
+    ops_bud_sub = ops_bud.add_subparsers(dest="budget_cmd")
+    for _bname, _bhelp in (
+        ("plan", "plan + bind compute budget to a job"),
+        ("status", "show plan + agent spend board"),
+        ("record", "record agent token usage (hard-limit)"),
+        ("report", "agent cost report"),
+        ("brief", "one-line brief"),
+        ("rebalance", "redistribute residual modular shares"),
+        ("finish", "finish agent or set job terminal status"),
+    ):
+        _bp = ops_bud_sub.add_parser(_bname, help=_bhelp)
+        _bp.add_argument("--path", default=".")
+        _bp.add_argument("--job-id", dest="job_id", default="")
+        _bp.add_argument("--agent", default="")
+        _bp.add_argument("--tokens", type=int, default=0)
+        _bp.add_argument("--steps", type=int, default=0)
+        _bp.add_argument("--total-tokens", type=int, default=0)
+        _bp.add_argument(
+            "--strategy",
+            default="weighted",
+            help="equal|weighted|modular",
+        )
+        _bp.add_argument(
+            "--agents",
+            default=None,
+            help="comma-separated agent roster",
+        )
+        _bp.add_argument(
+            "--hard",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="hard-fail when share exhausted (default true)",
+        )
+        _bp.add_argument("--finish", action="store_true")
+        _bp.add_argument("--rebalance", action="store_true")
+        _bp.add_argument("--status", default="")
+        _bp.add_argument("--title", default="")
+        _bp.add_argument("--goal", default="")
+        _bp.add_argument("--kind", default="task")
+        _bp.add_argument("--limit", type=int, default=500)
+        _bp.add_argument("--json", action="store_true")
+        _bp.set_defaults(func=cmd_ops, ops_cmd="budget", budget_cmd=_bname)
+    ops_bud.set_defaults(func=cmd_ops, ops_cmd="budget", budget_cmd="status")
     ops.set_defaults(func=cmd_ops, ops_cmd="list")
 
     us = sub.add_parser("usage", help="token budget / throttle (daily/monthly caps)")
@@ -4338,6 +5563,311 @@ def main(argv: Optional[list[str]] = None) -> int:
     tk_resume.add_argument("--state-dir", default=None)
     tk_resume.set_defaults(func=cmd_task)
 
+    _mkt_harness_choices = [
+        "claude",
+        "cursor",
+        "codex",
+        "opencode",
+        "gemini",
+        "copilot",
+        "grok",
+        "local",
+    ]
+    mkt = sub.add_parser(
+        "marketplace",
+        help=(
+            "plugin marketplace: list / validate / catalog / collisions / "
+            "self-check / capabilities / portability / garden / export / "
+            "generate / validate-generated / round-trip "
+            "(wshobson multi-harness adapters)"
+        ),
+    )
+    mkt_sub = mkt.add_subparsers(dest="marketplace_cmd")
+    mkt_list = mkt_sub.add_parser("list", help="list plugins under plugins/")
+    mkt_list.add_argument("--path", default=None, help="project root (default: cwd)")
+    mkt_list.add_argument("--plugins-dir", default="plugins")
+    mkt_list.add_argument("--json", action="store_true")
+    mkt_list.add_argument("--validate", action="store_true", help="include valid flag")
+    mkt_list.add_argument(
+        "--include-skillpacks",
+        action="store_true",
+        help="also list skillpacks/ as thin single-skill plugins",
+    )
+    mkt_list.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="filter plugins above this privilege (least-privilege)",
+    )
+    mkt_list.set_defaults(func=cmd_marketplace)
+    mkt_val = mkt_sub.add_parser("validate", help="structural validate plugins")
+    mkt_val.add_argument("plugin", nargs="?", default=None, help="optional plugin id")
+    mkt_val.add_argument("--path", default=None)
+    mkt_val.add_argument("--plugins-dir", default="plugins")
+    mkt_val.add_argument("--json", action="store_true")
+    mkt_val.set_defaults(func=cmd_marketplace)
+    mkt_cat = mkt_sub.add_parser("catalog", help="build unified marketplace catalog")
+    mkt_cat.add_argument("--path", default=None)
+    mkt_cat.add_argument("--plugins-dir", default="plugins")
+    mkt_cat.add_argument("--json", action="store_true")
+    mkt_cat.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="exclude skillpacks/ thin plugins from catalog",
+    )
+    mkt_cat.set_defaults(func=cmd_marketplace)
+    mkt_col = mkt_sub.add_parser(
+        "collisions",
+        help="cross-plugin agent/skill/command name collisions",
+    )
+    mkt_col.add_argument("--path", default=None)
+    mkt_col.add_argument("--plugins-dir", default="plugins")
+    mkt_col.add_argument("--json", action="store_true")
+    mkt_col.set_defaults(func=cmd_marketplace)
+    mkt_sc = mkt_sub.add_parser(
+        "self-check",
+        help=(
+            "validate + collisions + skillpack + garden + portability "
+            "gate (alive/CI)"
+        ),
+    )
+    mkt_sc.add_argument("--path", default=None)
+    mkt_sc.add_argument("--plugins-dir", default="plugins")
+    mkt_sc.add_argument("--json", action="store_true")
+    mkt_sc.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="skip skillpack thin-index checks",
+    )
+    mkt_sc.add_argument(
+        "--strict-size",
+        action="store_true",
+        help="treat skill body oversize (Codex 8KiB) as error",
+    )
+    mkt_sc.set_defaults(func=cmd_marketplace)
+    mkt_caps = mkt_sub.add_parser(
+        "capabilities",
+        help="multi-harness capability matrix (native skills/agents/commands)",
+    )
+    mkt_caps.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable)",
+    )
+    mkt_caps.add_argument("--json", action="store_true")
+    mkt_caps.set_defaults(func=cmd_marketplace)
+    mkt_port = mkt_sub.add_parser(
+        "portability",
+        help="score plugins for multi-harness reuse (command→skill degrade)",
+    )
+    mkt_port.add_argument("--path", default=None)
+    mkt_port.add_argument("--plugins-dir", default="plugins")
+    mkt_port.add_argument("--json", action="store_true")
+    mkt_port.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="exclude skillpacks/ from portability score",
+    )
+    mkt_port.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable)",
+    )
+    mkt_port.add_argument(
+        "--strict-size",
+        action="store_true",
+        help="treat skill body oversize as error",
+    )
+    mkt_port.set_defaults(func=cmd_marketplace)
+    mkt_garden = mkt_sub.add_parser(
+        "garden",
+        help="drift gate: oversize skills, thin bodies, progressive disclosure",
+    )
+    mkt_garden.add_argument("--path", default=None)
+    mkt_garden.add_argument("--plugins-dir", default="plugins")
+    mkt_garden.add_argument("--json", action="store_true")
+    mkt_garden.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="exclude skillpacks/ from garden scan",
+    )
+    mkt_garden.add_argument(
+        "--strict-size",
+        action="store_true",
+        help="treat skill body oversize (Codex 8KiB) as error",
+    )
+    mkt_garden.set_defaults(func=cmd_marketplace)
+    mkt_exp = mkt_sub.add_parser(
+        "export",
+        help="emit multi-harness marketplace registries + per-plugin stubs",
+    )
+    mkt_exp.add_argument("--path", default=None)
+    mkt_exp.add_argument("--plugins-dir", default="plugins")
+    mkt_exp.add_argument(
+        "--out",
+        default=None,
+        help="output root (default: .nexus_state/generated_marketplace)",
+    )
+    mkt_exp.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable)",
+    )
+    mkt_exp.add_argument(
+        "--clean",
+        action="store_true",
+        help="remove prior harness registry files first",
+    )
+    mkt_exp.add_argument(
+        "--no-stubs",
+        action="store_true",
+        help="skip per-plugin harness stub indexes",
+    )
+    mkt_exp.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="exclude skillpacks/ from catalog and stubs",
+    )
+    mkt_exp.add_argument("--json", action="store_true")
+    mkt_exp.set_defaults(func=cmd_marketplace)
+    mkt_gen = mkt_sub.add_parser(
+        "generate",
+        help=(
+            "multi-harness adapters: rewrite frontmatter, command→skill, "
+            "skill body cap split (wshobson tools/adapters shape)"
+        ),
+    )
+    mkt_gen.add_argument("--path", default=None)
+    mkt_gen.add_argument("--plugins-dir", default="plugins")
+    mkt_gen.add_argument(
+        "--out",
+        default=None,
+        help="output root (default: .nexus_state/generated_adapters)",
+    )
+    mkt_gen.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable)",
+    )
+    mkt_gen.add_argument(
+        "--plugin",
+        default=None,
+        help="generate a single plugin id only",
+    )
+    mkt_gen.add_argument(
+        "--clean",
+        action="store_true",
+        help="remove prior generated plugin trees for selected harnesses",
+    )
+    mkt_gen.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="exclude skillpacks/ thin plugins from generate",
+    )
+    mkt_gen.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="filter plugins above this privilege",
+    )
+    mkt_gen.add_argument("--json", action="store_true")
+    mkt_gen.set_defaults(func=cmd_marketplace)
+    mkt_vg = mkt_sub.add_parser(
+        "validate-generated",
+        help="structural gate on generated adapter trees (skill caps, maps)",
+    )
+    mkt_vg.add_argument("--path", default=None, help="project root (for default out)")
+    mkt_vg.add_argument(
+        "--out",
+        default=None,
+        help="generated adapters root (default: .nexus_state/generated_adapters)",
+    )
+    mkt_vg.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable)",
+    )
+    mkt_vg.add_argument(
+        "--strict-size",
+        action="store_true",
+        default=True,
+        help="treat skill body oversize as error (default)",
+    )
+    mkt_vg.add_argument("--json", action="store_true")
+    mkt_vg.set_defaults(func=cmd_marketplace)
+    mkt_rt = mkt_sub.add_parser(
+        "round-trip",
+        help=(
+            "generate → source/expected count integrity → validate-generated "
+            "(wshobson round-trip gate; CI smoke)"
+        ),
+    )
+    mkt_rt.add_argument("--path", default=None, help="project root (default: cwd)")
+    mkt_rt.add_argument("--plugins-dir", default="plugins")
+    mkt_rt.add_argument(
+        "--out",
+        default=None,
+        help="generated adapters root (default: .nexus_state/generated_adapters)",
+    )
+    mkt_rt.add_argument(
+        "--harness",
+        action="append",
+        default=None,
+        choices=_mkt_harness_choices,
+        help="limit harnesses (repeatable; default: claude,codex,copilot)",
+    )
+    mkt_rt.add_argument(
+        "--plugin",
+        default=None,
+        help="round-trip a single plugin id only",
+    )
+    mkt_rt.add_argument(
+        "--include-skillpacks",
+        action="store_true",
+        help="also generate thin skillpack plugins (default: plugins/ only)",
+    )
+    mkt_rt.add_argument(
+        "--no-skillpacks",
+        action="store_true",
+        help="explicit: plugins/ only (default for round-trip)",
+    )
+    mkt_rt.add_argument(
+        "--clean",
+        action="store_true",
+        default=True,
+        help="remove prior generated plugin trees for selected harnesses (default)",
+    )
+    mkt_rt.add_argument(
+        "--no-clean",
+        action="store_false",
+        dest="clean",
+        help="keep prior generated trees",
+    )
+    mkt_rt.add_argument(
+        "--max-privilege",
+        default=None,
+        choices=["read", "write", "ops", "admin"],
+        help="least-privilege filter",
+    )
+    mkt_rt.add_argument(
+        "--strict-size",
+        action="store_true",
+        default=True,
+        help="treat skill body oversize as error (default)",
+    )
+    mkt_rt.add_argument("--json", action="store_true")
+    mkt_rt.set_defaults(func=cmd_marketplace)
+
     sk = sub.add_parser(
         "skillpacks",
         help="multi-harness skill packs: list / validate / generate / drift (P2.1)",
@@ -4463,6 +5993,468 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     te.add_argument("--json", action="store_true")
     te.set_defaults(func=cmd_tools)
+
+    # arXiv 2401.07324 — Planner before Caller / Orchestrator multi-LLM agent
+    ta = sub.add_parser(
+        "tool-agent",
+        help=(
+            "multi-LLM Planner→Caller|Orchestrator: structured plan before tool "
+            "calls or durable run_task (arXiv 2401.07324)"
+        ),
+    )
+    ta_sub = ta.add_subparsers(dest="tool_agent_cmd")
+    ta_plan = ta_sub.add_parser(
+        "plan", help="Planner only — emit structured JSON list of steps/tools"
+    )
+    ta_plan.add_argument("task", help="task description for the Planner")
+    ta_plan.add_argument(
+        "--tools",
+        default="",
+        help="comma-separated allowed tools (default: read-tier MCP catalog)",
+    )
+    ta_plan.add_argument("--max-steps", type=int, default=5, dest="max_steps")
+    ta_plan.add_argument(
+        "--no-ready",
+        action="store_true",
+        help="leave plan status=draft (do not mark ready)",
+    )
+    ta_plan.add_argument("--json", action="store_true")
+    ta_plan.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plan")
+    ta_run = ta_sub.add_parser(
+        "run",
+        help="Planner → Caller pipeline (mock registry; proves fail-closed gate)",
+    )
+    ta_run.add_argument("task", help="task description")
+    ta_run.add_argument("--tools", default="")
+    ta_run.add_argument("--max-steps", type=int, default=5, dest="max_steps")
+    ta_run.add_argument("--json", action="store_true")
+    ta_run.set_defaults(func=cmd_tool_agent, tool_agent_cmd="run")
+    ta_ho = ta_sub.add_parser(
+        "handoff",
+        help="Planner → Orchestrator: plan then run_task(with_plan) [portfolio slice]",
+    )
+    ta_ho.add_argument("task", help="complex task for the Planner to decompose")
+    ta_ho.add_argument("--tools", default="")
+    ta_ho.add_argument("--max-steps", type=int, default=5, dest="max_steps")
+    ta_ho.add_argument("--task-id", default="", dest="task_id")
+    ta_ho.add_argument(
+        "--agent-mode",
+        default="fake",
+        choices=["fake", "demo", "auto", "bus"],
+        dest="agent_mode",
+    )
+    ta_ho.add_argument(
+        "--workdir",
+        default=None,
+        help="Orchestrator project root (default: cwd / NEXUS_PROJECT_ROOT)",
+    )
+    ta_ho.add_argument(
+        "--no-require",
+        action="store_true",
+        help="do not fail if plan is not ready (soft handoff)",
+    )
+    ta_ho.add_argument("--json", action="store_true")
+    ta_ho.set_defaults(func=cmd_tool_agent, tool_agent_cmd="handoff")
+    ta_prompt = ta_sub.add_parser(
+        "prompt", help="print Planner system prompt (for a stronger live LLM)"
+    )
+    ta_prompt.add_argument("task", help="task description")
+    ta_prompt.add_argument("--tools", default="")
+    ta_prompt.set_defaults(func=cmd_tool_agent, tool_agent_cmd="prompt")
+    ta_val = ta_sub.add_parser(
+        "validate", help="validate plan JSON from --file or stdin"
+    )
+    ta_val.add_argument("--file", default=None, help="path to plan JSON")
+    ta_val.add_argument(
+        "--tools",
+        default="",
+        help="comma-separated allowed tools (unknown tools = error)",
+    )
+    ta_val.add_argument("--json", action="store_true")
+    ta_val.set_defaults(func=cmd_tool_agent, tool_agent_cmd="validate")
+
+    # Portfolio cross_pattern: arXiv 2401.07324 Planner × wshobson marketplace
+    ta_mcat = ta_sub.add_parser(
+        "market-catalog",
+        help="list Markdown marketplace agents/skills/commands as Planner tools",
+    )
+    ta_mcat.add_argument("--workdir", default=None, help="project root with plugins/")
+    ta_mcat.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_mcat.add_argument(
+        "--kinds",
+        default="agent,skill,command",
+        help="comma-separated component kinds",
+    )
+    ta_mcat.add_argument("--json", action="store_true")
+    ta_mcat.set_defaults(func=cmd_tool_agent, tool_agent_cmd="market-catalog")
+
+    ta_mplan = ta_sub.add_parser(
+        "market-plan",
+        help=(
+            "Planner over marketplace catalog (arXiv 2401.07324 × wshobson/agents); "
+            "no side effects"
+        ),
+    )
+    ta_mplan.add_argument("task", help="complex task for marketplace Planner")
+    ta_mplan.add_argument("--workdir", default=None)
+    ta_mplan.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_mplan.add_argument("--kinds", default="agent,skill,command")
+    ta_mplan.add_argument("--max-steps", type=int, default=5, dest="max_steps")
+    ta_mplan.add_argument(
+        "--no-ready",
+        action="store_true",
+        help="leave plan status=draft",
+    )
+    ta_mplan.add_argument("--json", action="store_true")
+    ta_mplan.set_defaults(func=cmd_tool_agent, tool_agent_cmd="market-plan")
+
+    ta_mho = ta_sub.add_parser(
+        "market-handoff",
+        help="Marketplace Planner → Orchestrator run_task(with_plan)",
+    )
+    ta_mho.add_argument("task", help="complex task description")
+    ta_mho.add_argument("--workdir", default=None)
+    ta_mho.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_mho.add_argument("--kinds", default="agent,skill,command")
+    ta_mho.add_argument("--max-steps", type=int, default=5, dest="max_steps")
+    ta_mho.add_argument("--task-id", default="", dest="task_id")
+    ta_mho.add_argument(
+        "--agent-mode",
+        default="fake",
+        choices=["fake", "demo", "auto", "bus"],
+        dest="agent_mode",
+    )
+    ta_mho.add_argument(
+        "--no-require",
+        action="store_true",
+        help="soft handoff if plan not ready",
+    )
+    ta_mho.add_argument("--json", action="store_true")
+    ta_mho.set_defaults(func=cmd_tool_agent, tool_agent_cmd="market-handoff")
+
+    ta_mpr = ta_sub.add_parser(
+        "market-prompt",
+        help="print Planner LLM prompt over marketplace catalog",
+    )
+    ta_mpr.add_argument("task", help="task description")
+    ta_mpr.add_argument("--workdir", default=None)
+    ta_mpr.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_mpr.add_argument("--kinds", default="agent,skill,command")
+    ta_mpr.set_defaults(func=cmd_tool_agent, tool_agent_cmd="market-prompt")
+
+    # Portfolio cross_pattern: arXiv 2401.07324 Planner × mission-control plane
+    ta_pcat = ta_sub.add_parser(
+        "plane-catalog",
+        help="list SQLite control-plane ops as Planner tools (mission-control shape)",
+    )
+    ta_pcat.add_argument("--json", action="store_true")
+    ta_pcat.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plane-catalog")
+
+    ta_pplan = ta_sub.add_parser(
+        "plane-plan",
+        help=(
+            "Planner over control-plane catalog "
+            "(arXiv 2401.07324 × builderz-labs/mission-control); no SQLite writes"
+        ),
+    )
+    ta_pplan.add_argument("task", help="complex task for control-plane Planner")
+    ta_pplan.add_argument("--max-steps", type=int, default=6, dest="max_steps")
+    ta_pplan.add_argument("--job-id", default="", dest="job_id")
+    ta_pplan.add_argument(
+        "--no-lifecycle",
+        action="store_true",
+        help="use heuristic ranking instead of full governance lifecycle",
+    )
+    ta_pplan.add_argument(
+        "--no-ready",
+        action="store_true",
+        help="leave plan status=draft",
+    )
+    ta_pplan.add_argument("--json", action="store_true")
+    ta_pplan.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plane-plan")
+
+    ta_pgov = ta_sub.add_parser(
+        "plane-govern",
+        help="Planner → execute governance ops on SQLite OpsStore",
+    )
+    ta_pgov.add_argument("task", help="complex task description")
+    ta_pgov.add_argument("--workdir", default=None)
+    ta_pgov.add_argument("--max-steps", type=int, default=6, dest="max_steps")
+    ta_pgov.add_argument("--job-id", default="", dest="job_id")
+    ta_pgov.add_argument("--json", action="store_true")
+    ta_pgov.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plane-govern")
+
+    ta_pho = ta_sub.add_parser(
+        "plane-handoff",
+        help="Control-plane Planner → govern (opt) → Orchestrator with_plan",
+    )
+    ta_pho.add_argument("task", help="complex task description")
+    ta_pho.add_argument("--workdir", default=None)
+    ta_pho.add_argument("--max-steps", type=int, default=6, dest="max_steps")
+    ta_pho.add_argument("--task-id", default="", dest="task_id")
+    ta_pho.add_argument(
+        "--no-govern",
+        action="store_true",
+        help="skip SQLite governance; hand plan to Orchestrator only",
+    )
+    ta_pho.add_argument(
+        "--agent-mode",
+        default="fake",
+        choices=["fake", "demo", "auto", "bus"],
+        dest="agent_mode",
+    )
+    ta_pho.add_argument(
+        "--no-require",
+        action="store_true",
+        help="soft handoff if plan not ready",
+    )
+    ta_pho.add_argument("--json", action="store_true")
+    ta_pho.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plane-handoff")
+
+    ta_ppr = ta_sub.add_parser(
+        "plane-prompt",
+        help="print Planner LLM prompt over control-plane catalog",
+    )
+    ta_ppr.add_argument("task", help="task description")
+    ta_ppr.set_defaults(func=cmd_tool_agent, tool_agent_cmd="plane-prompt")
+
+    # Portfolio cross_pattern: arXiv 2407.01476 tree search × wshobson marketplace
+    ta_scat = ta_sub.add_parser(
+        "search-catalog",
+        help=(
+            "hybrid marketplace+plane catalog for beam/A* search "
+            "(arXiv 2407.01476 × wshobson/agents)"
+        ),
+    )
+    ta_scat.add_argument("--workdir", default=None)
+    ta_scat.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_scat.add_argument(
+        "--no-plane",
+        action="store_true",
+        help="marketplace components only (skip plane.* tools)",
+    )
+    ta_scat.add_argument("--json", action="store_true")
+    ta_scat.set_defaults(func=cmd_tool_agent, tool_agent_cmd="search-catalog")
+
+    ta_splan = ta_sub.add_parser(
+        "search-plan",
+        help=(
+            "beam/A* search over marketplace catalog → control-plane guide plan "
+            "(no side effects)"
+        ),
+    )
+    ta_splan.add_argument("task", help="complex task for search-based Planner")
+    ta_splan.add_argument("--workdir", default=None)
+    ta_splan.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_splan.add_argument(
+        "--algorithm",
+        default="beam",
+        choices=["beam", "astar"],
+        help="tree search algorithm (default: beam)",
+    )
+    ta_splan.add_argument(
+        "--beam-width", type=int, default=3, dest="beam_width"
+    )
+    ta_splan.add_argument(
+        "--max-depth", type=int, default=4, dest="max_depth"
+    )
+    ta_splan.add_argument("--job-id", default="", dest="job_id")
+    ta_splan.add_argument(
+        "--no-plane-guide",
+        action="store_true",
+        dest="no_plane_guide",
+        help="emit marketplace steps only (no plane.* shell)",
+    )
+    ta_splan.add_argument("--json", action="store_true")
+    ta_splan.set_defaults(func=cmd_tool_agent, tool_agent_cmd="search-plan")
+
+    ta_sguide = ta_sub.add_parser(
+        "search-guide",
+        help="search plan → stamp/guide SQLite control plane (plane steps only)",
+    )
+    ta_sguide.add_argument("task", help="complex task description")
+    ta_sguide.add_argument("--workdir", default=None)
+    ta_sguide.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_sguide.add_argument(
+        "--algorithm", default="beam", choices=["beam", "astar"]
+    )
+    ta_sguide.add_argument(
+        "--beam-width", type=int, default=3, dest="beam_width"
+    )
+    ta_sguide.add_argument(
+        "--max-depth", type=int, default=4, dest="max_depth"
+    )
+    ta_sguide.add_argument("--job-id", default="", dest="job_id")
+    ta_sguide.add_argument(
+        "--no-govern",
+        action="store_true",
+        help="plan only; do not write SQLite",
+    )
+    ta_sguide.add_argument("--json", action="store_true")
+    ta_sguide.set_defaults(func=cmd_tool_agent, tool_agent_cmd="search-guide")
+
+    ta_sho = ta_sub.add_parser(
+        "search-handoff",
+        help="beam/A* search → guide plane → Orchestrator with_plan",
+    )
+    ta_sho.add_argument("task", help="complex task description")
+    ta_sho.add_argument("--workdir", default=None)
+    ta_sho.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_sho.add_argument(
+        "--algorithm", default="beam", choices=["beam", "astar"]
+    )
+    ta_sho.add_argument(
+        "--beam-width", type=int, default=3, dest="beam_width"
+    )
+    ta_sho.add_argument(
+        "--max-depth", type=int, default=4, dest="max_depth"
+    )
+    ta_sho.add_argument("--task-id", default="", dest="task_id")
+    ta_sho.add_argument(
+        "--no-govern",
+        action="store_true",
+        help="skip SQLite governance; hand plan to Orchestrator only",
+    )
+    ta_sho.add_argument(
+        "--agent-mode",
+        default="fake",
+        choices=["fake", "demo", "auto", "bus"],
+        dest="agent_mode",
+    )
+    ta_sho.add_argument(
+        "--no-require",
+        action="store_true",
+        help="soft handoff if plan not ready",
+    )
+    ta_sho.add_argument("--json", action="store_true")
+    ta_sho.set_defaults(func=cmd_tool_agent, tool_agent_cmd="search-handoff")
+
+    ta_spr = ta_sub.add_parser(
+        "search-prompt",
+        help="print search-planner prompt over marketplace+plane catalog",
+    )
+    ta_spr.add_argument("task", help="task description")
+    ta_spr.add_argument("--workdir", default=None)
+    ta_spr.add_argument(
+        "--plugins-dir", default="plugins", dest="plugins_dir"
+    )
+    ta_spr.add_argument(
+        "--algorithm", default="beam", choices=["beam", "astar"]
+    )
+    ta_spr.set_defaults(func=cmd_tool_agent, tool_agent_cmd="search-prompt")
+
+    # Portfolio cross_pattern: arXiv 2401.07324 Planner × IBM/AssetOpsBench domains
+    ta_acat = ta_sub.add_parser(
+        "aob-catalog",
+        help=(
+            "list AssetOpsBench-shaped domain MCP tools as Planner catalog "
+            "(iot/fmsr/tsfm/wo/vibration/utilities)"
+        ),
+    )
+    ta_acat.add_argument("--json", action="store_true")
+    ta_acat.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-catalog")
+
+    ta_asrv = ta_sub.add_parser(
+        "aob-servers",
+        help="list AssetOpsBench-shaped domain MCP servers",
+    )
+    ta_asrv.add_argument("--json", action="store_true")
+    ta_asrv.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-servers")
+
+    ta_aplan = ta_sub.add_parser(
+        "aob-plan",
+        help=(
+            "Planner over domain MCP catalog "
+            "(arXiv 2401.07324 × IBM/AssetOpsBench); no industrial backends"
+        ),
+    )
+    ta_aplan.add_argument("task", help="complex multi-domain asset-ops task")
+    ta_aplan.add_argument("--max-steps", type=int, default=8, dest="max_steps")
+    ta_aplan.add_argument("--asset-id", default="asset-1", dest="asset_id")
+    ta_aplan.add_argument("--site-name", default="MAIN", dest="site_name")
+    ta_aplan.add_argument("--asset-class", default="chiller", dest="asset_class")
+    ta_aplan.add_argument("--sensor", default="temperature")
+    ta_aplan.add_argument(
+        "--no-diagnostic",
+        action="store_true",
+        help="use heuristic ranking instead of multi-domain diagnostic workflow",
+    )
+    ta_aplan.add_argument(
+        "--no-ready",
+        action="store_true",
+        help="leave plan status=draft",
+    )
+    ta_aplan.add_argument("--json", action="store_true")
+    ta_aplan.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-plan")
+
+    ta_arun = ta_sub.add_parser(
+        "aob-run",
+        help="Planner → mock-execute domain MCP tools (offline stubs)",
+    )
+    ta_arun.add_argument("task", help="complex multi-domain asset-ops task")
+    ta_arun.add_argument("--max-steps", type=int, default=8, dest="max_steps")
+    ta_arun.add_argument("--asset-id", default="asset-1", dest="asset_id")
+    ta_arun.add_argument("--site-name", default="MAIN", dest="site_name")
+    ta_arun.add_argument(
+        "--no-diagnostic",
+        action="store_true",
+        help="use heuristic ranking instead of multi-domain diagnostic workflow",
+    )
+    ta_arun.add_argument("--json", action="store_true")
+    ta_arun.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-run")
+
+    ta_aho = ta_sub.add_parser(
+        "aob-handoff",
+        help="Domain-MCP Planner → optional mock-run → Orchestrator with_plan",
+    )
+    ta_aho.add_argument("task", help="complex task description")
+    ta_aho.add_argument("--workdir", default=None)
+    ta_aho.add_argument("--max-steps", type=int, default=8, dest="max_steps")
+    ta_aho.add_argument("--task-id", default="", dest="task_id")
+    ta_aho.add_argument(
+        "--run-mock",
+        action="store_true",
+        dest="run_mock",
+        help="execute mock domain registry before Orchestrator handoff",
+    )
+    ta_aho.add_argument(
+        "--agent-mode",
+        default="fake",
+        choices=["fake", "demo", "auto", "bus"],
+        dest="agent_mode",
+    )
+    ta_aho.add_argument(
+        "--no-require",
+        action="store_true",
+        help="soft handoff if plan not ready",
+    )
+    ta_aho.add_argument("--json", action="store_true")
+    ta_aho.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-handoff")
+
+    ta_apr = ta_sub.add_parser(
+        "aob-prompt",
+        help="print Planner LLM prompt over domain MCP catalog",
+    )
+    ta_apr.add_argument("task", help="task description")
+    ta_apr.set_defaults(func=cmd_tool_agent, tool_agent_cmd="aob-prompt")
+
+    ta.set_defaults(func=cmd_tool_agent, tool_agent_cmd=None)
 
     # First apply slice: immutable grade ledger + AssetOpsBench-shaped eval CLI
     gr = sub.add_parser(
@@ -4654,6 +6646,92 @@ def main(argv: Optional[list[str]] = None) -> int:
             help="do not write report files",
         )
         ep.set_defaults(func=cmd_eval)
+
+    # arXiv 2602.03128 MAFBench proxy — consensus + orchestration overhead
+    # + AssetOpsBench scenario packs (cross-pattern hybrid)
+    def _add_maf_args(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--path", default=None, help="project root (default: cwd)")
+        p.add_argument("--json", action="store_true")
+        p.add_argument(
+            "--list",
+            action="store_true",
+            help="list built-in mechanisms (single_judge, consensus, domain_mcp, …)",
+        )
+        p.add_argument(
+            "--brief",
+            action="store_true",
+            help=(
+                "fast alive-style brief: consensus_overhead_x + multi-domain "
+                "MCP hub + pack pass_rate (arXiv 2602.03128 × AssetOpsBench)"
+            ),
+        )
+        p.add_argument(
+            "--list-packs",
+            action="store_true",
+            help="list bundled + runtime MAF scenario packs",
+        )
+        p.add_argument(
+            "--iters",
+            type=int,
+            default=None,
+            help=f"iterations per mechanism (default: {25})",
+        )
+        p.add_argument(
+            "--mechanism",
+            default=None,
+            help="comma-separated mechanism ids (default: all)",
+        )
+        p.add_argument(
+            "--pack",
+            default=None,
+            help=(
+                "JSON MAF scenario pack path(s), comma-separated "
+                "(AssetOpsBench shape → gate scorers)"
+            ),
+        )
+        p.add_argument(
+            "--no-builtin",
+            action="store_true",
+            help="with --pack: skip built-in gate scenarios",
+        )
+        p.add_argument(
+            "--discover-packs",
+            action="store_true",
+            help="also load *.json under .nexus_state/bench/packs",
+        )
+        p.add_argument(
+            "--install-samples",
+            action="store_true",
+            help="copy fixtures/maf_bench/packs → .nexus_state/bench/packs",
+        )
+        p.add_argument(
+            "--out",
+            default=None,
+            help="export dir (default: .nexus_state/bench)",
+        )
+        p.add_argument(
+            "--no-export",
+            action="store_true",
+            help="do not write report files",
+        )
+
+    ev_maf = ev_sub.add_parser(
+        "maf",
+        help=(
+            "MAFBench proxy × AssetOpsBench packs: consensus/orchestration "
+            "overhead + domain_mcp gates (arXiv:2602.03128)"
+        ),
+    )
+    _add_maf_args(ev_maf)
+    ev_maf.set_defaults(func=cmd_eval, eval_cmd="maf")
+    # alias
+    ev_mafb = ev_sub.add_parser(
+        "mafbench",
+        help="alias for eval maf (MAFBench proxy + scenario packs)",
+    )
+    _add_maf_args(ev_mafb)
+    ev_mafb.set_defaults(func=cmd_eval, eval_cmd="maf")
+
     ev.set_defaults(func=cmd_eval, eval_cmd="smoke")
 
     # First apply slice: mine → grade → claim_verify smoke + worktree apply + ledger

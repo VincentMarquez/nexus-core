@@ -62,24 +62,39 @@ class ResearchJobRunner:
         with_brief: bool = True,
         job_id: Optional[str] = None,
         skip_seen: bool = True,
+        extra_queries: Optional[list] = None,
+        reuse_policy: str = "lru",
     ) -> ResearchJob:
         jid = job_id or f"rx-{uuid.uuid4().hex[:10]}"
         work = self.workspace_root / jid
         work.mkdir(parents=True, exist_ok=True)
         job = ResearchJob(job_id=jid, query=query, status="running", work_dir=str(work))
         self.save(job)
+        extras = [str(q).strip() for q in (extra_queries or []) if str(q).strip()]
         print(f"=== NEXUS research: {query!r} ===")
         print(f"  job: {jid}")
         print(f"  dir: {work}")
-        print(f"  ledger: skip_seen={skip_seen} → {arxiv_ledger.docs_csv_path(self.project_root)}")
+        print(
+            f"  ledger: skip_seen={skip_seen} reuse={reuse_policy} "
+            f"extras={len(extras)} → {arxiv_ledger.docs_csv_path(self.project_root)}"
+        )
 
         try:
             if skip_seen:
-                hit = arxiv_ledger.search_new(
-                    query,
-                    max_results=max_results,
-                    workdir=self.project_root,
-                )
+                if extras:
+                    hit = arxiv_ledger.search_fresh_diverse(
+                        [query] + extras,
+                        max_results=max_results,
+                        workdir=self.project_root,
+                        reuse_policy=reuse_policy,
+                    )
+                else:
+                    hit = arxiv_ledger.search_new(
+                        query,
+                        max_results=max_results,
+                        workdir=self.project_root,
+                        reuse_policy=reuse_policy,
+                    )
                 papers = hit["papers"]
                 job.ledger = {
                     k: hit.get(k)
@@ -91,13 +106,24 @@ class ResearchJobRunner:
                         "reused",
                         "ledger_size",
                         "skipped_ids",
+                        "reuse_policy",
+                        "mode",
+                        "queries",
+                        "per_query",
                     )
+                    if k in hit
                 }
                 print(
                     f"  search: fetched={hit['fetched']} new={hit['new']} "
                     f"already_seen={hit['already_seen']} → using {hit['returned']} "
-                    f"(reused={hit['reused']})"
+                    f"(reused={hit['reused']} policy={hit.get('reuse_policy', reuse_policy)})"
                 )
+                if hit.get("per_query"):
+                    for pq in hit["per_query"][:6]:
+                        print(
+                            f"    · {pq.get('query', '')[:50]!r}: "
+                            f"fetched={pq.get('fetched')} new={pq.get('new_in_query')}"
+                        )
             else:
                 papers = arxiv_client.search(query, max_results=max_results)
                 job.ledger = {"skip_seen": False, "returned": len(papers)}

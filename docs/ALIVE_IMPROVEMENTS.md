@@ -951,3 +951,445 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - self_check: ok=True
 - apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md'}
 - evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-16 22:26:15Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
+- self_check: ok=True
+- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md'}
+- publish: pushed=True sha=ec8935d06b01 staged=['docs/ALIVE_IMPROVEMENTS.md', 'docs/ARXIV_LEDGER.csv', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/evidence/gap-demo.json', 'docs/evidence/hitl-demo-3a6a46ef.json', 'docs/evidence/hitl-demo-7bcfe84d.json', 'src/nexus/alive.py', 'src/nexus/grok_worker.py', 'src/nexus/mine_eval_slice.py', 'tests/fixtures/mine_eval_sample.json', 'tests/test_mine_eval_slice.py', 'tests/test_usage_alive.py']
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-17 hard-apply — MAFBench proxy (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2602.03128v1 — MAFBench proxy for consensus/trust + orchestration overhead`
+- mine: IMPROVE_OURS top repos (wshobson / mission-control / solace) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (portfolio #1) + notes under `.nexus_state/arxiv_improve/`
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `nexus.maf_bench/v1` offline framework-level bench: single_judge / consensus / trust_log / orch_linear / orch_dag; p50/p95/mean ms, ops/s, overhead× vs baseline; JSON+MD export under `.nexus_state/bench/`
+  - `src/nexus/cli.py` — `nexus eval maf|mafbench` (`--list` / `--iters` / `--mechanism` / `--json` / `--no-export`)
+  - tests: `tests/test_maf_bench.py` (catalog, metrics, full suite, subset, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified framework metrics; AssetOpsBench scenario→report; existing consensus/trust/steps (pattern only, no tree vendor)
+- related prior: `comm_bench` (paper scoring communication) kept; MAFBench targets consensus+orchestration mechanisms
+- non-goals kept: no vendored MAFBench tree; no live LLM in unit tests; no force-push
+- next open: MCP tool `maf_bench` · alive self-check brief of consensus_overhead_x · sample pack cross-link
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — plugin marketplace (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [github] wshobson/agents — Markdown plugin marketplace + multi-harness registries`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- apply slice (**First apply slice** this session):
+  - `src/nexus/marketplace.py` — `nexus.marketplace/v1` discover/validate/collisions/catalog/export
+  - harness registry export: claude / cursor / codex / opencode / gemini / copilot / grok / local
+  - seed: `plugins/nexus-durable/` (agent + skill + command) + `plugins/README.md`
+  - `src/nexus/cli.py` — `nexus marketplace list|validate|catalog|collisions|export`
+  - `src/nexus/mcp_server.py` — MCP tool `marketplace`
+  - `src/nexus/tool_catalog.py` — privilege `read` for marketplace
+  - tests: `tests/test_marketplace.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: wshobson/agents plugin marketplace + collision gate + multi-harness registries (shape only, no tree vendor); prior skillpacks kept orthogonal
+- non-goals kept: no vendored 94-plugin tree; no full body transforms (skillpacks owns skill emit); no live LLM in unit tests; no force-push
+- next open: wire validate into self-check · per-plugin harness stubs · index skillpacks as thin plugins
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **562 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — MAFBench × AssetOpsBench hybrid (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+IBM/AssetOpsBench — MAFBench proxy + AssetOpsBench scenario packs / domain MCP`
+- mine: IMPROVE_OURS + portfolio cross_pattern #3; local clone `.nexus_workspaces/scout_repos/IBM__AssetOpsBench`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `domain_mcp` mechanism; `nexus.maf_scenario_pack/v1` load/discover/install; `score_overhead_gate`; `run_maf_scenarios` pass-rate report
+  - seed: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ README)
+  - `src/nexus/cli.py` — `eval maf --pack|--list-packs|--install-samples|--discover-packs|--no-builtin`
+  - `src/nexus/mcp_server.py` — MCP tool `maf_bench` (list|run|smoke|pack|packs)
+  - `src/nexus/tool_catalog.py` — privilege `read` for `maf_bench`
+  - tests: `tests/test_maf_bench.py` (gates, packs, domain_mcp, CLI, MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; AssetOpsBench scenario→scorer→pass-rate + domain MCP server shape (pattern only, no tree vendor)
+- related prior: base `maf_bench` mechanism suite kept; `mcp_eval` packs remain orthogonal domain tool smoke
+- non-goals kept: no industrial IoT/CouchDB; no vendored AssetOpsBench/MAFBench trees; no live LLM in unit tests; no force-push
+- next open: alive self-check brief of consensus_overhead_x + pack pass_rate · optional improve/operator domain packs under maf_bench
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **569 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — MAFBench × wshobson/agents hybrid (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+wshobson/agents — MAFBench proxy + Markdown marketplace catalog overhead`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern #4; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `marketplace` mechanism; isolated `_maf_marketplace` fixture (agents/commands/skills); gate keys min_n_plugins/min_n_components/max_n_errors/max_n_collisions; summary `marketplace_overhead_x`
+  - seed pack: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ marketplace scenario + README)
+  - tests: `tests/test_maf_bench.py` (mechanism, fixture layout, gates, pack, CLI/MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; wshobson/agents Markdown marketplace discover/validate/collision/catalog (shape only, no tree vendor); PluginEval L1 static spirit
+- related prior: AssetOpsBench pack hybrid + standalone `marketplace.py` kept orthogonal
+- non-goals kept: no vendored wshobson/MAFBench trees; no live LLM/PluginEval L2; no mutation of repo `plugins/` during bench; no force-push
+- next open: alive self-check brief of consensus_overhead_x + marketplace_overhead_x + pack pass_rate · optional MD frontmatter scenario load
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **572 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — MAFBench × mission-control hybrid (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+builderz-labs/mission-control — MAFBench proxy + SQLite control plane governance overhead`
+- mine: IMPROVE_OURS primary **builderz-labs/mission-control** (score 15) + portfolio cross_pattern #5; local clone `.nexus_workspaces/scout_repos/builderz-labs__mission-control`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `control_plane` mechanism; isolated `_maf_control_plane` OpsStore workdir; job lifecycle inbox→running→spend→blocked→completed + sticky terminal; gate keys min_n_spend/min_total_tokens/min_sticky_ok/min_statuses_walked/min_n_jobs; summary `control_plane_overhead_x`
+  - seed pack: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ control_plane scenario + README)
+  - tests: `tests/test_maf_bench.py` (mechanism, root, gates, pack, CLI/MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; builderz-labs/mission-control SQLite control plane / task governance / spend / sticky terminal (shape only, no tree vendor); reuses in-tree `ops_store`
+- related prior: AssetOpsBench pack hybrid + wshobson marketplace mechanism + standalone `ops_store` kept orthogonal
+- non-goals kept: no vendored mission-control/MAFBench trees; no live LLM/Docker; no mutation of operator `.nexus_state/ops/` during bench; no force-push
+- next open: alive self-check brief of control_plane_overhead_x + pack pass_rate · optional ConsensusJudge nested in plane job meta
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Multi-LLM Planner→Caller (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2401.07324v3 — Small LLMs Are Weak Tool Learners: A Multi-LLM Agent`
+- mine: IMPROVE_OURS top repos (wshobson / mission-control / solace) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent (portfolio #1)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/multi_llm_agent.py` — `nexus.multi_llm_agent/v1` dedicated **Planner** (task → structured JSON `ToolPlan` / `PlanStep` list of tools+args) before **Caller** executes any tool; optional Summarizer rollup
+  - Fail-closed: `CallGateError` if Caller runs without `status=ready` plan; `validate_plan` / `mark_ready` against allowed tool catalog
+  - Offline heuristic Planner + LLM JSON inject (`parse_plan_json` / `plan_from_text` / `prompt_block`)
+  - `MultiLLMToolAgent.run` — plan → call_all → summarize
+  - `src/nexus/cli.py` — `nexus tool-agent plan|run|prompt|validate`
+  - tests: `tests/test_multi_llm_agent.py` (structure, fail-closed, pipeline, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM Planner/Caller/Summarizer split (shape only, no tree vendor); prior tool_catalog as Planner tool list; prior steps/agents role separation
+- related prior: pipeline role `planner` in `steps.py` kept; `plan_reuse` cache remains orthogonal (apply fingerprints, not tool plans)
+- non-goals kept: no vendored Alpha-LLM/upstream tree; no live LLM in unit tests; CLI `run` uses mock registry (no MCP side effects); no force-push
+- next open: MCP tool `tool_agent` · wire structured plan into durable engine step `plan` · optional bus-backed live Planner
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — MAFBench × phodal/routa hybrid (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+phodal/routa — MAFBench proxy + multi-agent delivery board overhead`
+- mine: IMPROVE_OURS + portfolio cross_pattern; local clone `.nexus_workspaces/scout_repos/phodal__routa`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `delivery_board` mechanism; isolated `_maf_delivery_board` fixture; lane walk Backlog→Todo→Dev→Review→Done + sticky Done; roles via `apply_select.check_roles`; traces/evidence/handoffs + `board_signal`; gate keys min_lanes_walked/min_n_traces/min_n_evidence/min_n_handoffs/min_roles_ok/min_signal_ok; summary `delivery_board_overhead_x`
+  - seed pack: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ delivery_board scenario + README)
+  - tests: `tests/test_maf_bench.py` (mechanism, root, gates, pack, CLI/MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; phodal/routa delivery board lanes/roles/traces/evidence/review signal (shape only, no monorepo vendor); reuses in-tree `apply_select` routa-lite board
+- related prior: control_plane / marketplace / domain_mcp mechanisms + improve_board kept orthogonal
+- non-goals kept: no vendored routa/MAFBench trees; no live LLM/Next.js/Tauri; no mutation of operator board state during bench; no force-push
+- next open: alive self-check brief of delivery_board_overhead_x + pack pass_rate · optional ConsensusJudge nested in Review Guard
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Planner→Orchestrator handoff (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2401.07324v3 — dedicated Planner before Orchestrator`
+- mine: IMPROVE_OURS + portfolio #1 arXiv 2401.07324; prior multi_llm Planner→Caller open item
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent
+- apply slice (**First apply slice** this session):
+  - `src/nexus/multi_llm_agent.py` — `plan_for_orchestrator` / `plan_payload_for_meta` / `format_plan_brief` / `plan_and_handoff`; CLI `handoff`
+  - `src/nexus/orchestrator.py` — `run_task(with_plan=…, plan=…, require_plan=…, plan_max_steps=…)`; envelope/ops `tool_plan`; status `plan`/`plan_summary`/`pre_planned`; engine worker injects `task.meta["tool_plan"]` + `plan_brief`/`journal_seed`
+  - `src/nexus/mcp_server.py` — `run_task` args `with_plan` / `require_plan` / `plan_max_steps`
+  - `src/nexus/cli.py` — `nexus tool-agent handoff`
+  - tests: `tests/test_multi_llm_agent.py` (handoff paths), `tests/test_orchestrator.py` (with_plan / inject / require_plan / MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM Planner then durable Orchestrator (shape only); small specialized Planner never executes tools
+- related prior: Planner→Caller kept; `plan_reuse` remains orthogonal
+- non-goals kept: no vendored upstream tree; no live LLM in unit tests; no force-push
+- next open: bus-backed live Planner · evidence-pack surface for tool_plan · MCP `tool_agent` tool
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — wshobson multi-harness portability (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [github] wshobson/agents — capability matrix + portability + garden`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- apply slice (**First apply slice** this session):
+  - `src/nexus/marketplace.py` — `HarnessCapability` / `CAPABILITIES` matrix; `capabilities_matrix`; `portability()` (commands→skills degrade, Codex 8KiB skill cap); `garden()` (oversize / thin / progressive disclosure); `self_check` folds garden + portability
+  - catalog metadata: `codex_skill_body_max_bytes` + capability notes
+  - `src/nexus/cli.py` — `nexus marketplace capabilities|portability|garden` (+ `--strict-size`)
+  - `src/nexus/mcp_server.py` — marketplace actions capabilities / portability / garden
+  - tests: `tests/test_marketplace.py` (matrix, degrade, oversize, CLI/MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`, `plugins/README.md`
+- patterns: wshobson/agents capabilities matrix + harness_portability + garden/skill-cap (shape only, no tree vendor); prior marketplace discover/validate/export kept
+- related prior: skillpacks full-body emit remains orthogonal
+- non-goals kept: no vendored 94-plugin tree; no full adapter body rewrites; no live LLM / harness CLI install in unit tests; no force-push
+- next open: MARKETPLACE.md harness capability table · alive brief of mean_score / oversize_skills · stub degradations field
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — MAFBench × AssetOpsBench multi-domain hub + brief (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+IBM/AssetOpsBench — multi-domain MCP hub + alive brief`
+- mine: IMPROVE_OURS + portfolio cross_pattern #3; local clone `.nexus_workspaces/scout_repos/IBM__AssetOpsBench`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session — close prior open: multi-server hub + alive brief):
+  - `src/nexus/maf_bench.py` — `DOMAIN_MCP_SERVERS` multi-domain hub (status/catalog/grade/vault ↔ AssetOps utilities/iot/fmsr/wo); enhance `domain_mcp` mechanism; gate keys min_n_servers/min_servers_ok_rate; summary domain_mcp_*; `maf_brief()` + `format_brief`
+  - `src/nexus/alive.py` — advisory `maf_brief` row in `_run_checks` (consensus_overhead_x + hub + pack pass_rate; soft)
+  - `src/nexus/cli.py` — `nexus eval maf --brief`; list shows domain servers
+  - `src/nexus/mcp_server.py` — MCP action `brief`
+  - seed pack: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ multi-server gates)
+  - tests: `tests/test_maf_bench.py` (hub, gates, brief, CLI, MCP, alive self_check)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; IBM/AssetOpsBench mcphub multi-server load + scenario pack → gate scorer → pass-rate (shape only, no tree vendor)
+- related prior: base maf_bench mechanisms + mcp_eval domain scenarios kept orthogonal
+- non-goals kept: no industrial IoT/CouchDB; no vendored AssetOpsBench/MAFBench trees; no live LLM in unit tests; brief is advisory in alive; no force-push
+- next open: CI job for `eval maf --brief` · optional improve/operator domain packs · unified alive self-check board export
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Planner × wshobson marketplace hybrid (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2401.07324v3+wshobson/agents — dedicated Planner over Markdown marketplace catalog`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent
+- apply slice (**First apply slice** this session):
+  - `src/nexus/marketplace_planner.py` — `nexus.marketplace_planner/v1`; `marketplace_as_tools()` maps agents/skills/commands → Planner catalog; `MarketplacePlanner` / `plan_from_marketplace` (no side effects); `plan_and_handoff` → Orchestrator `with_plan`; fail-closed empty catalog
+  - step args carry `kind` / `component` / `plugin_id`; planner labels `marketplace-heuristic` / `marketplace-injected`
+  - `src/nexus/cli.py` — `nexus tool-agent market-catalog|market-plan|market-handoff|market-prompt`
+  - tests: `tests/test_marketplace_planner.py` (catalog, plan, fail-closed, handoff, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM dedicated Planner before execution; wshobson/agents single-source Markdown marketplace of plugins (agents/skills/commands) as Planner catalog (shape only, no tree vendor)
+- related prior: `multi_llm_agent` tool Planner + `marketplace` discover/validate kept orthogonal
+- non-goals kept: no vendored 94-plugin tree; no live LLM in unit tests; Planner never executes components; no force-push
+- next open: MCP tool surface for market-plan · bus-backed live Planner LLM · evidence-pack export of market plan
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — MAFBench × wshobson market_plan handoff (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.03128v1+wshobson/agents — MAFBench overhead of marketplace Planner→Orchestrator handoff`
+- mine: IMPROVE_OURS primary **wshobson/agents** + portfolio cross_pattern #5; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2602.03128v1** Understanding Multi-Agent LLM Frameworks (MAFBench)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/maf_bench.py` — `market_plan` mechanism; catalog-as-tools → `plan_from_marketplace` → `plan_and_handoff` (fake orch); metrics n_tools/n_steps/plan_ready/handoff_ok/kinds_ok/pre_planned; gate keys min_n_tools/min_n_steps/min_plan_ready/min_handoff_ok/min_pre_planned/min_kinds_ok; summary market_plan_overhead_x / market_plan_handoff_ok / market_plan_n_steps
+  - seed pack: `fixtures/maf_bench/packs/framework_overhead_gates.json` (+ market_plan scenario + README)
+  - tests: `tests/test_maf_bench.py` (mechanism, gates, CLI, full suite, pack)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv MAFBench unified mechanism metrics; wshobson/agents Markdown marketplace as Planner catalog; plan-before-execute Orchestrator handoff (shape only, no tree vendor)
+- related prior: base `marketplace` catalog micro-bench + `marketplace_planner` module kept; market_plan measures their composed path
+- non-goals kept: no vendored wshobson/MAFBench trees; no live LLM; isolated `_maf_marketplace` fixture; no force-push
+- next open: alive brief field for market_plan_overhead_x · evidence-pack row · optional MCP action alias
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Planner × mission-control control plane (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2401.07324v3+builderz-labs/mission-control — dedicated Planner over SQLite control plane governance`
+- mine: IMPROVE_OURS primary **builderz-labs/mission-control** (score 15) + portfolio cross_pattern #6; local clone `.nexus_workspaces/scout_repos/builderz-labs__mission-control`
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent
+- apply slice (**First apply slice** this session):
+  - `src/nexus/control_plane_planner.py` — `nexus.control_plane_planner/v1`; `control_plane_as_tools()` maps plane.* governance ops → Planner catalog; `lifecycle_plan` (inbox→running→spend→blocked→completed→report); `plan_from_control_plane` (no SQLite writes); `plan_and_govern` → OpsStore Caller; `plan_and_handoff` → govern (opt) + Orchestrator `with_plan`; sticky terminal preserved
+  - `src/nexus/cli.py` — `nexus tool-agent plane-catalog|plane-plan|plane-govern|plane-handoff|plane-prompt`
+  - tests: `tests/test_control_plane_planner.py` (catalog, pure plan, govern, sticky terminal, handoff, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM dedicated Planner before execution; builderz-labs/mission-control SQLite control plane task governance / spend / sticky terminal (shape only, no tree vendor)
+- related prior: `multi_llm_agent` Planner/Caller + `ops_store` jobs/spend kept orthogonal; mirrors `marketplace_planner` hybrid shape
+- non-goals kept: no vendored mission-control tree/UI; no live LLM in unit tests; Planner never writes SQLite; no force-push
+- next open: MAFBench plane_plan mechanism · MCP plane-plan surface · bus-backed live Planner LLM · evidence-pack export
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Planner × IBM/AssetOpsBench domain MCP (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2401.07324v3+IBM/AssetOpsBench — dedicated Planner over multi-domain MCP catalog`
+- mine: IMPROVE_OURS + portfolio cross_pattern #7; local clone `.nexus_workspaces/scout_repos/IBM__AssetOpsBench`
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent
+- apply slice (**First apply slice** this session):
+  - `src/nexus/assetops_planner.py` — `nexus.assetops_planner/v1`; `domain_mcp_as_tools()` maps iot/fmsr/tsfm/wo/vibration/utilities → `aob.<server>.<tool>` Planner catalog; `diagnostic_workflow_plan` (utilities→iot→fmsr→tsfm→[vibration]→wo) with step `depends_on`; `plan_from_assetops` (no industrial backends); `plan_and_run` mock multi-server Caller; `plan_and_handoff` → Orchestrator `with_plan`
+  - `src/nexus/cli.py` — `nexus tool-agent aob-catalog|aob-servers|aob-plan|aob-run|aob-handoff|aob-prompt`
+  - tests: `tests/test_assetops_planner.py` (catalog, pure plan, mock multi-server run, fail-closed, handoff, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM dedicated Planner before execution; IBM/AssetOpsBench multi-domain MCP servers + plan-execute dependency shape (pattern only, no tree vendor)
+- related prior: `multi_llm_agent` Planner/Caller + `mcp_eval`/`maf_bench` domain hub kept orthogonal; mirrors marketplace/control_plane planner hybrids
+- non-goals kept: no vendored AssetOpsBench/CouchDB/IoT fixtures; no live LLM in unit tests; Planner never calls industrial backends; no force-push
+- next open: MAFBench assetops_plan mechanism · MCP aob-plan surface · bus-backed live Planner · NEXUS offline MCP analogues for real execute
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Multi-LLM Planner MCP surface (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2401.07324v3 — Small LLMs Are Weak Tool Learners: A Multi-LLM Agent`
+- mine: IMPROVE_OURS top repos (wshobson / mission-control / solace) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: **2401.07324v3** Small LLMs Are Weak Tool Learners: A Multi-LLM Agent (portfolio #1)
+- apply slice (**First apply slice** this session — close prior open: MCP `tool_agent`):
+  - `src/nexus/multi_llm_agent.py` — `dispatch_action(plan|run|prompt|validate|handoff)` unified surface; Planner still emits structured JSON `ToolPlan` before any Caller tool call
+  - `src/nexus/mcp_server.py` — MCP tool **`tool_agent`** (plan/run/prompt/validate/handoff); fail-closed without ready plan
+  - `src/nexus/tool_catalog.py` — privilege `read` for `tool_agent`
+  - tests: `tests/test_multi_llm_agent.py` (dispatch + MCP plan/run/validate/handoff + catalog)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv multi-LLM Planner before Caller (shape only, no tree vendor); mission-control MCP/CLI parity
+- related prior: core `multi_llm_agent` Planner/Caller/Summarizer + orchestrator `with_plan` kept; domain hybrids (marketplace/control_plane/assetops planners) orthogonal
+- non-goals kept: no vendored paper upstream; no live LLM in unit tests; MCP `run` uses mock Caller; no force-push
+- next open: durable engine step role `plan` journal deeper wire · bus-backed live Planner LLM · MAFBench plan→mock-run overhead
+- evidence: `PYTHONPATH=src python3 -m pytest -q` (see session summary)
+
+## Cycle 2026-07-17 hard-apply — Cedar policy-as-code before consensus promote (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2606.26649v1 — Autoformalization of Agent Instructions into Policy-as-Code`
+- mine: IMPROVE_OURS top repos (wshobson / mission-control / solace) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: **2606.26649v1** Autoformalization of Agent Instructions into Policy-as-Code (portfolio #1)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/cedar_policy.py` — `nexus.cedar_policy/v1` offline Cedar subset (permit/forbid, forbid>permit>deny_default, when atoms)
+  - Default consensus-promote policies: forbid fail/veto/degraded/low-score/low-agreement; permit healthy pass (+ high-score revise)
+  - `parse_cedar_text` / `default_promote_cedar_text` / `authorize` / `validate_promote` / `resource_from_consensus`
+  - `src/nexus/consensus.py` — `validate_promote` / `promote_decision` / `ConsensusVerdict.apply_promote_gate`; aggregate attaches `promote_allowed` + `cedar_policy`
+  - `src/nexus/engine.py` — review→promote path runs Cedar gate after IndependentVerify (opt-out `meta.cedar_policy=false`; floors via `cedar_min_score` / `verify_min_score`)
+  - Journal `consensus` events carry `promote_allowed` / `cedar_decision`
+  - tests: `tests/test_cedar_policy.py`, extended `tests/test_consensus.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv 2606.26649 policy-as-code before promote; AWS Cedar evaluation order (shape only, no tree vendor); prior IndependentVerify kept as independent gate
+- related prior: multi-grader consensus + zenith/cycgraph promote path; Cedar is additional formal policy layer
+- non-goals kept: no vendored cedar-policy crate / paper autoformalizer; no live LLM; full Cedar grammar deferred; no force-push
+- next open: CLI `nexus task cedar` · operator policy files under `.nexus_state/policies/` · MCP validate_promote · improve_apply/worktree promote wire
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **699 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — wshobson marketplace round-trip (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [github] wshobson/agents — multi-harness marketplace adapters + validation + tests`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- apply slice (**First apply slice** this session — close open: round-trip integrity + Makefile gates):
+  - `src/nexus/marketplace.py` — `source_component_counts` / `expected_counts_for_harness` / `count_generated_plugin` / `check_round_trip_counts` / `round_trip` / `smoke_round_trip` / `format_round_trip`
+  - `src/nexus/cli.py` — `nexus marketplace round-trip`
+  - `src/nexus/mcp_server.py` — MCP action `round_trip`
+  - `Makefile` — `marketplace-check` + `marketplace-round-trip` wired into `test-quality`
+  - tests: `tests/test_marketplace.py` (expected map, round-trip ok, sabotage mismatch, CLI, MCP, seed plugin)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`, `plugins/README.md`
+- patterns: wshobson/agents `test_round_trip` count integrity + `validate_generated` + Makefile quality gates (shape only, no tree vendor)
+- related prior: full marketplace discover/validate/generate/garden/portability/self_check kept; round-trip composes generate+counts+validate
+- non-goals kept: no vendored 94-plugin tree; no global ~/.config install symlinks; no live LLM; no force-push
+- next open: optional safe install helpers (dry-run first) · deeper AGENTS.md garden · optional alive hard gate for round_trip
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **705 passed, 1 skipped**; `smoke_round_trip('.')` → ok=True
+
+## Cycle 2026-07-17 hard-apply — FutureWeaver compute budget (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2512.11213v2 — FutureWeaver multi-agent test-time compute allocation`
+- mine: IMPROVE_OURS + portfolio #3 FutureWeaver; prior durability budgets + orchestrator
+- arxiv: **2512.11213v2** FutureWeaver: Planning Test-Time Compute for Multi-Agent Systems with Modularized Collaboration
+- apply slice (**First apply slice** this session):
+  - `src/nexus/budget_alloc.py` — `nexus.budget_alloc/v1` multi-agent pool: `BudgetAllocator` / `AgentQuota` / `AllocationExhausted`
+  - Strategies: `equal` / `weighted` / `modular` (reserved floor + reclaim + rebalance residual)
+  - `grant` / `consume` / `finish` / `reclaim` / `rebalance` / `top_up` / `plan_for_orchestrator` / `format_brief`
+  - `src/nexus/orchestrator.py` — plan on `meta.compute_budget` (or shorthand `budget_strategy`+`total_tokens`); `plan_compute_budget` / `get_compute_budget` / `record_agent_usage`; status surfaces `compute_budget`; worker injects into engine meta + mirrors `max_tokens`
+  - tests: `tests/test_budget_alloc.py` (pure unit + orchestrator integration + hard exhaust + modular rebalance)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv FutureWeaver test-time compute planning + modular collaboration residual reallocation (shape only, no tree vendor); composes with `RunBudget` / `usage.Budget`
+- non-goals kept: no vendored FutureWeaver stack; no live LLM in unit tests; no force-push
+- next open: MCP tool `compute_budget` · engine auto-record per step agent · CLI `nexus task budget`
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **726 passed, 1 skipped**
+## Cycle 2026-07-17 hard-apply — FutureWeaver × mission-control budget plane (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2512.11213v2+builderz-labs/mission-control — Cross-pattern: control, plane, systems`
+- mine: IMPROVE_OURS + portfolio cross_pattern; local clone `.nexus_workspaces/scout_repos/builderz-labs__mission-control`
+- arxiv: **2512.11213v2** FutureWeaver: Planning Test-Time Compute for Multi-Agent Systems with Modularized Collaboration
+- apply slice (**First apply slice** this session):
+  - `src/nexus/budget_plane.py` — `nexus.budget_plane/v1` hybrid: bind FutureWeaver `BudgetAllocator` to SQLite ops jobs; plan/record/finish/rebalance; agent spend board (`agent_report`); `dispatch` for CLI/MCP
+  - `src/nexus/orchestrator.py` — full `budget_alloc` snapshot on ops job meta; bind via `BudgetPlane`; `record_agent_usage` syncs plane + spend `agent:` attribution
+  - `src/nexus/cli.py` — `nexus ops budget plan|status|record|report|brief|rebalance|finish`
+  - `src/nexus/mcp_server.py` — MCP tool **`compute_budget`**
+  - `src/nexus/tool_catalog.py` — privilege `compute_budget` → ops
+  - tests: `tests/test_budget_plane.py` (bind, hard exhaust, modular rebalance, dispatch, orch wire, CLI, MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: FutureWeaver multi-agent compute plan/limit/reclaim; mission-control SQLite job governance + spend + agent cost rollups (shape only, no tree vendor)
+- related prior: pure `budget_alloc` + `ops_store` + orch compute_budget kept; plane is durable governance hybrid
+- non-goals kept: no vendored FutureWeaver/mission-control; no live LLM; no force-push
+- next open: engine auto-record per step agent · alive cycle modular rebalance · optional envelope↔plane dual-write when CLI-only
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **735 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — Tree Search × wshobson marketplace plane guide (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2407.01476v4+wshobson/agents — Cross-pattern: codex, commands, plane, planner`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern #5; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2407.01476v4** Tree Search for Language Model Agents
+- apply slice (**First apply slice** this session):
+  - `src/nexus/search_plane_planner.py` — `nexus.search_plane_planner/v1`; `beam_search` / `astar_search` over hybrid marketplace+plane catalog; `plan_from_search` (no side effects); plane guide shell (upsert→running→components→spend→completed); `plan_and_guide` (plane.* only + search meta on ops job); `plan_and_handoff` → Orchestrator `with_plan`
+  - `src/nexus/cli.py` — `nexus tool-agent search-catalog|search-plan|search-guide|search-handoff|search-prompt`
+  - tests: `tests/test_search_plane_planner.py` (catalog, beam/A*, pure plan, guide meta, handoff, CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv Tree Search beam/A* action expansion; wshobson/agents Markdown marketplace agents/skills/commands as search action space; control-plane governance stamp (shape only, no tree vendor)
+- related prior: greedy `marketplace_planner` + `control_plane_planner` kept orthogonal; search is explicit tree expansion before plane guide
+- non-goals kept: no vendored paper code / 94-plugin tree; no live LLM scorer; marketplace components planned not auto-executed in guide; no force-push
+- next open: MAFBench search_plan overhead · MCP search-plan surface · optional LLM action_score · evidence-pack search trace
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **756 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — General Agent Evaluation × wshobson protocol layer (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2602.22953v2+wshobson/agents — Cross-pattern: codex, commands, protocol, tool`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2602.22953v2** General Agent Evaluation
+- apply slice (**First apply slice** this session):
+  - `src/nexus/agent_protocol.py` — `nexus.agent_protocol/v1` unifying protocol envelope (`ProtocolMessage` / `ProtocolTarget` / `ProtocolTranscript`)
+  - Surfaces: tool, cli, mcp, agent, skill, command (marketplace first-class)
+  - Normalizers: OpenAI tool_call, Anthropic tool_use, MCP tools/call, CLI argv, marketplace component, multi_llm PlanStep; auto `normalize()`
+  - Converters: to_openai / to_anthropic / to_mcp / to_cli_argv / to_plan_step / to_result_message
+  - `marketplace_targets` / `targets_from_catalog` via marketplace_planner (shape only)
+  - Plan bridge: `messages_to_plan` / `plan_to_messages`
+  - Module CLI: `python -m nexus.agent_protocol normalize|validate|catalog|transcript|to-plan`
+  - tests: `tests/test_agent_protocol.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv General Agent Evaluation unifying protocol across heterogeneous surfaces; wshobson/agents Markdown marketplace agents/skills/commands as protocol targets (shape only, no tree vendor)
+- related prior: multi_llm_agent PlanStep/ToolPlan + marketplace_planner catalog kept orthogonal; protocol is the dialect bridge
+- non-goals kept: no vendored paper harness / 94-plugin tree; no live LLM; no auto tool execution; no force-push
+- next open: tool-agent CLI + MCP surface · evidence-pack transcript export · Cedar allowed-surface gate · maf_bench mechanism
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **776 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — SWE-Replay state cache × wshobson marketplace (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2601.22129v2+wshobson/agents — Cross-pattern: codex, commands, test, worker`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern #7; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2601.22129v2** SWE-Replay: Efficient Test-Time Scaling for Software Engineering Agents
+- apply slice (**First apply slice** this session):
+  - `src/nexus/state_replay.py` — `nexus.state_replay/v1` intermediate state cache + selective replay
+  - Kinds: directory, kv, marketplace, agent, skill, command, observe, blob
+  - Capturers: `capture_directory` (metadata listing only), `capture_marketplace` (agents/skills/commands), `capture_component`
+  - `StateCache` JSONL journal under `.nexus_state/orchestrator/state_cache/<task_id>/`
+  - `select_replay` / `ReplayPlan` strategies: all, latest_per_kind, latest_per_surface, window
+  - `get_or_capture` cache-or-compute; `maybe_capture_for_task` orchestrator soft hook
+  - `src/nexus/orchestrator.py` — opt-in `meta.state_replay` / `capture_dir` / `capture_marketplace` at task start
+  - Module CLI: `python -m nexus.state_replay capture-dir|capture-market|list|select|stats|clear`
+  - tests: `tests/test_state_replay.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv SWE-Replay intermediate-state cache + selective replay for test-time re-use; wshobson/agents Markdown marketplace agents/skills/commands as first-class state surfaces (shape only, no tree vendor)
+- related prior: `engine.replay()` journal timeline + `plan_reuse` plan fingerprint kept orthogonal; this is step-state workspace/marketplace cache
+- non-goals kept: no vendored SWE-Replay harness / 94-plugin tree; no file-body blobs; no auto tool re-exec; no force-push
+- next open: `nexus task state-replay` operator · wire ReplayPlan into grok_worker skip paths · evidence-pack export · Cedar kind/surface allow-list
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **791 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — ToM-SWE User Intent × wshobson marketplace (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2510.21903v2+wshobson/agents — Cross-pattern: codex, commands, constraints, orchestrator`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16) + portfolio cross_pattern #8; local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv: **2510.21903v2** TOM-SWE: User Mental Modeling For Software Engineering Agents
+- apply slice (**First apply slice** this session):
+  - `src/nexus/user_intent.py` — `nexus.user_intent/v1` dedicated User Intent Model (ToM partner shape)
+  - Data: `InteractionTurn`, `UserMemory`, `IntentHypothesis`, `ComponentSuggestion`
+  - Offline extractors: `detect_ambiguity`, `extract_goal_verbs`, `extract_constraints`, `extract_preferences`
+  - `clarify_instruction` + deterministic `compute_confidence`
+  - Marketplace suggestions: score agents/skills/commands (wshobson surfaces) against inferred intent
+  - Durable store: `.nexus_state/orchestrator/user_intent/<user_id>.json` + `history/<user_id>.jsonl`
+  - `UserIntentModel` open/load/save/observe/infer/stats
+  - `src/nexus/orchestrator.py` — opt-in `meta.user_intent` / `infer_intent` / `with_user_intent` → `clarified_goal` + `intent_suggestions`
+  - Module CLI: `python -m nexus.user_intent infer|observe|memory|history|stats|clear-history`
+  - tests: `tests/test_user_intent.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv ToM-SWE user mental modeling from interaction history + ambiguous instructions; wshobson/agents Markdown marketplace agents/skills/commands as routing suggestions (shape only, no tree vendor)
+- related prior: `state_replay` intermediate cache + `agent_protocol` surfaces + `marketplace_planner` kept orthogonal; this is the ToM user model, not step-state or wire dialect
+- non-goals kept: no vendored ToM-SWE harness / 94-plugin tree; no live LLM inference; no auto tool exec from suggestions; no force-push
+- next open: `nexus task intent` operator · wire clarified_goal into engine prompts · preference_pairs feedback loop · Cedar surface allow-list
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **809 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — Cedar promote × AssetOpsBench work plane (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2606.26649v1+IBM/AssetOpsBench — Cross-pattern: benchmark, plane, planner, work`
+- mine: IMPROVE_OURS + portfolio cross_pattern #9; local clone `.nexus_workspaces/scout_repos/IBM__AssetOpsBench`
+- arxiv: **2606.26649v1** Autoformalization of Agent Instructions into Policy-as-Code
+- apply slice (**First apply slice** this session):
+  - `src/nexus/assetops_work_gate.py` — `nexus.assetops_work_gate/v1` hybrid Cedar work-plane gate
+  - Resource projection: domain plan servers/write/ready + optional consensus score/decision
+  - Domain policies: forbid-unready-plan, forbid-thin-diagnostic, forbid-write-without-iot|fmsr, permit-healthy-domain/write-pass
+  - API: `validate_work_promote` / `promote_work_decision` / `gate_plan_for_handoff` / `consensus_with_work_gate`
+  - `src/nexus/consensus.py` — `promote_decision(..., domain_plan=)` hybrid path
+  - `src/nexus/assetops_planner.py` — opt-in `cedar_gate=` on `plan_and_run` / `plan_and_handoff`
+  - Module CLI: `python -m nexus.assetops_work_gate policies|check-diagnostic|gate`
+  - tests: `tests/test_assetops_work_gate.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: arXiv 2606.26649 Cedar fail-closed promote; IBM/AssetOpsBench multi-domain MCP plan-execute work plane (shape only, no tree vendor)
+- related prior: plain `cedar_policy` + consensus promote + `assetops_planner` kept; hybrid is domain geometry *on* the promote gate
+- non-goals kept: no vendored Cedar crates / AssetOpsBench tree; no industrial backends; cedar_gate opt-in (default off); no force-push
+- next open: MCP work-gate surface · maf_bench domain_mcp mechanism · evidence-pack Cedar audit · work-ledger deny event
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **824 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — builderz-labs/mission-control quality gate (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] builderz-labs/mission-control — quality gate + spend caps + completion receipts`
+- mine: IMPROVE_OURS primary **builderz-labs/mission-control** (score 15); local clone `.nexus_workspaces/scout_repos/builderz-labs__mission-control`
+- apply slice (**First apply slice** this session):
+  - `src/nexus/mission_gate.py` — `nexus.mission_gate/v1` mission-control quality gate on OpsStore
+  - Quality reviews: approved | rejected | needs_work | pending (Aegis-shaped)
+  - Fail-closed `complete()` when `enable_gate(require_review=True)` and latest review not approved
+  - Spend hard-cap: `max_tokens` policy + `gated_record_spend()` (force override)
+  - Completion receipts: canonicalize JSON → SHA-256 → HMAC-SHA256 (stdlib; shape of receipt-signing.ts)
+  - `verify_receipt` / `verify_stored_receipt`; durable tables in `ops.sqlite`
+  - Soft helpers: `enable_mission_gate` / `complete_with_gate`
+  - Module CLI: `python -m nexus.mission_gate enable|review|check|complete|spend|cap|verify|summary`
+  - tests: `tests/test_mission_gate.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: builderz-labs/mission-control task governance quality gate, spend caps, tamper-evident completion receipts (shape only; no tree vendor)
+- related prior: `ops_store` jobs+spend, `budget_plane` agent rollups, `control_plane_planner` lifecycle kept orthogonal; this is the quality/receipt gate *on* complete
+- non-goals kept: no vendored mission-control Next.js/Docker tree; no Ed25519 (HMAC stdlib); plain OpsStore.set_status unchanged (opt-in MissionGate.complete); no force-push
+- next open: plane.record_review / plane.complete_gated tools · maf_bench quality+receipt smoke · MCP surface · evidence-pack receipt export
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **841 passed, 1 skipped**
+
+## Cycle 2026-07-17 06:01:44Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- self_check: ok=True
+- self_check: ok=True
+- evidence: 6 file(s) under `docs/evidence/`

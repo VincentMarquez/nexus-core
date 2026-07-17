@@ -410,27 +410,58 @@ def search_high_star_repos(
     limit: int = 15,
     language: Optional[str] = "Python",
     exclude: Optional[set[str]] = None,
+    fallback_queries: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Lab/workspace default: find **≥min_stars** repos (labs + individuals).
 
     Read-only search — no clone, follow, or star.
+
+    If the primary query returns nothing (common for long goal phrases), try
+    broader ``fallback_queries`` and optionally drop the language filter so
+    REAL cycles never land with ``found: 0``.
     """
-    q = (query or "").strip() or "multi agent LLM orchestration"
-    hits = search_github_repos(
-        q,
-        limit=limit,
-        language=language,
-        sort="stars",
-        exclude=exclude,
-        min_stars=int(min_stars),
-        max_stars=None,
-    )
+    q0 = (query or "").strip() or "multi agent LLM orchestration"
+    defaults = [
+        "multi-agent LLM",
+        "multi agent orchestration",
+        "LLM agent framework",
+        "autonomous coding agent",
+        "software engineering multi agent",
+    ]
+    tried: list[str] = []
+    hits: list[Any] = []
+    used_q = q0
+    used_lang: Optional[str] = language
+
+    candidates = [q0] + [x for x in (fallback_queries or defaults) if x and x != q0]
+    for q in candidates:
+        for lang in (language, None):  # retry without language if needed
+            tried.append(f"{q!r} lang={lang!r}")
+            hits = search_github_repos(
+                q,
+                limit=limit,
+                language=lang,
+                sort="stars",
+                exclude=exclude,
+                min_stars=int(min_stars),
+                max_stars=None,
+            )
+            if hits:
+                used_q = q
+                used_lang = lang
+                break
+        if hits:
+            break
+
     return {
         "ok": True,
-        "query": q,
+        "query": used_q,
+        "query_requested": q0,
         "min_stars": int(min_stars),
-        "language": language,
+        "language": used_lang,
         "count": len(hits),
+        "fallback_used": used_q != q0 or used_lang != language,
+        "tried": tried[:12],
         "repos": [
             {
                 "full_name": h.full_name,
@@ -442,7 +473,7 @@ def search_high_star_repos(
             }
             for h in hits
         ],
-        "policy": "read-only search; no apply/push; labs→individuals ≥min_stars",
+        "policy": "read-only search; fallback queries if empty; labs→individuals ≥min_stars",
     }
 
 
@@ -544,15 +575,38 @@ def connect_repo(
     return out
 
 
+def _cmd_too_heavy_for_mine(cmd: list[str] | str) -> bool:
+    """Skip installs that commonly hang mine/prove (docs builds, full monorepos)."""
+    if isinstance(cmd, (list, tuple)):
+        s = " ".join(str(x) for x in cmd).lower()
+    else:
+        s = str(cmd).lower()
+    heavy_markers = (
+        ".[dev]",
+        ".[all]",
+        "extra-index",
+        "npm run build",
+        "pnpm build",
+        "yarn build",
+        "docusaurus",
+        "next build",
+        "tauri",
+        "cargo build --release",
+    )
+    return any(m in s for m in heavy_markers)
+
+
 def prove_connected_repo(
     path: Path,
     *,
     run_checks: bool = True,
-    timeout_each: float = 180,
+    timeout_each: float = 90,
 ) -> dict[str, Any]:
     """Prove a connected clone: detect stack + optional allowlisted checks.
 
     Evidence is real filesystem / command output — not a model claim.
+    Keeps mine phase snappy: skip heavy install extras and prefer structure
+    when install would likely hang (docs/npm monorepos).
     """
     from .github_job import _cmd_allowed, _run, detect_project
 
@@ -591,12 +645,35 @@ def prove_connected_repo(
         evidence["proved"] = "structure_only"
         return evidence
 
-    # Run at most one install + one check (allowlisted), time-boxed
+    # Huge monorepos: structure-only — full install burns the whole REAL cycle
+    heavy_tree = any(
+        (path / name).exists()
+        for name in ("apps", "packages", "docs", "pnpm-workspace.yaml", "lerna.json")
+    ) and any(
+        (path / name).exists()
+        for name in ("package.json", "Cargo.toml")
+    )
+    if heavy_tree and not (path / "pyproject.toml").is_file() and not (path / "setup.py").is_file():
+        evidence["proved"] = "structure_only_monorepo"
+        evidence["ok"] = True
+        evidence["note"] = "skipped install/check on multi-package tree"
+        return evidence
+
+    # Run at most one light install + one light check (allowlisted), time-boxed
     ran = 0
-    for cmd in prof.install_cmds[:1]:
+    for cmd in prof.install_cmds[:4]:
         if not _cmd_allowed(cmd):
             continue
-        # Prefer non-editable install of deps only when possible
+        if _cmd_too_heavy_for_mine(cmd):
+            evidence["checks"].append(
+                {
+                    "phase": "install",
+                    "cmd": cmd,
+                    "ok": False,
+                    "skipped": "too_heavy_for_mine",
+                }
+            )
+            continue
         r = _run(cmd, cwd=path, timeout=timeout_each)
         evidence["checks"].append(
             {
@@ -611,10 +688,15 @@ def prove_connected_repo(
         ran += 1
         break
 
-    for cmd in prof.check_cmds[:1]:
+    for cmd in prof.check_cmds[:3]:
         if not _cmd_allowed(cmd):
             continue
-        r = _run(cmd, cwd=path, timeout=timeout_each)
+        if _cmd_too_heavy_for_mine(cmd):
+            continue
+        # Prefer collect-only pytest over full suites when available
+        if isinstance(cmd, list) and len(cmd) >= 2 and cmd[-1] in ("-q",) and "pytest" in cmd:
+            cmd = list(cmd) + ["--collect-only"]
+        r = _run(cmd, cwd=path, timeout=min(60.0, timeout_each))
         evidence["checks"].append(
             {
                 "phase": "check",
@@ -1123,6 +1205,9 @@ def improve_from_arxiv(
     post_issue: bool = True,
     also_scout: bool = False,
     scout_query: Optional[str] = None,
+    skip_seen: bool = True,
+    extra_queries: Optional[list[str]] = None,
+    reuse_policy: str = "lru",
 ) -> dict[str, Any]:
     """Search arXiv → write improvement notes → optional nexus do repair job.
 
@@ -1130,6 +1215,13 @@ def improve_from_arxiv(
     code improvement ideas (machine-local notes under ``.nexus_state/``).
 
     ``apply`` is opt-in: runs ``GithubJobRunner`` with a goal derived from papers.
+
+    Research freshness (REAL self-improve):
+      - ``skip_seen=True`` (default): prefer never-seen papers; if ledger is full,
+        reuse **least-recently-seen** (``reuse_policy=lru``) instead of always
+        the same API top hits.
+      - ``extra_queries``: also search these so one saturated query does not freeze
+        the idea pool on a single seed paper.
     """
     from .research_job import ResearchJobRunner
 
@@ -1141,7 +1233,9 @@ def improve_from_arxiv(
         max_results=max_results,
         download_pdf=download_pdf,
         with_brief=True,
-        skip_seen=True,
+        skip_seen=skip_seen,
+        extra_queries=extra_queries,
+        reuse_policy=reuse_policy,
     )
     scout_res = None
     if also_scout or scout_query:

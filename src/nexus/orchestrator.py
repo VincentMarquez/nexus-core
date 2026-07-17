@@ -37,6 +37,18 @@ PUBLIC_KINDS = frozenset({"task", "research"})
 AGENT_MODES = frozenset({"demo", "fake", "bus", "auto"})
 _ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
 
+# FutureWeaver (arxiv:2512.11213v2) multi-agent compute budget keys on meta
+_COMPUTE_BUDGET_KEYS = frozenset(
+    {
+        "compute_budget",
+        "budget_alloc",
+        "total_tokens",
+        "max_tokens",
+        "budget_strategy",
+        "budget_agents",
+    }
+)
+
 
 class OrchError(RuntimeError):
     """Orchestrator client error (maps to MCP isError)."""
@@ -182,10 +194,22 @@ class Orchestrator:
         wait: bool = False,
         wait_timeout_s: float = 120.0,
         with_brief: bool = False,
+        with_plan: bool = False,
+        plan: Any = None,
+        plan_tools: Optional[list[Any]] = None,
+        plan_text: Optional[str] = None,
+        plan_max_steps: int = 5,
+        require_plan: bool = False,
         meta: Optional[dict[str, Any]] = None,
         sync_fake: bool = False,
     ) -> dict[str, Any]:
-        """Start a task; returns status payload including task_id."""
+        """Start a task; returns status payload including task_id.
+
+        When *with_plan* is True (arXiv 2401.07324), a dedicated Planner
+        decomposes *description* into a structured tool plan **before** the
+        Orchestrator spawns work. The plan is stored on envelope/ops meta and
+        injected into the engine worker. Planner never executes tools.
+        """
         goal = str(description or "").strip()
         if not goal:
             raise OrchError("description required", code="invalid_args")
@@ -212,7 +236,99 @@ class Orchestrator:
         if load_envelope(self.root, tid) is not None:
             raise OrchError(f"task_id already exists: {tid}", code="already_exists")
 
+        # ── Planner pre-phase (optional; arXiv 2401.07324) ────────────────
+        plan_payload: Optional[dict[str, Any]] = None
+        if with_plan or plan is not None:
+            plan_payload = self._build_pre_plan(
+                goal,
+                plan=plan,
+                plan_tools=plan_tools,
+                plan_text=plan_text,
+                plan_max_steps=plan_max_steps,
+                require_plan=require_plan,
+            )
+
+        # ── Multi-agent compute budget (optional; arXiv 2512.11213v2) ─────
+        budget_payload: Optional[dict[str, Any]] = None
+        try:
+            budget_payload = self._maybe_plan_compute_budget(meta)
+        except Exception as e:
+            raise OrchError(
+                f"compute budget plan failed: {e}", code="budget_plan_failed"
+            ) from e
+
         backend = "fake" if mode == "fake" else ("research" if k == "research" else "engine")
+        env_meta: dict[str, Any] = {
+            **(meta or {}),
+            "with_brief": bool(with_brief),
+            "with_plan": bool(with_plan or plan is not None),
+            "schema": SCHEMA,
+        }
+        if plan_payload is not None:
+            env_meta["tool_plan"] = plan_payload
+            env_meta["pre_planned"] = True
+            env_meta["planner_paper"] = plan_payload.get("paper") or "arxiv:2401.07324v3"
+        if budget_payload is not None:
+            env_meta["budget_alloc"] = budget_payload
+            env_meta["compute_budget_planned"] = True
+            env_meta["budget_paper"] = budget_payload.get("paper") or "arxiv:2512.11213v2"
+
+        # ── Intermediate state cache (optional; arXiv 2601.22129v2 SWE-Replay) ─
+        # Capture marketplace catalog / directory listings for selective replay.
+        state_replay_payload: Optional[dict[str, Any]] = None
+        try:
+            from .state_replay import maybe_capture_for_task
+
+            state_replay_payload = maybe_capture_for_task(
+                self.root, tid, env_meta, step_id="init"
+            )
+        except Exception:
+            state_replay_payload = None
+        if state_replay_payload and state_replay_payload.get("ok"):
+            env_meta["state_replay"] = True
+            env_meta["state_replay_init"] = {
+                "n_captured": state_replay_payload.get("n_captured"),
+                "captured": state_replay_payload.get("captured"),
+                "paper": state_replay_payload.get("paper"),
+                "schema": state_replay_payload.get("schema"),
+            }
+            env_meta["state_replay_paper"] = "arxiv:2601.22129v2"
+
+        # ── User Intent Model (optional; arXiv 2510.21903v2 ToM-SWE) ────────
+        # Infer goals/constraints/preferences from instruction + history;
+        # suggest marketplace agents/skills/commands (wshobson surfaces).
+        user_intent_payload: Optional[dict[str, Any]] = None
+        try:
+            from .user_intent import maybe_infer_for_task
+
+            user_intent_payload = maybe_infer_for_task(
+                self.root, tid, goal, env_meta
+            )
+        except Exception:
+            user_intent_payload = None
+        if user_intent_payload and user_intent_payload.get("ok"):
+            env_meta["user_intent"] = True
+            env_meta["user_intent_init"] = {
+                "intent_id": user_intent_payload.get("intent_id"),
+                "confidence": user_intent_payload.get("confidence"),
+                "is_ambiguous": user_intent_payload.get("is_ambiguous"),
+                "n_suggestions": user_intent_payload.get("n_suggestions"),
+                "goal_verbs": user_intent_payload.get("goal_verbs"),
+                "ambiguity": user_intent_payload.get("ambiguity"),
+                "paper": user_intent_payload.get("paper"),
+                "schema": user_intent_payload.get("schema"),
+            }
+            env_meta["user_intent_paper"] = "arxiv:2510.21903v2"
+            # Clarified instruction for the SWE agent (ToM partner output)
+            clarified = str(
+                user_intent_payload.get("clarified_instruction") or ""
+            ).strip()
+            if clarified:
+                env_meta["clarified_goal"] = clarified
+            top = user_intent_payload.get("top_suggestions") or []
+            if top:
+                env_meta["intent_suggestions"] = top
+
         env = Envelope(
             task_id=tid,
             kind=k,
@@ -220,13 +336,85 @@ class Orchestrator:
             status="running",
             agent_mode=mode,
             backend=backend,
-            meta={
-                **(meta or {}),
-                "with_brief": bool(with_brief),
-                "schema": SCHEMA,
-            },
+            meta=env_meta,
         )
         env.log_tail.append(f"created kind={k} mode={mode} backend={backend}")
+        if plan_payload is not None:
+            n = int(plan_payload.get("n_steps") or 0)
+            env.log_tail.append(
+                f"planner: ready={plan_payload.get('status') == 'ready'} "
+                f"n_steps={n} planner={plan_payload.get('planner')}"
+            )
+            brief = str(plan_payload.get("brief") or "").strip()
+            if brief:
+                for line in brief.splitlines()[:12]:
+                    env.log_tail.append(f"plan: {line}")
+        if budget_payload is not None:
+            env.log_tail.append(
+                f"compute_budget: strategy={budget_payload.get('strategy')} "
+                f"total={budget_payload.get('total_tokens')} "
+                f"agents={len(budget_payload.get('agents') or {})} "
+                f"paper={budget_payload.get('paper')}"
+            )
+        if state_replay_payload and state_replay_payload.get("ok"):
+            env.log_tail.append(
+                f"state_replay: captured={state_replay_payload.get('n_captured')} "
+                f"paper={state_replay_payload.get('paper')}"
+            )
+        if user_intent_payload and user_intent_payload.get("ok"):
+            env.log_tail.append(
+                f"user_intent: conf={user_intent_payload.get('confidence')} "
+                f"ambiguous={user_intent_payload.get('is_ambiguous')} "
+                f"suggestions={user_intent_payload.get('n_suggestions')} "
+                f"paper={user_intent_payload.get('paper')}"
+            )
+
+        ops_meta: dict[str, Any] = {
+            "orchestrator": True,
+            "agent_mode": mode,
+            "backend": backend,
+            "with_plan": bool(plan_payload is not None),
+            "with_compute_budget": bool(budget_payload is not None),
+            "with_state_replay": bool(
+                state_replay_payload and state_replay_payload.get("ok")
+            ),
+            "with_user_intent": bool(
+                user_intent_payload and user_intent_payload.get("ok")
+            ),
+        }
+        if plan_payload is not None:
+            ops_meta["tool_plan"] = {
+                "n_steps": plan_payload.get("n_steps"),
+                "status": plan_payload.get("status"),
+                "planner": plan_payload.get("planner"),
+                "paper": plan_payload.get("paper"),
+                "steps": [
+                    {"id": s.get("id"), "tool": s.get("tool")}
+                    for s in (plan_payload.get("steps") or [])[:20]
+                    if isinstance(s, dict)
+                ],
+            }
+        if budget_payload is not None:
+            # Full FutureWeaver snapshot on ops job (budget_plane hybrid);
+            # keeps agent quotas durable for mission-control-style spend boards.
+            ops_meta["budget_alloc"] = budget_payload
+            ops_meta["budget_plane"] = True
+            ops_meta["budget_paper"] = budget_payload.get("paper") or "arxiv:2512.11213v2"
+            ops_meta["budget_schema"] = "nexus.budget_plane/v1"
+        if state_replay_payload and state_replay_payload.get("ok"):
+            # SWE-Replay intermediate states for selective test-time re-use.
+            ops_meta["state_replay_init"] = env_meta.get("state_replay_init")
+            ops_meta["state_replay_paper"] = "arxiv:2601.22129v2"
+            ops_meta["state_replay_schema"] = "nexus.state_replay/v1"
+        if user_intent_payload and user_intent_payload.get("ok"):
+            # ToM-SWE user intent for clarified goals + marketplace routing.
+            ops_meta["user_intent_init"] = env_meta.get("user_intent_init")
+            ops_meta["user_intent_paper"] = "arxiv:2510.21903v2"
+            ops_meta["user_intent_schema"] = "nexus.user_intent/v1"
+            if env_meta.get("clarified_goal"):
+                ops_meta["clarified_goal"] = env_meta.get("clarified_goal")
+            if env_meta.get("intent_suggestions"):
+                ops_meta["intent_suggestions"] = env_meta.get("intent_suggestions")
 
         with self._ops() as store:
             store.ensure_job(
@@ -235,8 +423,29 @@ class Orchestrator:
                 title=goal[:80] or tid,
                 status="running",
                 goal=goal,
-                meta={"orchestrator": True, "agent_mode": mode, "backend": backend},
+                meta=ops_meta,
             )
+            if budget_payload is not None:
+                # Best-effort bind via budget_plane (SQLite control plane).
+                try:
+                    from .budget_alloc import BudgetAllocator
+                    from .budget_plane import BudgetPlane
+
+                    alloc = BudgetAllocator.from_dict(budget_payload)
+                    BudgetPlane(store).bind(
+                        tid,
+                        alloc,
+                        title=goal[:80] or tid,
+                        goal=goal,
+                        kind=k,
+                        status="running",
+                        extra_meta={
+                            "orchestrator": True,
+                            "with_compute_budget": True,
+                        },
+                    )
+                except Exception:
+                    pass
 
         save_envelope(self.root, env)
 
@@ -260,6 +469,293 @@ class Orchestrator:
         if wait:
             self._wait_done(tid, timeout_s=min(float(wait_timeout_s), 300.0))
         return self.get_task_status(tid)
+
+    def _maybe_plan_compute_budget(
+        self, meta: Optional[dict[str, Any]]
+    ) -> Optional[dict[str, Any]]:
+        """Plan multi-agent compute pool when meta requests it (FutureWeaver).
+
+        Triggers when meta contains any of:
+        - ``compute_budget``: dict spec (total_tokens / strategy / agents / …)
+        - ``budget_alloc``: already-planned allocator dict (pass-through)
+        - ``budget_strategy`` + (``total_tokens`` | ``max_tokens``)
+        """
+        if not meta or not isinstance(meta, dict):
+            return None
+        # Already planned snapshot — validate shape lightly
+        if isinstance(meta.get("budget_alloc"), dict) and meta["budget_alloc"].get(
+            "agents"
+        ) is not None:
+            from .budget_alloc import BudgetAllocator
+
+            return BudgetAllocator.from_dict(meta["budget_alloc"]).to_meta()
+
+        spec: Optional[dict[str, Any]] = None
+        if isinstance(meta.get("compute_budget"), dict):
+            spec = dict(meta["compute_budget"])
+        elif meta.get("budget_strategy") or meta.get("enable_budget_alloc"):
+            total = meta.get("total_tokens", meta.get("max_tokens"))
+            if total is None:
+                return None
+            spec = {
+                "total_tokens": total,
+                "strategy": meta.get("budget_strategy") or "weighted",
+                "agents": meta.get("budget_agents"),
+                "weights": meta.get("budget_weights"),
+                "total_steps": meta.get("total_steps") or meta.get("max_steps"),
+                "hard": meta.get("budget_hard", True),
+            }
+        if not spec:
+            return None
+        from .budget_alloc import BudgetAllocator, plan_for_orchestrator
+
+        if spec.get("agents") is None and not spec.get("total_tokens") and not spec.get(
+            "max_tokens"
+        ):
+            return None
+        # Prefer plan_for_orchestrator defaults when agents omitted
+        agents = spec.get("agents")
+        total = int(spec.get("total_tokens") or spec.get("max_tokens") or 0)
+        if total <= 0:
+            raise ValueError("compute_budget.total_tokens must be > 0")
+        alloc = plan_for_orchestrator(
+            total_tokens=total,
+            agents=agents,
+            strategy=str(spec.get("strategy") or "weighted"),
+            weights=spec.get("weights") if isinstance(spec.get("weights"), dict) else None,
+            total_steps=spec.get("total_steps") or spec.get("max_steps"),
+            hard=bool(spec.get("hard", True)),
+            reserved_fraction=float(
+                spec.get("reserved_fraction", 0.5)
+            ),
+        )
+        # Keep a copy of the request spec for audit
+        out = alloc.to_meta()
+        out["request"] = {
+            k: v
+            for k, v in spec.items()
+            if k in ("total_tokens", "max_tokens", "strategy", "agents", "hard")
+        }
+        return out
+
+    def plan_compute_budget(
+        self,
+        *,
+        total_tokens: int,
+        agents: Optional[list[str]] = None,
+        strategy: str = "weighted",
+        weights: Optional[dict[str, float]] = None,
+        total_steps: Optional[int] = None,
+        hard: bool = True,
+    ) -> dict[str, Any]:
+        """Public helper: plan a multi-agent compute allocation (no task start)."""
+        from .budget_alloc import format_brief, plan_for_orchestrator
+
+        alloc = plan_for_orchestrator(
+            total_tokens=int(total_tokens),
+            agents=agents,
+            strategy=strategy,
+            weights=weights,
+            total_steps=total_steps,
+            hard=hard,
+        )
+        snap = alloc.snapshot()
+        snap["brief"] = format_brief(alloc)
+        return snap
+
+    def get_compute_budget(self, task_id: str) -> dict[str, Any]:
+        """Return current multi-agent compute allocation for a task."""
+        from .budget_alloc import BudgetAllocator, format_brief
+
+        tid = sanitize_task_id(task_id)
+        env = load_envelope(self.root, tid)
+        if env is None:
+            raise OrchError(f"not found: {tid}", code="not_found")
+        raw = (env.meta or {}).get("budget_alloc")
+        if not isinstance(raw, dict):
+            return {
+                "schema": "nexus.budget_alloc/v1",
+                "task_id": tid,
+                "planned": False,
+                "budget_alloc": None,
+            }
+        alloc = BudgetAllocator.from_dict(raw)
+        snap = alloc.snapshot()
+        return {
+            "schema": snap["schema"],
+            "task_id": tid,
+            "planned": True,
+            "budget_alloc": snap,
+            "brief": format_brief(alloc),
+        }
+
+    def record_agent_usage(
+        self,
+        task_id: str,
+        agent: str,
+        *,
+        tokens: int = 0,
+        steps: int = 0,
+        finish: bool = False,
+        rebalance: bool = False,
+    ) -> dict[str, Any]:
+        """Accrue per-agent compute against the task's budget allocator.
+
+        Fail-closed when the agent or pool would exceed its planned share
+        (FutureWeaver hard limit). Persists updated allocation on the envelope.
+        """
+        from .budget_alloc import AllocationExhausted, BudgetAllocator, format_brief
+
+        tid = sanitize_task_id(task_id)
+        env = load_envelope(self.root, tid)
+        if env is None:
+            raise OrchError(f"not found: {tid}", code="not_found")
+        raw = (env.meta or {}).get("budget_alloc")
+        if not isinstance(raw, dict):
+            raise OrchError(
+                f"no compute budget planned for {tid}", code="no_budget_alloc"
+            )
+        alloc = BudgetAllocator.from_dict(raw)
+        try:
+            receipt = alloc.consume(agent, tokens=int(tokens or 0), steps=int(steps or 0))
+        except AllocationExhausted as e:
+            raise OrchError(str(e), code="budget_exhausted") from e
+        finish_info = None
+        rebalance_info = None
+        if finish:
+            finish_info = alloc.finish(agent, reclaim=True)
+        if rebalance:
+            rebalance_info = alloc.rebalance()
+        env.meta = dict(env.meta or {})
+        env.meta["budget_alloc"] = alloc.to_meta()
+        env.log_tail.append(
+            f"budget: agent={agent} +tok={tokens} +steps={steps} "
+            f"rem={receipt.get('remaining_tokens')}"
+            + (" finish" if finish else "")
+            + (" rebalance" if rebalance else "")
+        )
+        save_envelope(self.root, env)
+        # Best-effort: persist allocator + spend on SQLite budget plane
+        # (FutureWeaver × mission-control hybrid).
+        try:
+            from .budget_plane import BudgetPlane
+
+            with self._ops() as store:
+                plane = BudgetPlane(store)
+                try:
+                    plane.load_alloc(tid)
+                    plane._save_alloc(tid, alloc)  # noqa: SLF001 — same-process sync
+                except Exception:
+                    plane.bind(
+                        tid,
+                        alloc,
+                        title=str((env.meta or {}).get("title") or tid),
+                        goal=env.goal or "",
+                        kind=env.kind or "task",
+                        status=env.status or "running",
+                        extra_meta={"orchestrator": True},
+                    )
+                if tokens:
+                    store.record_spend(
+                        tid,
+                        tokens=int(tokens),
+                        source=f"agent:{agent}",
+                        label="budget_plane",
+                        meta={
+                            "agent": str(agent),
+                            "schema": "nexus.budget_plane/v1",
+                            "paper": "arxiv:2512.11213v2",
+                        },
+                    )
+        except Exception:
+            pass
+        return {
+            "schema": "nexus.budget_alloc/v1",
+            "task_id": tid,
+            "receipt": receipt,
+            "finish": finish_info,
+            "rebalance": rebalance_info,
+            "budget_alloc": alloc.snapshot(),
+            "brief": format_brief(alloc),
+        }
+
+    def _build_pre_plan(
+        self,
+        goal: str,
+        *,
+        plan: Any = None,
+        plan_tools: Optional[list[Any]] = None,
+        plan_text: Optional[str] = None,
+        plan_max_steps: int = 5,
+        require_plan: bool = False,
+    ) -> dict[str, Any]:
+        """Run dedicated Planner (or accept injected plan) before orchestration."""
+        from . import multi_llm_agent as mla
+
+        try:
+            if plan is not None:
+                if isinstance(plan, mla.ToolPlan):
+                    tp = plan
+                    if tp.status != mla.STATUS_READY and tp.steps:
+                        mla.mark_ready(
+                            tp,
+                            allowed_tools=tp.tools_available or None,
+                            require_steps=True,
+                        )
+                elif isinstance(plan, dict):
+                    tp = mla.ToolPlan.from_dict(plan)
+                    if not tp.task:
+                        tp.task = goal
+                    if tp.steps and tp.status != mla.STATUS_READY:
+                        mla.mark_ready(
+                            tp,
+                            allowed_tools=tp.tools_available or None,
+                            require_steps=bool(require_plan),
+                        )
+                elif isinstance(plan, str):
+                    tp = mla.plan_for_orchestrator(
+                        goal,
+                        tools=plan_tools,
+                        max_steps=int(plan_max_steps),
+                        plan_text=plan,
+                        auto_ready=True,
+                    )
+                else:
+                    raise OrchError(
+                        f"invalid plan type: {type(plan).__name__}",
+                        code="invalid_plan",
+                    )
+            else:
+                tp = mla.plan_for_orchestrator(
+                    goal,
+                    tools=plan_tools,
+                    max_steps=int(plan_max_steps),
+                    plan_text=plan_text,
+                    auto_ready=True,
+                )
+        except mla.PlanError as e:
+            if require_plan:
+                raise OrchError(f"planner failed: {e}", code="plan_failed") from e
+            # Soft path: empty draft payload for observability
+            return {
+                "schema": mla.SCHEMA,
+                "paper": mla.PAPER,
+                "task": goal,
+                "status": mla.STATUS_FAILED,
+                "planner": "error",
+                "n_steps": 0,
+                "steps": [],
+                "notes": str(e),
+                "brief": f"[planner error] {e}",
+                "meta": {"handoff": "orchestrator", "error": str(e)},
+            }
+
+        if require_plan and not tp.is_ready():
+            raise OrchError(
+                "planner produced no ready plan (require_plan=true)",
+                code="plan_not_ready",
+            )
+        return mla.plan_payload_for_meta(tp)
 
     def _spawn_worker(self, task_id: str) -> int:
         env = os.environ.copy()
@@ -451,6 +947,51 @@ class Orchestrator:
             else None,
             "legacy": False,
         }
+        # Surface Planner→Orchestrator handoff (arXiv 2401.07324)
+        env_meta = (env.meta if env else None) or {}
+        job_meta = (job or {}).get("meta") if job else None
+        if not isinstance(job_meta, dict):
+            job_meta = {}
+        tool_plan = env_meta.get("tool_plan") or job_meta.get("tool_plan")
+        if isinstance(tool_plan, dict) and tool_plan:
+            payload["pre_planned"] = True
+            payload["plan"] = tool_plan
+            payload["plan_summary"] = {
+                "n_steps": tool_plan.get("n_steps"),
+                "status": tool_plan.get("status"),
+                "planner": tool_plan.get("planner"),
+                "paper": tool_plan.get("paper"),
+                "tools": [
+                    s.get("tool")
+                    for s in (tool_plan.get("steps") or [])
+                    if isinstance(s, dict) and s.get("tool")
+                ],
+            }
+        else:
+            payload["pre_planned"] = bool(
+                env_meta.get("pre_planned") or env_meta.get("with_plan")
+            )
+        # Surface multi-agent compute budget (arXiv 2512.11213v2 FutureWeaver)
+        budget_raw = env_meta.get("budget_alloc") or job_meta.get("budget_alloc")
+        if isinstance(budget_raw, dict) and budget_raw:
+            try:
+                from .budget_alloc import BudgetAllocator, format_brief
+
+                # Full allocator dict has agents map; ops may store a summary only
+                if isinstance(budget_raw.get("agents"), dict):
+                    alloc = BudgetAllocator.from_dict(budget_raw)
+                    payload["compute_budget"] = alloc.snapshot()
+                    payload["compute_budget_brief"] = format_brief(alloc)
+                else:
+                    payload["compute_budget"] = budget_raw
+                payload["compute_budget_planned"] = True
+            except Exception:
+                payload["compute_budget"] = budget_raw
+                payload["compute_budget_planned"] = True
+        else:
+            payload["compute_budget_planned"] = bool(
+                env_meta.get("compute_budget_planned")
+            )
         if action == "logs":
             n = max(1, min(int(log_lines or 40), 200))
             lines = list(env.log_tail if env else [])[-n:]
@@ -605,6 +1146,37 @@ def _worker_engine(root: Path, env: Envelope, _cancelled, _set) -> int:
     )
     task.meta["orchestrator"] = True
     task.meta["cancel_check"] = True
+
+    # Inject Planner pre-plan into engine (arXiv 2401.07324 multi-LLM split)
+    tool_plan = (env.meta or {}).get("tool_plan")
+    if isinstance(tool_plan, dict) and tool_plan:
+        task.meta["tool_plan"] = tool_plan
+        task.meta["pre_planned"] = True
+        task.meta["planner_paper"] = tool_plan.get("paper") or "arxiv:2401.07324v3"
+        brief = str(tool_plan.get("brief") or "").strip()
+        if brief:
+            # Keep objective readable; store brief for plan-stage agents
+            task.meta["plan_brief"] = brief
+            prior = str(task.meta.get("journal_seed") or "")
+            task.meta["journal_seed"] = (
+                (prior + "\n" if prior else "") + "PRE-PLAN (Planner→Orchestrator):\n" + brief
+            )
+        _set("running", f"engine with pre-plan n_steps={tool_plan.get('n_steps')}")
+
+    # Inject multi-agent compute budget (arXiv 2512.11213v2 FutureWeaver)
+    budget_alloc = (env.meta or {}).get("budget_alloc")
+    if isinstance(budget_alloc, dict) and budget_alloc.get("agents") is not None:
+        task.meta["budget_alloc"] = budget_alloc
+        task.meta["budget_paper"] = budget_alloc.get("paper") or "arxiv:2512.11213v2"
+        # Mirror total token cap onto task max_tokens for engine hard-stop
+        total_tok = budget_alloc.get("total_tokens")
+        if total_tok and not task.meta.get("max_tokens"):
+            task.meta["max_tokens"] = int(total_tok)
+        _set(
+            "running",
+            f"engine with compute_budget total={total_tok} "
+            f"strategy={budget_alloc.get('strategy')}",
+        )
 
     # Run with cooperative cancel between steps via max_steps loop
     # DurableEngine.run may take a while; check cancel before start

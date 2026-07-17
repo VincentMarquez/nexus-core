@@ -61,6 +61,43 @@ def parse_note_papers(note_path: Path) -> list[dict[str, str]]:
     return papers
 
 
+def _from_research_md(root: Path, pid: str) -> Optional[dict[str, Any]]:
+    """Reuse abstracts already written by ResearchJobRunner (avoid re-hitting arXiv)."""
+    research = root / ".nexus_workspaces" / "research"
+    if not research.is_dir():
+        return None
+    # Prefer newest research job that has this abstract
+    candidates = sorted(
+        research.glob(f"rx-*/abstracts/{pid.replace('/', '_')}.md"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        candidates = sorted(
+            research.glob(f"rx-*/abstracts/{pid}.md"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+    if not candidates:
+        return None
+    text = candidates[0].read_text(encoding="utf-8", errors="replace")
+    title_m = re.search(r"^#\s+(.+)$", text, re.M)
+    authors_m = re.search(r"\*\*Authors:\*\*\s*(.+)$", text, re.M)
+    abs_m = re.search(r"## Abstract\s*\n+(.+)", text, re.S)
+    abstract = (abs_m.group(1).strip() if abs_m else "")
+    return {
+        "arxiv_id": pid,
+        "id": pid,
+        "title": title_m.group(1).strip() if title_m else pid,
+        "summary": abstract,
+        "abstract": abstract,
+        "authors": authors_m.group(1).strip() if authors_m else "",
+        "abs_url": f"https://arxiv.org/abs/{pid}",
+        "pdf_url": f"https://arxiv.org/pdf/{pid}",
+        "seeded_from": str(candidates[0]),
+    }
+
+
 def fetch_abstract(root: Path, pid: str, *, delay: float = 1.2) -> dict[str, Any]:
     """Fetch (and cache) one paper's metadata + abstract. Never raises."""
     cache = root / ".nexus_state" / "arxiv_improve" / "abstracts"
@@ -71,6 +108,14 @@ def fetch_abstract(root: Path, pid: str, *, delay: float = 1.2) -> dict[str, Any
             return json.loads(cpath.read_text(encoding="utf-8"))
         except Exception:
             pass
+    # Prefer local research-job abstracts — arXiv API often hangs mid-cycle.
+    local = _from_research_md(root, pid)
+    if local and (local.get("summary") or local.get("abstract")):
+        try:
+            cpath.write_text(json.dumps(local, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+        return local
     try:
         time.sleep(max(0.0, delay))  # be polite; arXiv 429s eager clients
         p = arxiv_client.get_paper(pid)

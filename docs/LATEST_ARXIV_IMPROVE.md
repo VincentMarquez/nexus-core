@@ -1,140 +1,140 @@
 # Latest arXiv improve notes (from alive cycle)
 
-# arXiv improve — multi agent communication coordination LLM
+# arXiv improve — test-time compute coding agents
 
 Repo: `VincentMarquez/nexus-core`  
-Research job: `rx-c0538e30fa`  
+Research job: `rx-b8a6e0d93c`  
 Status: `completed`
 
 ## Papers
 
-1. **A Survey of Multi-Agent Deep Reinforcement Learning with Communication** — `2203.08975v2`  
-   https://arxiv.org/abs/2203.08975v2
-2. **Interference-Aware K-Step Reachable Communication in Multi-Agent Reinforcement Learning** — `2603.15054v1`  
-   https://arxiv.org/abs/2603.15054v1
-3. **A mechanism for discovering semantic relationships among agent communication protocols** — `2401.16216v1`  
-   https://arxiv.org/abs/2401.16216v1
-4. **A Methodology to Engineer and Validate Dynamic Multi-level Multi-agent Based Simulations** — `1311.5108v1`  
-   https://arxiv.org/abs/1311.5108v1
-5. **Small LLMs Are Weak Tool Learners: A Multi-LLM Agent** — `2401.07324v3`  
-   https://arxiv.org/abs/2401.07324v3
-6. **Context Engineering for Multi-Agent LLM Code Assistants Using Elicit, NotebookLM, ChatGPT, and Claude Code** — `2508.08322v1`  
-   https://arxiv.org/abs/2508.08322v1
-7. **Cayley Graph Optimization for Scalable Multi-Agent Communication Topologies** — `2604.09703v1`  
-   https://arxiv.org/abs/2604.09703v1
-8. **AOAD-MAT: Transformer-based multi-agent deep reinforcement learning model considering agents' order of action decisions** — `2510.13343v1`  
-   https://arxiv.org/abs/2510.13343v1
-9. **Augmenting the action space with conventions to improve multi-agent cooperation in Hanabi** — `2412.06333v3`  
-   https://arxiv.org/abs/2412.06333v3
-10. **From Model-Based Screening to Data-Driven Surrogates: A Multi-Stage Workflow for Exploring Stochastic Agent-Based Models** — `2604.03350v1`  
-   https://arxiv.org/abs/2604.03350v1
-11. **MedAide: Information Fusion and Anatomy of Medical Intents via LLM-based Agent Collaboration** — `2410.12532v3`  
-   https://arxiv.org/abs/2410.12532v3
-12. **SPEAR: An Engineering Case Study of Multi-Agent Coordination for Smart Contract Auditing** — `2602.04418v3`  
-   https://arxiv.org/abs/2602.04418v3
-13. **Focus Agent: LLM-Powered Virtual Focus Group** — `2409.01907v1`  
-   https://arxiv.org/abs/2409.01907v1
-14. **Don't Just Demo, Teach Me the Principles: A Principle-Based Multi-Agent Prompting Strategy for Text Classification** — `2502.07165v1`  
-   https://arxiv.org/abs/2502.07165v1
-15. **Strategic Communication and Language Bias in Multi-Agent LLM Coordination** — `2508.00032v2`  
-   https://arxiv.org/abs/2508.00032v2
-16. **Understanding Multi-Agent LLM Frameworks: A Unified Benchmark and Experimental Analysis** — `2602.03128v1`  
-   https://arxiv.org/abs/2602.03128v1
-17. **Thucy: An LLM-based Multi-Agent System for Claim Verification across Relational Databases** — `2512.03278v2`  
-   https://arxiv.org/abs/2512.03278v2
-18. **Towards Effective GenAI Multi-Agent Collaboration: Design and Evaluation for Enterprise Applications** — `2412.05449v1`  
-   https://arxiv.org/abs/2412.05449v1
-19. **Robust Semi-Cooperative Multi-Agent Coordination in the Presence of Stochastic Disturbances** — `1709.01586v3`  
-   https://arxiv.org/abs/1709.01586v3
-20. **A Plan Reuse Mechanism for LLM-Driven Agent** — `2512.21309v2`  
-   https://arxiv.org/abs/2512.21309v2
+1. **TTA-DAME: Test-Time Adaptation with Domain Augmentation and Model Ensemble for Dynamic Driving Conditions** — `2508.12690v2`  
+   https://arxiv.org/abs/2508.12690v2
+2. **Autoformalization of Agent Instructions into Policy-as-Code** — `2606.26649v1`  
+   https://arxiv.org/abs/2606.26649v1
+3. **UI-Evol: Automatic Knowledge Evolving for Computer Use Agents** — `2505.21964v2`  
+   https://arxiv.org/abs/2505.21964v2
+4. **FutureWeaver: Planning Test-Time Compute for Multi-Agent Systems with Modularized Collaboration** — `2512.11213v2`  
+   https://arxiv.org/abs/2512.11213v2
+5. **Tree Search for Language Model Agents** — `2407.01476v4`  
+   https://arxiv.org/abs/2407.01476v4
+6. **General Agent Evaluation** — `2602.22953v2`  
+   https://arxiv.org/abs/2602.22953v2
+7. **SWE-Replay: Efficient Test-Time Scaling for Software Engineering Agents** — `2601.22129v2`  
+   https://arxiv.org/abs/2601.22129v2
+8. **The Scalability-Efficiency/Maintainability-Portability Trade-off in Simulation Software Engineering: Examples and a Preliminary Systematic Literature Review** — `1608.04336v3`  
+   https://arxiv.org/abs/1608.04336v3
+9. **Challenges for Inclusion in Software Engineering: The Case of the Emerging Papua New Guinean Society** — `1911.04016v2`  
+   https://arxiv.org/abs/1911.04016v2
+10. **Foundation Model Engineering: Engineering Foundation Models Just as Engineering Software** — `2407.08176v1`  
+   https://arxiv.org/abs/2407.08176v1
+11. **Agent-Driven Automatic Software Improvement** — `2406.16739v1`  
+   https://arxiv.org/abs/2406.16739v1
+12. **Open-SWE-Traces: Advancing Dual-Mode Multilingual Distillation for Software Engineering Agents** — `2606.16038v1`  
+   https://arxiv.org/abs/2606.16038v1
+13. **Reproducible, Explainable, and Effective Evaluations of Agentic AI for Software Engineering** — `2604.01437v1`  
+   https://arxiv.org/abs/2604.01437v1
+14. **The Present and Future of Bots in Software Engineering** — `2207.01254v1`  
+   https://arxiv.org/abs/2207.01254v1
+15. **TOM-SWE: User Mental Modeling For Software Engineering Agents** — `2510.21903v2`  
+   https://arxiv.org/abs/2510.21903v2
+16. **Fairway: A Way to Build Fair ML Software** — `2003.10354v6`  
+   https://arxiv.org/abs/2003.10354v6
+17. **Assured LLM-Based Software Engineering** — `2402.04380v1`  
+   https://arxiv.org/abs/2402.04380v1
+18. **Towards Comprehensive Benchmarking Infrastructure for LLMs In Software Engineering** — `2601.21070v1`  
+   https://arxiv.org/abs/2601.21070v1
+19. **Promptware Engineering: Software Engineering for Prompt-Enabled Systems** — `2503.02400v2`  
+   https://arxiv.org/abs/2503.02400v2
+20. **SWE-World: Building Software Engineering Agents in Docker-Free Environments** — `2602.03419v1`  
+   https://arxiv.org/abs/2602.03419v1
 
 ## Brief
 
-# Research brief — multi agent communication coordination LLM
+# Research brief — test-time compute coding agents
 
 Found **20** arXiv hits (heuristic summary; no LLM).
 
 ## Top papers
-1. **[2203.08975v2](https://arxiv.org/abs/2203.08975v2)** — A Survey of Multi-Agent Deep Reinforcement Learning with Communication
-   - Changxi Zhu, Mehdi Dastani, Shihan Wang
-   - Communication is an effective mechanism for coordinating the behaviors of multiple agents, broadening their views of the environment, and to support their collaborations. In the field of multi-agent deep reinforcement le…
+1. **[2508.12690v2](https://arxiv.org/abs/2508.12690v2)** — TTA-DAME: Test-Time Adaptation with Domain Augmentation and Model Ensemble for Dynamic Driving Conditions
+   - Dongjae Jeon, Taeheon Kim, Seongwon Cho
+   - Test-time Adaptation (TTA) poses a challenge, requiring models to dynamically adapt and perform optimally on shifting target domains. This task is particularly emphasized in real-world driving scenes, where weather domai…
 
-2. **[2603.15054v1](https://arxiv.org/abs/2603.15054v1)** — Interference-Aware K-Step Reachable Communication in Multi-Agent Reinforcement Learning
-   - Ziyu Cheng, Jinsheng Ren, Zhouxian Jiang
-   - Effective communication is pivotal for addressing complex collaborative tasks in multi-agent reinforcement learning (MARL). Yet, limited communication bandwidth and dynamic, intricate environmental topologies present sig…
+2. **[2606.26649v1](https://arxiv.org/abs/2606.26649v1)** — Autoformalization of Agent Instructions into Policy-as-Code
+   - Adam Mondl, Matthew Maisel, John H. Brock
+   - Agent safety in high-stakes domains requires formal policy enforcement, but most existing approaches either rely on probabilistic guardrails (fine-tuned classifiers, prompt-based steering) that offer no formal guarantees…
 
-3. **[2401.16216v1](https://arxiv.org/abs/2401.16216v1)** — A mechanism for discovering semantic relationships among agent communication protocols
-   - Idoia Berges, Jesús Bermúdez, Alfredo Goñi
-   - One relevant aspect in the development of the Semantic Web framework is the achievement of a real inter-agents communication capability at the semantic level. Agents should be able to communicate with each other freely u…
+3. **[2505.21964v2](https://arxiv.org/abs/2505.21964v2)** — UI-Evol: Automatic Knowledge Evolving for Computer Use Agents
+   - Ziyun Zhang, Xinyi Liu, Xiaoyi Zhang
+   - External knowledge has played a crucial role in the recent development of computer use agents. We identify a critical knowledge-execution gap: retrieved knowledge often fails to translate into effective real-world task e…
 
-4. **[1311.5108v1](https://arxiv.org/abs/1311.5108v1)** — A Methodology to Engineer and Validate Dynamic Multi-level Multi-agent Based Simulations
-   - Jean-Baptiste Soyez, Gildas Morvan, Daniel Dupont
-   - This article proposes a methodology to model and simulate complex systems, based on IRM4MLS, a generic agent-based meta-model able to deal with multi-level systems. This methodology permits the engineering of dynamic mul…
+4. **[2512.11213v2](https://arxiv.org/abs/2512.11213v2)** — FutureWeaver: Planning Test-Time Compute for Multi-Agent Systems with Modularized Collaboration
+   - Dongwon Jung, Peng Shi, Muhao Chen
+   - Scaling test-time computation has been shown to significantly improve large language model (LLM) performance without additional training. However, extending these techniques to multi-agent systems remains challenging: ex…
 
-5. **[2401.07324v3](https://arxiv.org/abs/2401.07324v3)** — Small LLMs Are Weak Tool Learners: A Multi-LLM Agent
-   - Weizhou Shen, Chenliang Li, Hongzhan Chen
-   - Large Language Model (LLM) agents significantly extend the capabilities of standalone LLMs, empowering them to interact with external tools (e.g., APIs, functions) and complete various tasks in a self-directed fashion. T…
+5. **[2407.01476v4](https://arxiv.org/abs/2407.01476v4)** — Tree Search for Language Model Agents
+   - Jing Yu Koh, Stephen McAleer, Daniel Fried
+   - Autonomous agents powered by language models (LMs) have demonstrated promise in their ability to perform decision-making tasks such as web automation. However, a key limitation remains: LMs, primarily optimized for natur…
 
-6. **[2508.08322v1](https://arxiv.org/abs/2508.08322v1)** — Context Engineering for Multi-Agent LLM Code Assistants Using Elicit, NotebookLM, ChatGPT, and Claude Code
-   - Muhammad Haseeb
-   - Large Language Models (LLMs) have shown promise in automating code generation and software engineering tasks, yet they often struggle with complex, multi-file projects due to context limitations and knowledge gaps. We pr…
+6. **[2602.22953v2](https://arxiv.org/abs/2602.22953v2)** — General Agent Evaluation
+   - Elron Bandel, Asaf Yehudai, Lilach Eden
+   - General-purpose agents perform tasks in unfamiliar environments without domain-specific manual customization. Yet no study has systematically measured how agent architecture shapes performance across heterogeneous protoc…
 
-7. **[2604.09703v1](https://arxiv.org/abs/2604.09703v1)** — Cayley Graph Optimization for Scalable Multi-Agent Communication Topologies
-   - Jingkai Luo, Yulin Shao
-   - Large-scale multi-agent communication has long faced a scalability bottleneck: fully connected networks require quadratic complexity, yet existing sparse topologies rely on hand-crafted rules. This paper treats the commu…
+7. **[2601.22129v2](https://arxiv.org/abs/2601.22129v2)** — SWE-Replay: Efficient Test-Time Scaling for Software Engineering Agents
+   - Yifeng Ding, Lingming Zhang
+   - Test-time scaling has been widely adopted to enhance the capabilities of Large Language Model (LLM) agents in software engineering (SWE) tasks. However, the standard approach of repeatedly sampling trajectories from scra…
 
-8. **[2510.13343v1](https://arxiv.org/abs/2510.13343v1)** — AOAD-MAT: Transformer-based multi-agent deep reinforcement learning model considering agents' order of action decisions
-   - Shota Takayama, Katsuhide Fujita
-   - Multi-agent reinforcement learning focuses on training the behaviors of multiple learning agents that coexist in a shared environment. Recently, MARL models, such as the Multi-Agent Transformer (MAT) and ACtion dEpendent…
+8. **[1608.04336v3](https://arxiv.org/abs/1608.04336v3)** — The Scalability-Efficiency/Maintainability-Portability Trade-off in Simulation Software Engineering: Examples and a Preliminary Systematic Literature Review
+   - Dirk Pflüger, Miriam Mehl, Julian Valentin
+   - Large-scale simulations play a central role in science and the industry. Several challenges occur when building simulation software, because simulations require complex software developed in a dynamic construction proces…
 
-9. **[2412.06333v3](https://arxiv.org/abs/2412.06333v3)** — Augmenting the action space with conventions to improve multi-agent cooperation in Hanabi
-   - F. Bredell, H. A. Engelbrecht, J. C. Schoeman
-   - The card game Hanabi is considered a strong medium for the testing and development of multi-agent reinforcement learning (MARL) algorithms, due to its cooperative nature, partial observability, limited communication and …
+9. **[1911.04016v2](https://arxiv.org/abs/1911.04016v2)** — Challenges for Inclusion in Software Engineering: The Case of the Emerging Papua New Guinean Society
+   - Raula Gaikovina Kula, Christoph Treude, Hideaki Hata
+   - Software plays a central role in modern societies, with its high economic value and potential for advancing societal change. In this paper, we characterise challenges and opportunities for a country progressing towards e…
 
-10. **[2604.03350v1](https://arxiv.org/abs/2604.03350v1)** — From Model-Based Screening to Data-Driven Surrogates: A Multi-Stage Workflow for Exploring Stochastic Agent-Based Models
-   - Paul Saves, Matthieu Mastio, Nicolas Verstaevel
-   - Systematic exploration of Agent-Based Models (ABMs) is challenged by the curse of dimensionality and their inherent stochasticity. We present a multi-stage pipeline integrating the systematic design of experiments with m…
+10. **[2407.08176v1](https://arxiv.org/abs/2407.08176v1)** — Foundation Model Engineering: Engineering Foundation Models Just as Engineering Software
+   - Dezhi Ran, Mengzhou Wu, Wei Yang
+   - By treating data and models as the source code, Foundation Models (FMs) become a new type of software. Mirroring the concept of software crisis, the increasing complexity of FMs making FM crisis a tangible concern in the…
 
-11. **[2410.12532v3](https://arxiv.org/abs/2410.12532v3)** — MedAide: Information Fusion and Anatomy of Medical Intents via LLM-based Agent Collaboration
-   - Dingkang Yang, Jinjie Wei, Mingcheng Li
-   - In healthcare intelligence, the ability to fuse heterogeneous, multi-intent information from diverse clinical sources is fundamental to building reliable decision-making systems. Large Language Model (LLM)-driven informa…
+11. **[2406.16739v1](https://arxiv.org/abs/2406.16739v1)** — Agent-Driven Automatic Software Improvement
+   - Fernando Vallecillos Ruiz
+   - With software maintenance accounting for 50% of the cost of developing software, enhancing code quality and reliability has become more critical than ever. In response to this challenge, this doctoral research proposal a…
 
-12. **[2602.04418v3](https://arxiv.org/abs/2602.04418v3)** — SPEAR: An Engineering Case Study of Multi-Agent Coordination for Smart Contract Auditing
-   - Indraveni Chebolu, Arnab Mallick, Harmesh Rana
-   - We present SPEAR, a multi-agent coordination framework for smart contract auditing that applies established MAS patterns in a realistic security analysis workflow. SPEAR models auditing as a coordinated mission carried o…
+12. **[2606.16038v1](https://arxiv.org/abs/2606.16038v1)** — Open-SWE-Traces: Advancing Dual-Mode Multilingual Distillation for Software Engineering Agents
+   - Wasi Uddin Ahmad, Nikolai Ludwig, Somshubra Majumdar
+   - The path toward autonomous software engineering is currently bottlenecked by a severe deficit of diverse, large-scale trajectory data. We address this by introducing \ourdataset, an expansive dataset of 207,489 agentic t…
 
-13. **[2409.01907v1](https://arxiv.org/abs/2409.01907v1)** — Focus Agent: LLM-Powered Virtual Focus Group
-   - Taiyu Zhang, Xuesong Zhang, Robbe Cools
-   - In the domain of Human-Computer Interaction, focus groups represent a widely utilised yet resource-intensive methodology, often demanding the expertise of skilled moderators and meticulous preparatory efforts. This study…
+13. **[2604.01437v1](https://arxiv.org/abs/2604.01437v1)** — Reproducible, Explainable, and Effective Evaluations of Agentic AI for Software Engineering
+   - Jingyue Li, André Storhaug
+   - With the advancement of Agentic AI, researchers are increasingly leveraging autonomous agents to address challenges in software engineering (SE). However, the large language models (LLMs) that underpin these agents often…
 
-14. **[2502.07165v1](https://arxiv.org/abs/2502.07165v1)** — Don't Just Demo, Teach Me the Principles: A Principle-Based Multi-Agent Prompting Strategy for Text Classification
-   - Peipei Wei, Dimitris Dimitriadis, Yan Xu
-   - We present PRINCIPLE-BASED PROMPTING, a simple but effective multi-agent prompting strategy for text classification. It first asks multiple LLM agents to independently generate candidate principles based on analysis of d…
+14. **[2207.01254v1](https://arxiv.org/abs/2207.01254v1)** — The Present and Future of Bots in Software Engineering
+   - Emad Shihab, Stefan Wagner, Marco A. Gerosa
+   - We are witnessing a massive adoption of software engineering bots, applications that react to events triggered by tools and messages posted by users and run automated tasks in response, in a variety of domains. This them…
 
-15. **[2508.00032v2](https://arxiv.org/abs/2508.00032v2)** — Strategic Communication and Language Bias in Multi-Agent LLM Coordination
-   - Alessio Buscemi, Daniele Proverbio, Alessandro Di Stefano
-   - Large Language Model (LLM)-based agents are increasingly deployed in multi-agent scenarios where coordination is crucial but not always assured. Research shows that the way strategic scenarios are framed linguistically c…
+15. **[2510.21903v2](https://arxiv.org/abs/2510.21903v2)** — TOM-SWE: User Mental Modeling For Software Engineering Agents
+   - Xuhui Zhou, Valerie Chen, Zora Zhiruo Wang
+   - Recent advances in coding agents have made them capable of planning, editing, running, and testing complex code bases. Despite their growing ability in coding tasks, these systems still struggle to infer and track user i…
 
-16. **[2602.03128v1](https://arxiv.org/abs/2602.03128v1)** — Understanding Multi-Agent LLM Frameworks: A Unified Benchmark and Experimental Analysis
-   - Abdelghny Orogat, Ana Rostam, Essam Mansour
-   - Multi-agent LLM frameworks are widely used to accelerate the development of agent systems powered by large language models (LLMs). These frameworks impose distinct architectural structures that govern how agents interact…
+16. **[2003.10354v6](https://arxiv.org/abs/2003.10354v6)** — Fairway: A Way to Build Fair ML Software
+   - Joymallya Chakraborty, Suvodeep Majumder, Zhe Yu
+   - Machine learning software is increasingly being used to make decisions that affect people's lives. But sometimes, the core part of this software (the learned model), behaves in a biased manner that gives undue advantages…
 
-17. **[2512.03278v2](https://arxiv.org/abs/2512.03278v2)** — Thucy: An LLM-based Multi-Agent System for Claim Verification across Relational Databases
-   - Michael Theologitis, Dan Suciu
-   - In today's age, it is becoming increasingly difficult to decipher truth from lies. Every day, politicians, media outlets, and public figures make conflicting claims -- often about topics that can, in principle, be verifi…
+17. **[2402.04380v1](https://arxiv.org/abs/2402.04380v1)** — Assured LLM-Based Software Engineering
+   - Nadia Alshahwan, Mark Harman, Inna Harper
+   - In this paper we address the following question: How can we use Large Language Models (LLMs) to improve code independently of a human, while ensuring that the improved code - does not regress the properties of the origin…
 
-18. **[2412.05449v1](https://arxiv.org/abs/2412.05449v1)** — Towards Effective GenAI Multi-Agent Collaboration: Design and Evaluation for Enterprise Applications
-   - Raphael Shu, Nilaksh Das, Michelle Yuan
-   - AI agents powered by large language models (LLMs) have shown strong capabilities in problem solving. Through combining many intelligent agents, multi-agent collaboration has emerged as a promising approach to tackle comp…
+18. **[2601.21070v1](https://arxiv.org/abs/2601.21070v1)** — Towards Comprehensive Benchmarking Infrastructure for LLMs In Software Engineering
+   - Daniel Rodriguez-Cardenas, Xiaochang Li, Marcos Macedo
+   - Large language models for code are advancing fast, yet our ability to evaluate them lags behind. Current benchmarks focus on narrow tasks and single metrics, which hide critical gaps in robustness, interpretability, fair…
 
-19. **[1709.01586v3](https://arxiv.org/abs/1709.01586v3)** — Robust Semi-Cooperative Multi-Agent Coordination in the Presence of Stochastic Disturbances
-   - Kunal Garg, Dongkun Han, Dimitra Panagou
-   - This paper presents a robust distributed coordination protocol that achieves generation of collision-free trajectories for multiple unicycle agents in the presence of stochastic uncertainties. We build upon our earlier w…
+19. **[2503.02400v2](https://arxiv.org/abs/2503.02400v2)** — Promptware Engineering: Software Engineering for Prompt-Enabled Systems
+   - Zhenpeng Chen, Chong Wang, Weisong Sun
+   - Large Language Models (LLMs) are increasingly integrated into software applications, giving rise to a broad class of prompt-enabled systems, in which prompts serve as the primary 'programming' interface for guiding syste…
 
-20. **[2512.21309v2](https://arxiv.org/abs/2512.21309v2)** — A Plan Reuse Mechanism for LLM-Driven Agent
-   - Guopeng Li, Ruiqi Wu, Haisheng Tan
-   - Integrating large language models (LLMs) into personal assistants, like Xiao Ai and Blue Heart V, effectively enhances their ability to interact with humans, solve complex tasks, and manage IoT devices. Such assistants a…
+20. **[2602.03419v1](https://arxiv.org/abs/2602.03419v1)** — SWE-World: Building Software Engineering Agents in Docker-Free Environments
+   - Shuang Sun, Huatong Song, Lisheng Huang
+   - Recent advances in large language models (LLMs) have enabled software engineering agents to tackle complex code modification tasks. Most existing approaches rely on execution feedback from containerized environments, whi…
 
 ## Next
 - Skim abstracts in `abstracts/`
@@ -144,4 +144,11 @@ Found **20** arXiv hits (heuristic summary; no LLM).
 ## Suggested next engineering goals
 
 1. Map paper ideas to failing tests or missing features in this repo.
-2. Open a scoped issue /
+2. Open a scoped issue / PR with evidence (tests).
+3. Re-run `nexus github loop <n>` after each change.
+
+```bash
+nexus research "test-time compute coding agents" --max 20
+nexus do VincentMarquez/nexus-core -g "apply insights from arXiv: test-time compute coding agents; keep tests green"
+nexus github loop <n> --force
+```
