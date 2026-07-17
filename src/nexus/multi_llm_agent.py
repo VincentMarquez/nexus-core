@@ -32,6 +32,7 @@ import json
 import re
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
 SCHEMA = "nexus.multi_llm_agent/v1"
@@ -797,6 +798,567 @@ DEFAULT_ORCH_TOOLS = (
 )
 
 
+LOCAL_REGISTRY_SCHEMA = "nexus.local_registry/v1"
+
+# Tools with real local implementations under --real (read-only; no writes).
+REAL_LOCAL_TOOLS: tuple[str, ...] = (
+    "marketplace",
+    "nexus_status",
+    "tool_catalog",
+    "list_project_files",
+    # S13 capability-factory builtins (factory_tools wrappers)
+    "nexus_lesson_query",
+    "nexus_scope_check",
+    "nexus_skill_search",
+    "nexus_pack_validate",
+    "nexus_code_review",
+)
+
+# Marketplace actions allowed when real=True (wshobson validate/self_check shape).
+MARKETPLACE_READ_ACTIONS: frozenset[str] = frozenset(
+    {
+        "list",
+        "validate",
+        "catalog",
+        "collisions",
+        "self_check",
+        "self-check",
+        "capabilities",
+        "portability",
+        "garden",
+    }
+)
+
+# Write / generate actions refused by the read-only registry.
+MARKETPLACE_WRITE_ACTIONS: frozenset[str] = frozenset(
+    {
+        "export",
+        "generate",
+        "round_trip",
+        "round-trip",
+        "validate_generated",
+        "validate-generated",
+    }
+)
+
+
+def _workdir_path(workdir: Any = None) -> Path:
+    """Resolve project root for local registry tools."""
+    if workdir is not None and str(workdir).strip():
+        return Path(workdir).expanduser().resolve()
+    import os
+
+    env = (os.environ.get("NEXUS_PROJECT_ROOT") or "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    return Path.cwd().resolve()
+
+
+def invoke_marketplace_readonly(
+    workdir: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Run a *read-only* marketplace action (wshobson-shaped self_check/list/…).
+
+    Default action is ``self_check`` so heuristic plans that only name
+    ``marketplace`` still exercise the structural gate. Write actions
+    (export/generate/round-trip) are refused fail-closed.
+    """
+    from . import marketplace as mp
+
+    root = _workdir_path(workdir)
+    raw_action = kwargs.get("action") or kwargs.get("cmd") or "self_check"
+    action = str(raw_action or "self_check").strip().lower() or "self_check"
+    action_norm = action.replace("-", "_")
+
+    if action in MARKETPLACE_WRITE_ACTIONS or action_norm in {
+        a.replace("-", "_") for a in MARKETPLACE_WRITE_ACTIONS
+    }:
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "marketplace",
+            "action": action,
+            "error": f"write action refused in read-only registry: {action}",
+            "allowed": sorted(MARKETPLACE_READ_ACTIONS),
+        }
+
+    if kwargs.get("include_skillpacks") is None:
+        # Match CLI/MCP defaults: skillpacks on for catalog/self_check/garden.
+        include_sp = action_norm in (
+            "catalog",
+            "self_check",
+            "portability",
+            "garden",
+        )
+    else:
+        include_sp = bool(kwargs.get("include_skillpacks"))
+    fail_on_oversize = bool(
+        kwargs.get("fail_on_oversize") or kwargs.get("strict") or False
+    )
+
+    try:
+        if action_norm in ("self_check", "selfcheck"):
+            data = mp.self_check(
+                root,
+                include_skillpacks=(
+                    True
+                    if kwargs.get("include_skillpacks") is None
+                    else include_sp
+                ),
+                fail_on_oversize=fail_on_oversize,
+            )
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data.setdefault("ok", True)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "self_check"
+            data["workdir"] = str(root)
+            return data
+
+        if action_norm == "list":
+            rows = mp.list_plugins(
+                root,
+                validate=bool(kwargs.get("validate", False)),
+                include_skillpacks=include_sp,
+            )
+            return {
+                "schema": LOCAL_REGISTRY_SCHEMA,
+                "ok": True,
+                "real": True,
+                "tool": "marketplace",
+                "action": "list",
+                "workdir": str(root),
+                "count": len(rows),
+                "plugins": [r.to_dict() for r in rows],
+            }
+
+        if action_norm == "validate":
+            data = mp.validate_all(root)
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "validate"
+            data["workdir"] = str(root)
+            data.setdefault("ok", data.get("errors", 0) == 0)
+            return data
+
+        if action_norm == "catalog":
+            data = mp.build_catalog(root, include_skillpacks=include_sp)
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "catalog"
+            data["workdir"] = str(root)
+            data.setdefault("ok", True)
+            return data
+
+        if action_norm == "collisions":
+            data = mp.collisions(root)
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "collisions"
+            data["workdir"] = str(root)
+            # collisions report uses ok / duplicates fields
+            if "ok" not in data:
+                dups = data.get("collisions") or data.get("duplicates") or []
+                data["ok"] = not bool(dups)
+            return data
+
+        if action_norm == "capabilities":
+            data = mp.capabilities_matrix()
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "capabilities"
+            data.setdefault("ok", True)
+            return data
+
+        if action_norm == "portability":
+            data = mp.portability(
+                root,
+                include_skillpacks=include_sp,
+                fail_on_oversize=fail_on_oversize,
+            )
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "portability"
+            data["workdir"] = str(root)
+            data.setdefault("ok", True)
+            return data
+
+        if action_norm == "garden":
+            data = mp.garden(
+                root,
+                include_skillpacks=include_sp,
+                fail_on_oversize=fail_on_oversize,
+            )
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "marketplace"
+            data["action"] = "garden"
+            data["workdir"] = str(root)
+            data.setdefault("ok", True)
+            return data
+
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "marketplace",
+            "action": action,
+            "error": (
+                f"unknown or non-read marketplace action: {action!r}; "
+                f"allowed={sorted(MARKETPLACE_READ_ACTIONS)}"
+            ),
+        }
+    except Exception as e:  # noqa: BLE001 — surface as structured tool fail
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "marketplace",
+            "action": action,
+            "error": str(e),
+            "workdir": str(root),
+        }
+
+
+def invoke_nexus_status(workdir: Any = None, **kwargs: Any) -> dict[str, Any]:
+    """Lightweight local nexus status (read-only; no process mutation)."""
+    root = _workdir_path(workdir)
+    plugins = root / "plugins"
+    skillpacks = root / "skillpacks"
+    state = root / ".nexus_state"
+    n_plugins = 0
+    if plugins.is_dir():
+        n_plugins = sum(
+            1
+            for p in plugins.iterdir()
+            if p.is_dir() and not p.name.startswith(".")
+        )
+    runtime: dict[str, Any] = {}
+    try:
+        from .runtime import RuntimeManager
+
+        runtime = dict(RuntimeManager().status() or {})
+    except Exception:  # noqa: BLE001 — offline / no node runtime ok
+        runtime = {"available": False}
+
+    verbose = bool(kwargs.get("verbose", False))
+    out: dict[str, Any] = {
+        "schema": LOCAL_REGISTRY_SCHEMA,
+        "ok": True,
+        "real": True,
+        "tool": "nexus_status",
+        "workdir": str(root),
+        "plugins_dir": str(plugins),
+        "plugins_present": plugins.is_dir(),
+        "n_plugins": n_plugins,
+        "skillpacks_present": skillpacks.is_dir(),
+        "state_dir_present": state.is_dir(),
+        "alive_state": (state / "alive_state.json").is_file(),
+        "runtime": runtime if verbose else {"keys": sorted(runtime.keys())[:12]},
+    }
+    return out
+
+
+def invoke_tool_catalog_readonly(
+    workdir: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Read-only tool_catalog actions (list / validate / catalog)."""
+    from . import tool_catalog as tc
+
+    root = _workdir_path(workdir)
+    action = str(kwargs.get("action") or "validate").strip().lower() or "validate"
+    action_norm = action.replace("-", "_")
+    max_priv = str(kwargs.get("max_privilege") or "read")
+
+    try:
+        if action_norm in ("list", "entries"):
+            entries = tc.build_entries(max_privilege=max_priv)
+            return {
+                "schema": LOCAL_REGISTRY_SCHEMA,
+                "ok": True,
+                "real": True,
+                "tool": "tool_catalog",
+                "action": "list",
+                "count": len(entries),
+                "tools": [
+                    {
+                        "name": e.name,
+                        "privilege": getattr(e, "privilege", None),
+                        "description": (getattr(e, "description", "") or "")[:160],
+                    }
+                    for e in entries
+                ],
+            }
+        if action_norm in ("validate", "check"):
+            rep = tc.validate_tools()
+            data = rep.to_dict() if hasattr(rep, "to_dict") else dict(rep or {})
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "tool_catalog"
+            data["action"] = "validate"
+            data["workdir"] = str(root)
+            data.setdefault("ok", getattr(rep, "ok", True))
+            # Soft filter note — max_privilege is advisory on validate path
+            data["max_privilege"] = max_priv
+            return data
+        if action_norm in ("catalog", "openapi"):
+            data = tc.build_catalog(max_privilege=max_priv)
+            if not isinstance(data, dict):
+                data = {"payload": data}
+            data = dict(data)
+            data["real"] = True
+            data["tool"] = "tool_catalog"
+            data["action"] = action_norm
+            data.setdefault("ok", True)
+            return data
+        if action_norm in ("export", "write", "install"):
+            return {
+                "schema": LOCAL_REGISTRY_SCHEMA,
+                "ok": False,
+                "real": True,
+                "tool": "tool_catalog",
+                "action": action,
+                "error": f"write action refused in read-only registry: {action}",
+            }
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "tool_catalog",
+            "action": action,
+            "error": f"unknown tool_catalog action: {action!r}",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "tool_catalog",
+            "action": action,
+            "error": str(e),
+        }
+
+
+def invoke_list_project_files(
+    workdir: Any = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Bounded directory listing under workdir (read-only)."""
+    root = _workdir_path(workdir)
+    rel = str(kwargs.get("path") or kwargs.get("dir") or ".").strip() or "."
+    # Jail: never escape workdir
+    target = (root / rel).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "list_project_files",
+            "error": f"path escapes workdir: {rel!r}",
+            "workdir": str(root),
+        }
+    limit = max(1, min(int(kwargs.get("limit") or 50), 200))
+    if not target.exists():
+        return {
+            "schema": LOCAL_REGISTRY_SCHEMA,
+            "ok": False,
+            "real": True,
+            "tool": "list_project_files",
+            "error": f"path not found: {rel}",
+            "workdir": str(root),
+        }
+    entries: list[dict[str, Any]] = []
+    if target.is_file():
+        entries.append(
+            {
+                "name": target.name,
+                "path": str(target.relative_to(root)),
+                "kind": "file",
+                "size": target.stat().st_size,
+            }
+        )
+    else:
+        kids = sorted(target.iterdir(), key=lambda p: p.name.lower())
+        for p in kids[:limit]:
+            if p.name.startswith(".") and p.name not in (".github",):
+                continue
+            kind = "dir" if p.is_dir() else "file"
+            item: dict[str, Any] = {
+                "name": p.name,
+                "path": str(p.relative_to(root)),
+                "kind": kind,
+            }
+            if kind == "file":
+                try:
+                    item["size"] = p.stat().st_size
+                except OSError:
+                    pass
+            entries.append(item)
+    return {
+        "schema": LOCAL_REGISTRY_SCHEMA,
+        "ok": True,
+        "real": True,
+        "tool": "list_project_files",
+        "workdir": str(root),
+        "path": rel,
+        "count": len(entries),
+        "entries": entries,
+    }
+
+
+def build_local_registry(
+    workdir: Any = None,
+    *,
+    tools: Optional[Iterable[Any]] = None,
+    mock_fallback: bool = True,
+) -> dict[str, Callable[..., Any]]:
+    """Build a local read-only tool registry for CLI/MCP run/loop (F4).
+
+    Real implementations (wshobson marketplace self_check + status/catalog/files)
+    for :data:`REAL_LOCAL_TOOLS`. Other tool names get a mock stub when
+    *mock_fallback* is True so mixed catalogs still plan/execute offline.
+
+    Never mutates the tree (no marketplace generate/export).
+    """
+    root = _workdir_path(workdir)
+    names = _tool_names(tools) if tools is not None else list(REAL_LOCAL_TOOLS)
+    if not names:
+        names = list(REAL_LOCAL_TOOLS)
+
+    def _marketplace(**kw: Any) -> dict[str, Any]:
+        return invoke_marketplace_readonly(root, **kw)
+
+    def _status(**kw: Any) -> dict[str, Any]:
+        return invoke_nexus_status(root, **kw)
+
+    def _catalog(**kw: Any) -> dict[str, Any]:
+        return invoke_tool_catalog_readonly(root, **kw)
+
+    def _files(**kw: Any) -> dict[str, Any]:
+        return invoke_list_project_files(root, **kw)
+
+    def _factory_builtin(tool_name: str) -> Callable[..., Any]:
+        def _fn(**kw: Any) -> dict[str, Any]:
+            from . import factory_tools as ft
+
+            # Map common arg aliases used by planners
+            if tool_name == "nexus_pack_validate":
+                if "path" not in kw and kw.get("query"):
+                    kw = dict(kw)
+                    kw["path"] = str(kw.pop("query"))
+            if tool_name in ("nexus_scope_check", "nexus_code_review"):
+                if "paths" not in kw and "paths_csv" not in kw and kw.get("path"):
+                    kw = dict(kw)
+                    kw["paths_csv"] = str(kw.pop("path"))
+            try:
+                out = ft.invoke_tool(tool_name, root, **kw)
+            except TypeError:
+                out = ft.invoke_tool(tool_name, root)
+            if not isinstance(out, dict):
+                out = {"ok": False, "error": "non-dict tool result", "tool": tool_name}
+            else:
+                out = dict(out)
+            out.setdefault("real", True)
+            out.setdefault("schema", LOCAL_REGISTRY_SCHEMA)
+            out.setdefault("tool", tool_name)
+            return out
+
+        return _fn
+
+    real_fns: dict[str, Callable[..., Any]] = {
+        "marketplace": _marketplace,
+        "nexus_status": _status,
+        "tool_catalog": _catalog,
+        "list_project_files": _files,
+        "nexus_lesson_query": _factory_builtin("nexus_lesson_query"),
+        "nexus_scope_check": _factory_builtin("nexus_scope_check"),
+        "nexus_skill_search": _factory_builtin("nexus_skill_search"),
+        "nexus_pack_validate": _factory_builtin("nexus_pack_validate"),
+        "nexus_code_review": _factory_builtin("nexus_code_review"),
+    }
+
+    registry: dict[str, Callable[..., Any]] = {}
+    for name in names:
+        key = str(name or "").strip()
+        if not key:
+            continue
+        if key in real_fns:
+            registry[key] = real_fns[key]
+        elif mock_fallback:
+            registry[key] = (
+                lambda _t=key, **kw: {
+                    "ok": True,
+                    "tool": _t,
+                    "args": kw,
+                    "mock": True,
+                    "real": False,
+                    "note": "no real local handler; mock fallback",
+                }
+            )
+    # Always register real tools even if not in plan tools (Caller may still see them)
+    for key, fn in real_fns.items():
+        registry.setdefault(key, fn)
+    return registry
+
+
+def mock_registry(tools: Optional[Iterable[Any]] = None) -> dict[str, Callable[..., Any]]:
+    """All-mock registry (default offline path; no filesystem side effects)."""
+    names = _tool_names(tools) if tools is not None else list(DEFAULT_ORCH_TOOLS)
+    return {
+        n: (
+            lambda _t=n, **kw: {
+                "ok": True,
+                "tool": _t,
+                "args": kw,
+                "mock": True,
+                "real": False,
+            }
+        )
+        for n in names
+    }
+
+
+def resolve_registry(
+    tools: Optional[Iterable[Any]] = None,
+    *,
+    real: bool = False,
+    workdir: Any = None,
+    mock_fallback: bool = True,
+) -> dict[str, Callable[..., Any]]:
+    """Pick mock or local real read-only registry for run/loop."""
+    if real:
+        return build_local_registry(
+            workdir, tools=tools, mock_fallback=mock_fallback
+        )
+    return mock_registry(tools)
+
+
 def format_plan_brief(plan: ToolPlan | dict[str, Any], *, max_steps: int = 8) -> str:
     """Compact one-block brief of a ToolPlan for Orchestrator goal/meta injection."""
     d = plan.to_dict() if isinstance(plan, ToolPlan) else dict(plan or {})
@@ -1217,11 +1779,24 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p_plan.add_argument("--json", action="store_true")
     p_plan.add_argument("--no-ready", action="store_true", help="leave status=draft")
 
-    p_run = sub.add_parser("run", help="Planner → Caller pipeline (mock registry)")
+    p_run = sub.add_parser(
+        "run",
+        help="Planner → Caller pipeline (mock registry; --real for local RO tools)",
+    )
     p_run.add_argument("task", help="task description")
     p_run.add_argument("--tools", default="")
     p_run.add_argument("--max-steps", type=int, default=5)
     p_run.add_argument("--json", action="store_true")
+    p_run.add_argument(
+        "--real",
+        action="store_true",
+        help="use local read-only tool registry (marketplace/status/factory builtins)",
+    )
+    p_run.add_argument(
+        "--workdir",
+        default="",
+        help="project root for --real tools (default: cwd / NEXUS_PROJECT_ROOT)",
+    )
 
     p_val = sub.add_parser("validate", help="validate plan JSON from stdin or --file")
     p_val.add_argument("--file", default="", help="path to plan JSON")
@@ -1269,11 +1844,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.cmd == "run":
         tools = _tools_list()
-        registry = {
-            t: (lambda _t=t, **kw: {"ok": True, "tool": _t, "args": kw}) for t in tools
-        }
+        use_real = bool(getattr(args, "real", False))
+        wd = str(getattr(args, "workdir", "") or "").strip() or None
+        registry = resolve_registry(
+            tools, real=use_real, workdir=wd, mock_fallback=True
+        )
         agent = MultiLLMToolAgent(tools=tools, registry=registry, max_steps=int(args.max_steps))
         report = agent.run(args.task)
+        report["registry"] = "real" if use_real else "mock"
+        if use_real:
+            report["workdir"] = str(_workdir_path(wd))
         if args.json:
             print(json.dumps(report, indent=2, default=str))
         else:
@@ -1355,6 +1935,10 @@ __all__ = [
     "plan_and_handoff",
     "dispatch_action",
     "DEFAULT_ORCH_TOOLS",
+    "REAL_LOCAL_TOOLS",
+    "build_local_registry",
+    "resolve_registry",
+    "mock_registry",
     "main",
     "STATUS_DRAFT",
     "STATUS_READY",

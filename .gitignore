@@ -23,3 +23,9 @@ results/*_artifact.txt
 
 # Machine-local Grok MCP paths (use .grok/config.example.toml)
 .grok/config.toml
+
+# demo reel encode intermediates (final assets live under docs/assets/)
+docs/assets/screenshots/pro-reel/
+docs/assets/screenshots/demo-reel-v2/
+docs/assets/screenshots/demo-reel/*.mp4
+docs/assets/screenshots/demo-reel/clip_*.mp4

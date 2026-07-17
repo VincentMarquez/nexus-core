@@ -269,6 +269,186 @@ def _arxiv_seed(item: dict[str, Any]) -> str:
     return aid.strip()
 
 
+# ── S03 implement ledger + portfolio cooldown ──────────────────────────────
+
+LEDGER_NAME = "implement_ledger.jsonl"
+_BOOTSTRAP_MARK = ".implement_ledger_bootstrapped"
+
+
+def _ledger_path(root: Path) -> Path:
+    d = _root(root) / ".nexus_state"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / LEDGER_NAME
+
+
+def append_implement_ledger(
+    root: Path | str,
+    *,
+    idea_id: str,
+    source: str = "",
+    ok: bool = True,
+    cycle_id: str = "",
+    seed: str = "",
+    extra: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Append one implement outcome row (append-only JSONL)."""
+    root_p = _root(root)
+    iid = str(idea_id or "").strip()
+    if not iid:
+        return {"ok": False, "error": "idea_id required"}
+    row: dict[str, Any] = {
+        "ts": time.time(),
+        "id": iid,
+        "source": str(source or ""),
+        "seed": str(seed or ""),
+        "ok": bool(ok),
+        "cycle_id": str(cycle_id or ""),
+    }
+    if extra:
+        row["extra"] = extra
+    path = _ledger_path(root_p)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, default=str) + "\n")
+    return {"ok": True, "path": str(path), "row": row}
+
+
+def load_implement_ledger(root: Path | str, *, limit: int = 500) -> list[dict[str, Any]]:
+    path = _ledger_path(_root(root))
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception:
+        return []
+    for line in lines[-max(1, int(limit)) :]:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(obj, dict):
+            rows.append(obj)
+    return rows
+
+
+def cooled_keys(
+    root: Path | str,
+    *,
+    cooldown_days: float = 7.0,
+    only_ok: bool = True,
+) -> set[str]:
+    """Return idea ids (and seeds) that should be soft-demoted.
+
+    Failed implements do not cool when ``only_ok`` is True.
+    """
+    window_s = max(0.0, float(cooldown_days or 0.0)) * 86400.0
+    if window_s <= 0:
+        return set()
+    now = time.time()
+    out: set[str] = set()
+    for row in load_implement_ledger(root, limit=2000):
+        if only_ok and not row.get("ok"):
+            continue
+        ts = float(row.get("ts") or 0.0)
+        if ts <= 0 or (now - ts) > window_s:
+            continue
+        iid = str(row.get("id") or "").strip()
+        if iid:
+            out.add(iid)
+        seed = str(row.get("seed") or "").strip()
+        if seed:
+            out.add(seed)
+    return out
+
+
+def _item_is_cooled(item: dict[str, Any], cooled: set[str]) -> bool:
+    if not cooled:
+        return False
+    iid = str(item.get("id") or "")
+    if iid and iid in cooled:
+        return True
+    for key in ("github_id", "seed", "repo"):
+        v = str(item.get(key) or "")
+        if v and v in cooled:
+            return True
+    # novels often encode github as ...+owner/repo
+    if iid.startswith("novel:") and "+" in iid:
+        tail = iid.rsplit("+", 1)[-1]
+        if tail in cooled:
+            return True
+    return False
+
+
+def order_with_cooldown(
+    items: list[dict[str, Any]],
+    cooled_ids: set[str] | list[str] | None,
+) -> list[dict[str, Any]]:
+    """Stable reorder: non-cooled (hot) first, cooled last. Fail-open if all cool."""
+    cooled = set(cooled_ids or [])
+    if not cooled or not items:
+        return list(items)
+    hot = [it for it in items if not _item_is_cooled(it, cooled)]
+    cold = [it for it in items if _item_is_cooled(it, cooled)]
+    return hot + cold
+
+
+def bootstrap_ledger_from_alive_state(root: Path | str) -> int:
+    """Seed ledger once from latest alive_state implement results if ledger empty.
+
+    Returns number of rows written (0 if already bootstrapped / ledger non-empty).
+    """
+    root_p = _root(root)
+    state_dir = root_p / ".nexus_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    mark = state_dir / _BOOTSTRAP_MARK
+    ledger = _ledger_path(root_p)
+    if mark.is_file():
+        return 0
+    if ledger.is_file() and ledger.stat().st_size > 0:
+        mark.write_text("skip-nonempty\n", encoding="utf-8")
+        return 0
+    alive = state_dir / "alive_state.json"
+    if not alive.is_file():
+        mark.write_text("skip-no-alive\n", encoding="utf-8")
+        return 0
+    try:
+        blob = json.loads(alive.read_text(encoding="utf-8"))
+    except Exception:
+        mark.write_text("skip-bad-alive\n", encoding="utf-8")
+        return 0
+    written = 0
+    for step in blob.get("steps") or []:
+        if not isinstance(step, dict) or step.get("step") != "implement":
+            continue
+        for r in step.get("results") or []:
+            if not isinstance(r, dict):
+                continue
+            iid = str(r.get("id") or "").strip()
+            if not iid:
+                continue
+            src = str(r.get("source") or "")
+            seed = ""
+            if src == "github":
+                seed = iid
+            elif src == "cross_pattern" and "+" in iid:
+                seed = iid.rsplit("+", 1)[-1]
+            append_implement_ledger(
+                root_p,
+                idea_id=iid,
+                source=src,
+                ok=bool(r.get("ok")),
+                cycle_id="bootstrap:alive_state",
+                seed=seed,
+                extra={"bootstrap": True},
+            )
+            written += 1
+    mark.write_text(f"n={written}\n", encoding="utf-8")
+    return written
+
+
 def select_portfolio(
     arxiv: list[dict[str, Any]],
     github: list[dict[str, Any]],
@@ -279,21 +459,36 @@ def select_portfolio(
     max_ideas: int = 10,
     max_per_arxiv_seed: int = 2,
     min_distinct_arxiv: int = 3,
+    cooled_ids: set[str] | list[str] | None = None,
+    capability: list[dict[str, Any]] | None = None,
+    max_capability: int = 2,
 ) -> list[dict[str, Any]]:
     """Ensure ≥min_arxiv + ≥min_github, fill with novels then remaining best, cap max_ideas.
 
     Diversity (anti-monoculture):
       - at most ``max_per_arxiv_seed`` ideas (incl. cross_pattern) share one paper seed
       - try to include at least ``min_distinct_arxiv`` different papers when pool allows
+
+    Cooldown (S03): soft-demote ids/seeds in ``cooled_ids`` (hot first). Fail-open if
+    only cooled candidates remain (marks ``cooldown_reuse``).
+
+    Capability (factory): optional capability ideas slotted after required quotas.
     """
     max_ideas = max(2, min(int(max_ideas), 10))  # hard ceiling 10
     min_arxiv = max(1, int(min_arxiv))
     min_github = max(1, int(min_github))
     max_per_seed = max(1, int(max_per_arxiv_seed))
     min_distinct = max(1, int(min_distinct_arxiv))
+    max_cap = max(0, int(max_capability))
+    cooled = set(cooled_ids or [])
     if min_arxiv + min_github > max_ideas:
         min_arxiv = 1
         min_github = 1
+
+    arxiv = order_with_cooldown(list(arxiv), cooled)
+    github = order_with_cooldown(list(github), cooled)
+    novels = order_with_cooldown(list(novels), cooled)
+    caps = order_with_cooldown(list(capability or []), cooled)
 
     portfolio: list[dict[str, Any]] = []
     used_ids: set[str] = set()
@@ -330,13 +525,19 @@ def select_portfolio(
                 seed_counts[seed] = seed_counts.get(seed, 0) + 1
             row = dict(it)
             row["selected_as"] = source_tag
+            if _item_is_cooled(it, cooled):
+                row["cooldown_reuse"] = True
             portfolio.append(row)
             got += 1
         return got
 
-    # Required quotas first (single arxiv + github seed ok)
+    # Required quotas first (single arxiv + github seed ok) — hot preferred
     take(arxiv, min_arxiv, "required_arxiv", enforce_seed=True)
     take(github, min_github, "required_github", enforce_seed=False)
+
+    # Capability ideas (skill/tool factory) — bounded slot
+    if caps and max_cap > 0:
+        take(caps, max_cap, "capability", enforce_seed=False)
 
     # Pull additional distinct arXiv papers before flooding with same-seed crosses
     distinct_now = len({_arxiv_seed(p) for p in portfolio if _arxiv_seed(p)})
@@ -355,9 +556,11 @@ def select_portfolio(
 
     # Fill remainder (still enforce seed cap — no flood of same-paper remixes)
     rest = sorted(
-        list(arxiv) + list(github),
+        list(arxiv) + list(github) + list(caps),
         key=lambda x: -float(x.get("score") or 0),
     )
+    # Prefer hot fills before cooled
+    rest = order_with_cooldown(rest, cooled)
     take(rest, max_ideas - len(portfolio), "fill", enforce_seed=True)
     # Last resort: more github-only / arxiv-only items without cross_pattern flood
     if len(portfolio) < max_ideas:
@@ -441,12 +644,32 @@ def build_portfolio(
     min_github: int = 1,
     max_ideas: int = 10,
     min_github_score: float = 0.0,
+    cooldown_days: float = 7.0,
+    cooldown_disable: bool = False,
 ) -> dict[str, Any]:
     """Full collect → cross-pattern → select → write."""
     root = _root(root)
+    # Bootstrap ledger once if empty (S03)
+    try:
+        bootstrap_ledger_from_alive_state(root)
+    except Exception:
+        pass
     arxiv = collect_arxiv_ideas(root, limit=30)
     github = collect_github_ideas(root, limit=30, min_score=min_github_score)
     novels = cross_pattern_novel_ideas(arxiv, github, limit=8)
+    cooled: set[str] = set()
+    if not cooldown_disable and float(cooldown_days or 0) > 0:
+        try:
+            cooled = cooled_keys(root, cooldown_days=float(cooldown_days))
+        except Exception:
+            cooled = set()
+    caps: list[dict[str, Any]] = []
+    try:
+        from . import capability_factory as cf
+
+        caps = cf.collect_capability_ideas(root, limit=4)
+    except Exception:
+        caps = []
     portfolio = select_portfolio(
         arxiv,
         github,
@@ -454,6 +677,9 @@ def build_portfolio(
         min_arxiv=min_arxiv,
         min_github=min_github,
         max_ideas=max_ideas,
+        cooled_ids=cooled,
+        capability=caps,
+        max_capability=2,
     )
     meta = {
         "min_arxiv": min_arxiv,
@@ -462,9 +688,14 @@ def build_portfolio(
         "arxiv_pool": len(arxiv),
         "github_pool": len(github),
         "novel_pool": len(novels),
+        "cooled": len(cooled),
+        "capability_pool": len(caps),
         "arxiv_selected": sum(1 for p in portfolio if p.get("source") == "arxiv"),
         "github_selected": sum(1 for p in portfolio if p.get("source") == "github"),
         "cross_selected": sum(1 for p in portfolio if p.get("source") == "cross_pattern"),
+        "capability_selected": sum(
+            1 for p in portfolio if str(p.get("source") or "").startswith("capability")
+        ),
     }
     path = write_portfolio(root, portfolio, novels=novels, meta=meta)
     ok = (
@@ -495,11 +726,20 @@ def implement_portfolio(
     worker: str = "auto",
     our_repo: str = "",
     apply: bool = True,
+    panel_critique: bool = False,
+    scope_contract_enable: bool = False,
+    accept_predicate_enable: bool = True,
+    cycle_id: str = "",
 ) -> dict[str, Any]:
-    """Implement each selected idea (worker per idea). Returns per-idea results."""
+    """Implement each selected idea (worker per idea). Returns per-idea results.
+
+    ``panel_critique`` is accepted for API compatibility (panel wiring is opt-in
+    elsewhere). ``scope_contract_enable`` injects S04 DNA into the idea goal.
+    """
     from . import grok_worker as gw
     from . import repo_mine as rm
 
+    del panel_critique  # reserved — critique_panel is invoked by callers/alive
     root = _root(root)
     results: list[dict[str, Any]] = []
     for idea in portfolio:
@@ -515,10 +755,47 @@ def implement_portfolio(
             "id": idea.get("id"),
             "source": idea.get("source"),
             "selected_as": idea.get("selected_as"),
+            "contract_injected": False,
         }
+        if scope_contract_enable:
+            try:
+                from . import scope_contract as sc
+
+                contract = sc.default_contract(idea if isinstance(idea, dict) else {})
+                goal = sc.prepend_dna_to_goal(goal, contract)
+                entry["contract_injected"] = True
+                entry["scope_contract_id"] = contract.get("idea_id")
+            except Exception as e:
+                entry["contract_injected"] = False
+                entry["contract_error"] = str(e)[:200]
         try:
             w = (worker or "auto").strip().lower()
-            if apply and w in ("auto", "grok") and gw.grok_available():
+            # Wave D: capability ideas use factory fill/activate (not product hard-improve)
+            if apply and str(idea.get("source") or "").startswith("capability"):
+                try:
+                    from . import capability_factory as cfact
+
+                    cres = cfact.implement_capability_idea(
+                        root,
+                        idea if isinstance(idea, dict) else {},
+                        use_grok_fill=True,
+                        auto_activate_skill=True,
+                        auto_activate_tool=True,
+                    )
+                    entry["worker"] = "capability_factory"
+                    entry["ok"] = bool(cres.get("ok"))
+                    entry["result"] = cres
+                    entry["capability"] = {
+                        "kind": cres.get("kind"),
+                        "activate": cres.get("activate"),
+                        "fill": (cres.get("fill") or {}).get("filled_by"),
+                    }
+                except Exception as e:
+                    entry["worker"] = "capability_factory"
+                    entry["ok"] = False
+                    entry["error"] = str(e)[:400]
+                    entry["result"] = {}
+            elif apply and w in ("auto", "grok") and gw.grok_available():
                 res = gw.grok_hard_improve(root, goal)
                 entry["worker"] = "grok"
                 entry["ok"] = bool(res.get("ok", True)) if isinstance(res, dict) else True
@@ -543,10 +820,45 @@ def implement_portfolio(
             else:
                 entry["worker"] = "plan_only"
                 entry["ok"] = True
-                entry["result"] = {"plan": goal[:500]}
+                # Keep enough of the goal for DNA assertions (S04)
+                entry["result"] = {"plan": goal[:4000]}
         except Exception as e:
             entry["ok"] = False
             entry["error"] = str(e)[:500]
+
+        # Soft accept predicate (S05) — advisory only
+        if accept_predicate_enable:
+            try:
+                from . import accept_predicate as ap
+
+                acc = ap.evaluate_accept(root, entry, idea=idea, soft=True)
+                entry["accept_predicate"] = acc
+            except Exception:
+                pass
+
+        # S03 ledger: record successful (and failed) implements for cooldown
+        try:
+            src = str(idea.get("source") or entry.get("source") or "")
+            seed = ""
+            if src == "github":
+                seed = str(idea.get("id") or "")
+            elif src == "cross_pattern":
+                seed = str(idea.get("github_id") or "")
+                if not seed:
+                    iid = str(idea.get("id") or "")
+                    if "+" in iid:
+                        seed = iid.rsplit("+", 1)[-1]
+            append_implement_ledger(
+                root,
+                idea_id=str(idea.get("id") or entry.get("id") or ""),
+                source=src,
+                ok=bool(entry.get("ok")),
+                cycle_id=cycle_id,
+                seed=seed,
+            )
+        except Exception:
+            pass
+
         results.append(entry)
     ok_n = sum(1 for r in results if r.get("ok"))
     return {

@@ -1253,6 +1253,28 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mesh(args: argparse.Namespace) -> int:
+    """In-process agent mesh (Solace shape): demo | topics | snapshot."""
+    from . import agent_mesh as am
+
+    sub = (getattr(args, "mesh_cmd", None) or "demo").strip().lower()
+    return am.main([sub])
+
+
+def cmd_conversation(args: argparse.Namespace) -> int:
+    """Config-driven conversation middleware (EDDI shape): demo | config | turn."""
+    from . import conversation_middleware as cmid
+
+    sub = (getattr(args, "conversation_cmd", None) or "demo").strip().lower()
+    if sub == "turn":
+        text = (getattr(args, "text", None) or "").strip()
+        if not text:
+            extra = list(getattr(args, "words", None) or [])
+            text = " ".join(extra).strip() or "hello"
+        return cmid.main(["turn", text])
+    return cmid.main([sub])
+
+
 def cmd_usage(args: argparse.Namespace) -> int:
     """Token budget / throttle controls."""
     from . import usage as um
@@ -4425,6 +4447,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "arxiv",
         "research",
         "task",
+        "mesh",
+        "conversation",
         "-h",
         "--help",
     }
@@ -5043,6 +5067,51 @@ def main(argv: Optional[list[str]] = None) -> int:
     pl_doc.add_argument("--fix", action="store_true")
     pl_doc.set_defaults(func=cmd_platforms)
     pl.set_defaults(func=cmd_platforms, platforms_cmd="status")
+
+    # --- in-process agent mesh (SolaceLabs/solace-agent-mesh shape) ---
+    ms = sub.add_parser(
+        "mesh",
+        help="in-process agent mesh: demo | topics | snapshot (no broker)",
+    )
+    ms_sub = ms.add_subparsers(dest="mesh_cmd")
+    ms_sub.add_parser(
+        "demo", help="research → implement → test via capability delegate"
+    ).set_defaults(func=cmd_mesh, mesh_cmd="demo")
+    ms_sub.add_parser("topics", help="print topic taxonomy").set_defaults(
+        func=cmd_mesh, mesh_cmd="topics"
+    )
+    ms_sub.add_parser("snapshot", help="demo mesh operator snapshot JSON").set_defaults(
+        func=cmd_mesh, mesh_cmd="snapshot"
+    )
+    ms.set_defaults(func=cmd_mesh, mesh_cmd="demo")
+
+    # --- config-driven conversation middleware (labsai/EDDI shape) ---
+    cv = sub.add_parser(
+        "conversation",
+        help="config-driven multi-agent chat middleware: demo | config | turn (EDDI shape)",
+    )
+    cv_sub = cv.add_subparsers(dest="conversation_cmd")
+    cv_sub.add_parser(
+        "demo", help="multi-turn support/billing routing demo (JSON)"
+    ).set_defaults(func=cmd_conversation, conversation_cmd="demo")
+    cv_sub.add_parser(
+        "config", help="print default bot config JSON"
+    ).set_defaults(func=cmd_conversation, conversation_cmd="config")
+    cv_turn = cv_sub.add_parser(
+        "turn", help="process one user turn through the lifecycle"
+    )
+    cv_turn.add_argument(
+        "words",
+        nargs="*",
+        help="user input words (joined); default hello",
+    )
+    cv_turn.add_argument(
+        "--text",
+        default="",
+        help="user input as a single string (overrides words)",
+    )
+    cv_turn.set_defaults(func=cmd_conversation, conversation_cmd="turn")
+    cv.set_defaults(func=cmd_conversation, conversation_cmd="demo")
 
     # --- heartbeat / dead-man + recovery ---
     hb = sub.add_parser(

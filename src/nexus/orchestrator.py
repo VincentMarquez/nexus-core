@@ -200,6 +200,10 @@ class Orchestrator:
         plan_text: Optional[str] = None,
         plan_max_steps: int = 5,
         require_plan: bool = False,
+        with_swe_plan: bool = False,
+        swe_max_targets: Optional[int] = None,
+        swe_require_targets: bool = False,
+        with_delivery_board: Optional[bool] = None,
         meta: Optional[dict[str, Any]] = None,
         sync_fake: bool = False,
     ) -> dict[str, Any]:
@@ -209,6 +213,13 @@ class Orchestrator:
         decomposes *description* into a structured tool plan **before** the
         Orchestrator spawns work. The plan is stored on envelope/ops meta and
         injected into the engine worker. Planner never executes tools.
+
+        When *with_swe_plan* is True (arXiv 2603.01327v2 SWE-Adept), a
+        structured **localization → resolution** plan is built before spawn
+        (identify relevant files, then plan edits). Optionally projects the
+        plan onto a phodal/routa-shaped multi-agent delivery board
+        (*with_delivery_board*: ``None`` = default-on when SWE plan succeeds;
+        ``False`` = explicitly off; ``True`` = force on).
         """
         goal = str(description or "").strip()
         if not goal:
@@ -248,6 +259,100 @@ class Orchestrator:
                 require_plan=require_plan,
             )
 
+        # ── SWE-Adept localization→resolution (optional; arXiv 2603.01327v2)
+        # Merge kwargs into a working meta view so maybe_build_for_task sees them.
+        swe_meta: dict[str, Any] = dict(meta or {})
+        if with_swe_plan:
+            swe_meta["with_swe_plan"] = True
+        if swe_max_targets is not None:
+            swe_meta["swe_max_targets"] = swe_max_targets
+        if swe_require_targets:
+            swe_meta["swe_require_targets"] = True
+        # Tri-state: only write when caller explicitly set True/False (None = default-on).
+        if with_delivery_board is not None:
+            swe_meta["with_delivery_board"] = bool(with_delivery_board)
+
+        require_swe = bool(
+            swe_meta.get("swe_require_targets") or swe_require_targets
+        )
+        swe_payload: Optional[dict[str, Any]] = None
+        board_payload: Optional[dict[str, Any]] = None
+        swe_plan_status = "skipped"  # ok | failed | skipped
+        swe_plan_error: Optional[str] = None
+        board_error: Optional[str] = None
+
+        def _fail_closed_swe(msg: str) -> None:
+            if require_swe:
+                raise OrchError(msg, code="swe_plan_failed")
+
+        # Plan scope (isolated from board — board must not wipe a good plan)
+        try:
+            from . import swe_adept_plan as sap
+
+            swe_payload = sap.maybe_build_for_task(self.root, tid, goal, swe_meta)
+            if swe_payload is not None and swe_payload.get("ok") is False:
+                swe_plan_status = "failed"
+                swe_plan_error = str(
+                    swe_payload.get("error") or "swe plan failed"
+                )[:500]
+                _fail_closed_swe(f"SWE-Adept plan failed: {swe_plan_error}")
+            elif swe_payload is not None and swe_payload.get("ok"):
+                swe_plan_status = "ok"
+            elif with_swe_plan or swe_meta.get("with_swe_plan"):
+                # Requested but soft-hook returned None (unexpected empty path)
+                swe_plan_status = "skipped"
+        except OrchError:
+            raise
+        except Exception as e:
+            swe_plan_status = "failed"
+            swe_plan_error = f"{type(e).__name__}: {e}"[:500]
+            swe_payload = None
+            _fail_closed_swe(f"SWE-Adept plan failed: {e}")
+            # fail-open: keep breadcrumb via swe_plan_error
+
+        # Board scope (cosmetic projection; failures degrade board only)
+        try:
+            from . import swe_delivery_board as sdb
+
+            if (
+                swe_meta.get("with_delivery_board") is False
+                or swe_meta.get("swe_board") is False
+            ):
+                board_on = False
+            elif (
+                swe_meta.get("with_delivery_board") is True
+                or swe_meta.get("swe_board") is True
+            ):
+                board_on = True
+            else:
+                # Hybrid default-on when SWE plan succeeded
+                board_on = bool(swe_payload is not None and swe_payload.get("ok"))
+
+            if board_on:
+                board_payload = sdb.maybe_build_for_task(
+                    self.root,
+                    tid,
+                    goal,
+                    swe_meta,
+                    plan_result=swe_payload
+                    if swe_payload is not None
+                    else None,
+                )
+                if board_payload is not None and board_payload.get("ok") is False:
+                    board_error = str(
+                        board_payload.get("error") or "delivery board failed"
+                    )[:500]
+                    _fail_closed_swe(
+                        f"SWE delivery board failed: {board_error}"
+                    )
+                    board_payload = None  # fail-open: drop failed board only
+        except OrchError:
+            raise
+        except Exception as e:
+            board_error = f"{type(e).__name__}: {e}"[:500]
+            board_payload = None
+            _fail_closed_swe(f"SWE delivery board failed: {e}")
+
         # ── Multi-agent compute budget (optional; arXiv 2512.11213v2) ─────
         budget_payload: Optional[dict[str, Any]] = None
         try:
@@ -264,10 +369,62 @@ class Orchestrator:
             "with_plan": bool(with_plan or plan is not None),
             "schema": SCHEMA,
         }
+        # Preserve SWE knobs on envelope (clamped) for status/inspect.
+        if with_swe_plan or swe_plan_status != "skipped":
+            env_meta["with_swe_plan"] = bool(
+                with_swe_plan or swe_plan_status == "ok"
+            )
+        env_meta["swe_plan_status"] = swe_plan_status
+        if swe_plan_error:
+            env_meta["swe_plan_error"] = swe_plan_error
+            env_meta["swe_adept_error"] = swe_plan_error
+        if "swe_max_targets" in swe_meta:
+            try:
+                from .swe_adept_plan import clamp_swe_limit
+
+                env_meta["swe_max_targets"] = clamp_swe_limit(
+                    swe_meta.get("swe_max_targets"), 8
+                )
+            except Exception:
+                env_meta["swe_max_targets"] = 8
+        if swe_require_targets or swe_meta.get("swe_require_targets"):
+            env_meta["swe_require_targets"] = True
+        if with_delivery_board is not None:
+            env_meta["with_delivery_board"] = bool(with_delivery_board)
         if plan_payload is not None:
             env_meta["tool_plan"] = plan_payload
             env_meta["pre_planned"] = True
             env_meta["planner_paper"] = plan_payload.get("paper") or "arxiv:2401.07324v3"
+        if swe_payload is not None and swe_payload.get("ok"):
+            env_meta["swe_adept"] = True
+            env_meta["with_swe_plan"] = True
+            env_meta["swe_plan_status"] = "ok"
+            env_meta["swe_adept_plan"] = swe_payload.get("plan") or {
+                "n_targets": swe_payload.get("n_targets"),
+                "status": swe_payload.get("status"),
+                "phases": swe_payload.get("phases"),
+                "paper": swe_payload.get("paper"),
+            }
+            env_meta["swe_adept_paper"] = swe_payload.get("paper") or "arxiv:2603.01327v2"
+            env_meta["swe_adept_init"] = {
+                "status": swe_payload.get("status"),
+                "n_targets": swe_payload.get("n_targets"),
+                "n_localization_steps": swe_payload.get("n_localization_steps"),
+                "n_resolution_steps": swe_payload.get("n_resolution_steps"),
+                "targets": list(swe_payload.get("targets") or [])[:12],
+                "phases": swe_payload.get("phases"),
+                "paper": swe_payload.get("paper"),
+                "schema": swe_payload.get("schema"),
+            }
+        if board_payload is not None and board_payload.get("ok"):
+            env_meta["swe_delivery_board"] = True
+            env_meta["delivery_board"] = board_payload.get("board") or board_payload
+            env_meta["delivery_board_paper"] = board_payload.get("paper") or "arxiv:2603.01327v2"
+            env_meta["delivery_board_pattern"] = (
+                board_payload.get("source_pattern") or "phodal/routa"
+            )
+        elif board_error:
+            env_meta["delivery_board_error"] = board_error
         if budget_payload is not None:
             env_meta["budget_alloc"] = budget_payload
             env_meta["compute_budget_planned"] = True
@@ -329,6 +486,111 @@ class Orchestrator:
             if top:
                 env_meta["intent_suggestions"] = top
 
+        # ── Shared harness state (optional; arXiv 2605.18747v1 × wshobson) ─
+        # Dedicated HarnessState: active agents + versioned shared KV +
+        # content_hash verify across the multi-agent roster.
+        harness_payload: Optional[dict[str, Any]] = None
+        try:
+            from .harness_state import maybe_init_for_task
+
+            harness_payload = maybe_init_for_task(self.root, tid, env_meta)
+        except Exception:
+            harness_payload = None
+        if harness_payload and harness_payload.get("ok"):
+            env_meta["harness_state"] = harness_payload.get("state") or harness_payload
+            env_meta["harness_state_init"] = {
+                "content_hash": harness_payload.get("content_hash"),
+                "n_agents": harness_payload.get("n_agents"),
+                "n_active": harness_payload.get("n_active"),
+                "n_shared": harness_payload.get("n_shared"),
+                "active_ids": list(harness_payload.get("active_ids") or [])[:16],
+                "verify_ok": harness_payload.get("verify_ok"),
+                "paper": harness_payload.get("paper"),
+                "schema": harness_payload.get("schema"),
+                "source_pattern": harness_payload.get("source_pattern"),
+            }
+            env_meta["harness_state_paper"] = "arxiv:2605.18747v1"
+            brief_hs = harness_payload.get("brief")
+            if brief_hs:
+                env_meta["harness_state_brief"] = brief_hs
+        elif harness_payload and harness_payload.get("ok") is False:
+            env_meta["harness_state_error"] = str(
+                harness_payload.get("error") or "harness_state failed"
+            )[:500]
+
+        # ── Workspace review board (optional; phodal/routa traces+gate) ────
+        # Pure workspace-first board with stacked review gate (Harness →
+        # Fitness → Gate). Distinct from SWE-Adept hybrid delivery_board.
+        ws_board_payload: Optional[dict[str, Any]] = None
+        try:
+            from .workspace_review_board import maybe_build_for_task as maybe_ws_board
+
+            ws_board_payload = maybe_ws_board(self.root, tid, goal, env_meta)
+        except Exception:
+            ws_board_payload = None
+        if ws_board_payload and ws_board_payload.get("ok"):
+            env_meta["workspace_review_board"] = (
+                ws_board_payload.get("board") or ws_board_payload
+            )
+            env_meta["workspace_review_board_full"] = ws_board_payload.get(
+                "board_full"
+            )
+            env_meta["workspace_review_board_init"] = {
+                "workspace_id": ws_board_payload.get("workspace_id"),
+                "lane": ws_board_payload.get("lane"),
+                "signal": ws_board_payload.get("signal"),
+                "status": ws_board_payload.get("status"),
+                "schema": ws_board_payload.get("schema"),
+                "source_pattern": ws_board_payload.get("source_pattern")
+                or "phodal/routa",
+                "idea_id": ws_board_payload.get("idea_id") or "phodal/routa",
+            }
+            env_meta["workspace_review_board_pattern"] = "phodal/routa"
+            brief_ws = ws_board_payload.get("brief")
+            if brief_ws:
+                env_meta["workspace_review_board_brief"] = brief_ws
+        elif ws_board_payload and ws_board_payload.get("ok") is False:
+            env_meta["workspace_review_board_error"] = str(
+                ws_board_payload.get("error") or "workspace board failed"
+            )[:500]
+
+        # ── Forge board (optional; automagik-dev/forge multi-attempt kanban) ─
+        # Opt-in only via with_forge_board / forge_board / automagik_forge.
+        forge_board_payload: Optional[dict[str, Any]] = None
+        try:
+            from .forge_board import maybe_build_for_task as maybe_forge_board
+
+            forge_board_payload = maybe_forge_board(self.root, tid, goal, env_meta)
+        except Exception as e:  # noqa: BLE001 — board failures are non-fatal
+            forge_board_payload = {
+                "ok": False,
+                "error": f"{type(e).__name__}: {e}"[:500],
+            }
+        if forge_board_payload and forge_board_payload.get("ok"):
+            env_meta["forge_board"] = (
+                forge_board_payload.get("board") or forge_board_payload
+            )
+            env_meta["forge_board_full"] = forge_board_payload.get("board_full")
+            env_meta["forge_board_init"] = {
+                "project_id": forge_board_payload.get("project_id"),
+                "lane": forge_board_payload.get("lane"),
+                "signal": forge_board_payload.get("signal"),
+                "status": forge_board_payload.get("status"),
+                "schema": forge_board_payload.get("schema"),
+                "source_pattern": forge_board_payload.get("source_pattern")
+                or "automagik-dev/forge",
+                "idea_id": forge_board_payload.get("idea_id")
+                or "automagik-dev/forge",
+            }
+            env_meta["forge_board_pattern"] = "automagik-dev/forge"
+            brief_fb = forge_board_payload.get("brief")
+            if brief_fb:
+                env_meta["forge_board_brief"] = brief_fb
+        elif forge_board_payload and forge_board_payload.get("ok") is False:
+            env_meta["forge_board_error"] = str(
+                forge_board_payload.get("error") or "forge board failed"
+            )[:500]
+
         env = Envelope(
             task_id=tid,
             kind=k,
@@ -349,6 +611,36 @@ class Orchestrator:
             if brief:
                 for line in brief.splitlines()[:12]:
                     env.log_tail.append(f"plan: {line}")
+        if swe_payload is not None and swe_payload.get("ok"):
+            env.log_tail.append(
+                f"swe_adept: status={swe_payload.get('status')} "
+                f"n_targets={swe_payload.get('n_targets')} "
+                f"loc_steps={swe_payload.get('n_localization_steps')} "
+                f"res_steps={swe_payload.get('n_resolution_steps')} "
+                f"paper={swe_payload.get('paper')}"
+            )
+            for t in list(swe_payload.get("targets") or [])[:8]:
+                env.log_tail.append(f"localize: {t}")
+            brief = str(swe_payload.get("brief") or "").strip()
+            if brief:
+                for line in brief.splitlines()[:10]:
+                    env.log_tail.append(f"swe: {line}")
+        elif swe_plan_status == "failed":
+            env.log_tail.append(
+                f"swe_adept: failed {swe_plan_error or 'unknown error'}"
+            )
+        if board_payload is not None and board_payload.get("ok"):
+            env.log_tail.append(
+                f"delivery_board: lane={board_payload.get('lane')} "
+                f"signal={board_payload.get('signal')} "
+                f"pattern={board_payload.get('source_pattern') or 'phodal/routa'}"
+            )
+            board_brief = str(board_payload.get("brief") or "").strip()
+            if board_brief:
+                for line in board_brief.splitlines()[:8]:
+                    env.log_tail.append(f"board: {line}")
+        elif board_error:
+            env.log_tail.append(f"board: degraded ({board_error})")
         if budget_payload is not None:
             env.log_tail.append(
                 f"compute_budget: strategy={budget_payload.get('strategy')} "
@@ -368,12 +660,35 @@ class Orchestrator:
                 f"suggestions={user_intent_payload.get('n_suggestions')} "
                 f"paper={user_intent_payload.get('paper')}"
             )
+        if ws_board_payload and ws_board_payload.get("ok"):
+            env.log_tail.append(
+                f"workspace_board: lane={ws_board_payload.get('lane')} "
+                f"signal={ws_board_payload.get('signal')} "
+                f"ws={ws_board_payload.get('workspace_id')} "
+                f"pattern=phodal/routa"
+            )
+            ws_brief = str(ws_board_payload.get("brief") or "").strip()
+            if ws_brief:
+                for line in ws_brief.splitlines()[:8]:
+                    env.log_tail.append(f"ws_board: {line}")
+        elif ws_board_payload and ws_board_payload.get("ok") is False:
+            env.log_tail.append(
+                f"workspace_board: failed "
+                f"{env_meta.get('workspace_review_board_error') or 'unknown'}"
+            )
 
         ops_meta: dict[str, Any] = {
             "orchestrator": True,
             "agent_mode": mode,
             "backend": backend,
             "with_plan": bool(plan_payload is not None),
+            "with_swe_plan": bool(
+                swe_payload is not None and swe_payload.get("ok")
+            ),
+            "swe_plan_status": swe_plan_status,
+            "with_delivery_board": bool(
+                board_payload is not None and board_payload.get("ok")
+            ),
             "with_compute_budget": bool(budget_payload is not None),
             "with_state_replay": bool(
                 state_replay_payload and state_replay_payload.get("ok")
@@ -381,7 +696,23 @@ class Orchestrator:
             "with_user_intent": bool(
                 user_intent_payload and user_intent_payload.get("ok")
             ),
+            "with_workspace_board": bool(
+                ws_board_payload and ws_board_payload.get("ok")
+            ),
+            "with_forge_board": bool(
+                forge_board_payload and forge_board_payload.get("ok")
+            ),
         }
+        if swe_plan_error:
+            ops_meta["swe_plan_error"] = swe_plan_error
+        if board_error:
+            ops_meta["delivery_board_error"] = board_error
+        if env_meta.get("workspace_review_board_error"):
+            ops_meta["workspace_review_board_error"] = env_meta[
+                "workspace_review_board_error"
+            ]
+        if env_meta.get("forge_board_error"):
+            ops_meta["forge_board_error"] = env_meta["forge_board_error"]
         if plan_payload is not None:
             ops_meta["tool_plan"] = {
                 "n_steps": plan_payload.get("n_steps"),
@@ -394,6 +725,45 @@ class Orchestrator:
                     if isinstance(s, dict)
                 ],
             }
+        if swe_payload is not None and swe_payload.get("ok"):
+            ops_meta["swe_adept_paper"] = (
+                swe_payload.get("paper") or "arxiv:2603.01327v2"
+            )
+            ops_meta["swe_adept_plan"] = {
+                "n_targets": swe_payload.get("n_targets"),
+                "status": swe_payload.get("status"),
+                "phases": swe_payload.get("phases"),
+                "paper": swe_payload.get("paper"),
+                "n_localization_steps": swe_payload.get("n_localization_steps"),
+                "n_resolution_steps": swe_payload.get("n_resolution_steps"),
+                "targets": list(swe_payload.get("targets") or [])[:12],
+            }
+            # Lean full plan also on ops for inspect (counts + phases)
+            if isinstance(swe_payload.get("plan"), dict):
+                ops_meta["swe_adept_plan"].update(
+                    {
+                        k: swe_payload["plan"].get(k)
+                        for k in (
+                            "schema",
+                            "localization",
+                            "resolution",
+                            "n_steps",
+                        )
+                        if k in swe_payload["plan"]
+                    }
+                )
+        if board_payload is not None and board_payload.get("ok"):
+            ops_meta["delivery_board"] = board_payload.get("board") or {
+                "lane": board_payload.get("lane"),
+                "signal": board_payload.get("signal"),
+                "n_targets": board_payload.get("n_targets"),
+            }
+            ops_meta["delivery_board_paper"] = (
+                board_payload.get("paper") or "arxiv:2603.01327v2"
+            )
+            ops_meta["delivery_board_pattern"] = (
+                board_payload.get("source_pattern") or "phodal/routa"
+            )
         if budget_payload is not None:
             # Full FutureWeaver snapshot on ops job (budget_plane hybrid);
             # keeps agent quotas durable for mission-control-style spend boards.
@@ -992,6 +1362,152 @@ class Orchestrator:
             payload["compute_budget_planned"] = bool(
                 env_meta.get("compute_budget_planned")
             )
+        # Surface shared harness state (arXiv 2605.18747v1 Code as Agent Harness)
+        hs_raw = env_meta.get("harness_state") or job_meta.get("harness_state")
+        hs_init = env_meta.get("harness_state_init") or {}
+        if isinstance(hs_raw, dict) and hs_raw:
+            try:
+                from .harness_state import HarnessState, format_brief as hs_brief
+
+                if isinstance(hs_raw.get("agents"), dict) or isinstance(
+                    hs_raw.get("shared"), dict
+                ):
+                    hs = HarnessState.from_dict(hs_raw)
+                    payload["harness_state"] = hs.snapshot()
+                    payload["harness_state_brief"] = hs_brief(hs)
+                    payload["harness_state_ok"] = True
+                else:
+                    payload["harness_state"] = hs_raw
+                    payload["harness_state_ok"] = True
+            except Exception:
+                payload["harness_state"] = hs_raw
+                payload["harness_state_ok"] = bool(hs_init)
+            payload["harness_state_summary"] = {
+                "content_hash": (hs_raw.get("content_hash") if isinstance(hs_raw, dict) else None)
+                or hs_init.get("content_hash"),
+                "n_agents": hs_init.get("n_agents")
+                or (hs_raw.get("n_agents") if isinstance(hs_raw, dict) else None),
+                "n_active": hs_init.get("n_active"),
+                "n_shared": hs_init.get("n_shared"),
+                "paper": env_meta.get("harness_state_paper")
+                or (hs_raw.get("paper") if isinstance(hs_raw, dict) else None)
+                or "arxiv:2605.18747v1",
+                "source_pattern": hs_init.get("source_pattern")
+                or (hs_raw.get("source_pattern") if isinstance(hs_raw, dict) else None)
+                or "wshobson/agents",
+            }
+        elif env_meta.get("harness_state_error"):
+            payload["harness_state_ok"] = False
+            payload["harness_state_error"] = env_meta.get("harness_state_error")
+        # Surface workspace review board (phodal/routa traces + stacked gate)
+        ws_raw = env_meta.get("workspace_review_board") or job_meta.get(
+            "workspace_review_board"
+        )
+        ws_init = env_meta.get("workspace_review_board_init") or {}
+        if isinstance(ws_raw, dict) and ws_raw:
+            payload["workspace_review_board"] = ws_raw
+            payload["workspace_review_board_ok"] = True
+            payload["workspace_review_board_summary"] = {
+                "workspace_id": ws_init.get("workspace_id")
+                or ws_raw.get("workspace_id"),
+                "lane": ws_init.get("lane") or ws_raw.get("primary_lane"),
+                "signal": ws_init.get("signal") or ws_raw.get("signal"),
+                "n_cards": ws_raw.get("n_cards"),
+                "source_pattern": ws_init.get("source_pattern")
+                or ws_raw.get("source_pattern")
+                or "phodal/routa",
+                "idea_id": ws_init.get("idea_id") or "phodal/routa",
+            }
+            brief_ws = env_meta.get("workspace_review_board_brief")
+            if brief_ws:
+                payload["workspace_review_board_brief"] = brief_ws
+        elif env_meta.get("workspace_review_board_error"):
+            payload["workspace_review_board_ok"] = False
+            payload["workspace_review_board_error"] = env_meta.get(
+                "workspace_review_board_error"
+            )
+        # Surface forge multi-attempt kanban (automagik-dev/forge)
+        fb_raw = env_meta.get("forge_board") or job_meta.get("forge_board")
+        fb_init = env_meta.get("forge_board_init") or {}
+        if isinstance(fb_raw, dict) and fb_raw:
+            payload["forge_board"] = fb_raw
+            payload["forge_board_ok"] = True
+            payload["forge_board_summary"] = {
+                "project_id": fb_init.get("project_id") or fb_raw.get("project_id"),
+                "lane": fb_init.get("lane") or fb_raw.get("lane"),
+                "signal": fb_init.get("signal") or fb_raw.get("signal"),
+                "n_tasks": fb_raw.get("n_tasks"),
+                "source_pattern": fb_init.get("source_pattern")
+                or fb_raw.get("source_pattern")
+                or "automagik-dev/forge",
+                "idea_id": fb_init.get("idea_id") or "automagik-dev/forge",
+            }
+            brief_fb = env_meta.get("forge_board_brief")
+            if brief_fb:
+                payload["forge_board_brief"] = brief_fb
+        elif env_meta.get("forge_board_error"):
+            payload["forge_board_ok"] = False
+            payload["forge_board_error"] = env_meta.get("forge_board_error")
+        # Surface SWE-Adept localization→resolution (arXiv 2603.01327v2)
+        swe_plan = env_meta.get("swe_adept_plan") or job_meta.get("swe_adept_plan")
+        swe_init = env_meta.get("swe_adept_init") or {}
+        swe_status = str(
+            env_meta.get("swe_plan_status")
+            or job_meta.get("swe_plan_status")
+            or ""
+        ).strip() or None
+        if isinstance(swe_plan, dict) and swe_plan:
+            payload["swe_adept"] = True
+            payload["swe_plan_status"] = swe_status or "ok"
+            payload["swe_adept_plan"] = swe_plan
+            payload["swe_adept_summary"] = {
+                "state": swe_plan.get("status") or swe_init.get("status"),
+                "status": swe_plan.get("status") or swe_init.get("status"),
+                "n_targets": swe_plan.get("n_targets", swe_init.get("n_targets")),
+                "n_localization_steps": swe_plan.get(
+                    "n_localization_steps", swe_init.get("n_localization_steps")
+                ),
+                "n_resolution_steps": swe_plan.get(
+                    "n_resolution_steps", swe_init.get("n_resolution_steps")
+                ),
+                "phases": swe_plan.get("phases")
+                or swe_init.get("phases")
+                or ["localization", "resolution"],
+                "paper": swe_plan.get("paper")
+                or env_meta.get("swe_adept_paper")
+                or "arxiv:2603.01327v2",
+                "targets": list(
+                    swe_plan.get("targets") or swe_init.get("targets") or []
+                )[:12],
+            }
+        else:
+            # Only claim swe_adept when a plan is ready — not merely requested.
+            payload["swe_adept"] = bool(env_meta.get("swe_adept"))
+            payload["swe_plan_status"] = swe_status or (
+                "failed"
+                if env_meta.get("swe_plan_error") or env_meta.get("swe_adept_error")
+                else ("skipped" if not env_meta.get("with_swe_plan") else "failed")
+            )
+            err = env_meta.get("swe_plan_error") or env_meta.get("swe_adept_error")
+            if err:
+                payload["swe_adept_error"] = err
+                payload["swe_plan_error"] = err
+        # Surface SWE-Adept × routa delivery board
+        board = env_meta.get("delivery_board") or job_meta.get("delivery_board")
+        if isinstance(board, dict) and board:
+            payload["delivery_board"] = board
+            payload["delivery_board_summary"] = {
+                "lane": board.get("lane"),
+                "signal": board.get("signal"),
+                "status": board.get("status"),
+                "n_targets": board.get("n_targets"),
+                "roles_ok": board.get("roles_ok"),
+                "paper": board.get("paper")
+                or env_meta.get("delivery_board_paper"),
+                "source_pattern": board.get("source_pattern")
+                or env_meta.get("delivery_board_pattern")
+                or "phodal/routa",
+            }
         if action == "logs":
             n = max(1, min(int(log_lines or 40), 200))
             lines = list(env.log_tail if env else [])[-n:]
@@ -1163,6 +1679,50 @@ def _worker_engine(root: Path, env: Envelope, _cancelled, _set) -> int:
             )
         _set("running", f"engine with pre-plan n_steps={tool_plan.get('n_steps')}")
 
+    # Inject SWE-Adept plan + delivery board (arXiv 2603.01327v2 × phodal/routa)
+    swe_plan = (env.meta or {}).get("swe_adept_plan")
+    if isinstance(swe_plan, dict) and swe_plan:
+        task.meta["swe_adept_plan"] = swe_plan
+        task.meta["swe_adept"] = True
+        task.meta["swe_adept_paper"] = (
+            (env.meta or {}).get("swe_adept_paper") or "arxiv:2603.01327v2"
+        )
+        swe_init = (env.meta or {}).get("swe_adept_init") or {}
+        brief = str(swe_plan.get("brief") or "").strip()
+        if not brief and isinstance(swe_init, dict):
+            # Reconstruct a short seed when lean plan lacks brief
+            targets = list(swe_plan.get("targets") or swe_init.get("targets") or [])[:8]
+            brief = (
+                f"SWE-Adept localization→resolution "
+                f"n_targets={swe_plan.get('n_targets', swe_init.get('n_targets'))}\n"
+                + "\n".join(f"  - {t}" for t in targets)
+            )
+        if brief:
+            task.meta["swe_plan_brief"] = brief
+            prior = str(task.meta.get("journal_seed") or "")
+            task.meta["journal_seed"] = (
+                (prior + "\n" if prior else "")
+                + "SWE-ADEPT PLAN (localization→resolution):\n"
+                + brief
+            )
+        _set(
+            "running",
+            f"engine with swe_adept n_targets={swe_plan.get('n_targets')}",
+        )
+    board = (env.meta or {}).get("delivery_board")
+    if isinstance(board, dict) and board:
+        task.meta["delivery_board"] = board
+        task.meta["delivery_board_pattern"] = (
+            (env.meta or {}).get("delivery_board_pattern") or "phodal/routa"
+        )
+        lane = board.get("lane")
+        if lane:
+            prior = str(task.meta.get("journal_seed") or "")
+            task.meta["journal_seed"] = (
+                (prior + "\n" if prior else "")
+                + f"DELIVERY BOARD lane={lane} signal={board.get('signal')}\n"
+            )
+
     # Inject multi-agent compute budget (arXiv 2512.11213v2 FutureWeaver)
     budget_alloc = (env.meta or {}).get("budget_alloc")
     if isinstance(budget_alloc, dict) and budget_alloc.get("agents") is not None:
@@ -1176,6 +1736,30 @@ def _worker_engine(root: Path, env: Envelope, _cancelled, _set) -> int:
             "running",
             f"engine with compute_budget total={total_tok} "
             f"strategy={budget_alloc.get('strategy')}",
+        )
+
+    # Inject shared harness state (arXiv 2605.18747v1 × wshobson/agents)
+    harness_state = (env.meta or {}).get("harness_state")
+    if isinstance(harness_state, dict) and (
+        harness_state.get("agents") is not None or harness_state.get("schema")
+    ):
+        task.meta["harness_state"] = harness_state
+        task.meta["harness_state_paper"] = (
+            (env.meta or {}).get("harness_state_paper") or "arxiv:2605.18747v1"
+        )
+        hs_brief = (env.meta or {}).get("harness_state_brief")
+        if hs_brief:
+            prior = str(task.meta.get("journal_seed") or "")
+            task.meta["journal_seed"] = (
+                (prior + "\n" if prior else "")
+                + "HARNESS STATE (shared verifiable multi-agent):\n"
+                + str(hs_brief)
+            )
+        n_act = (env.meta or {}).get("harness_state_init") or {}
+        _set(
+            "running",
+            f"engine with harness_state n_active={n_act.get('n_active')} "
+            f"hash={(n_act.get('content_hash') or '')[:12]}",
         )
 
     # Run with cooperative cancel between steps via max_steps loop

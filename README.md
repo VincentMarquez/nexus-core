@@ -34,16 +34,64 @@
 
 ---
 
+## Watch · clone · run
+
+<p align="center">
+  <a href="docs/assets/last-real-badge.svg"><img src="docs/assets/last-real-badge.svg" alt="Last REAL badge"></a>
+</p>
+
+<p align="center">
+  <b>It runs ~3 hours alone.</b> Lands product changes. Mints skills from its own failures.<br>
+  Refuses to push when the judge fails. <b>Governed self-improve + capability factory.</b>
+</p>
+
+<p align="center">
+  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS multi-LLM self-improve and skill factory demo reel" width="900">
+</p>
+
+<p align="center">
+  <a href="docs/assets/nexus-demo-reel.mp4"><b>Full demo video (MP4)</b></a>
+  · <a href="docs/hype/"><b>Hype pack</b></a>
+  · <a href="docs/hype/X_THREAD.md"><b>X thread</b></a>
+  · <a href="docs/hype/SHOW_HN.md"><b>Show HN</b></a>
+</p>
+
+```bash
+git clone https://github.com/VincentMarquez/nexus-core.git
+cd nexus-core
+make install && make start && make demo-all-quick
+```
+
+Keys optional — mocks + Ollama when CLIs are missing. Self-improve push stays fail-closed unless gates pass.
+
+<p align="center">
+  <img src="docs/assets/arch-governed-self-improve-capability-factory.png" alt="Governed self-improvement Phase A spine plus Phase B capability factory" width="100%">
+</p>
+
+| Last REAL (example cycle) | |
+|---------------------------|--|
+| Wall clock | **~2h 54m** unattended |
+| Ideas landed | **10/10** (arXiv + GitHub + cross-pattern) |
+| Multi-LLM panel | Claude · GPT · Antigravity → Grok synthesis |
+| Skill factory | e.g. `engine-fail-aware-brief` from lesson `engine_failed_open` |
+| Final tests | **green** |
+| Publish | **gated** when engine judge fails (by design) |
+
+Regenerate the badge after a cycle: `python3 scripts/last_real_badge.py --runtime "~XhYm"`.
+
+---
+
 ## Elevator pitch
 
 > **One model is a smart intern. A panel that argues, checks, and resumes is a team.**  
-> **nexus-core** wires heterogeneous LLMs so they **plan, challenge, implement, test, and meta-review together** on hard work — software repos, research, procurement — with **durable checkpoints** and a **rubric judge** that ignores “looks good to me.”
+> **nexus-core** wires heterogeneous LLMs so they **plan, challenge, implement, test, and meta-review together** on hard work — software repos, research, procurement — with **durable checkpoints** and a **rubric judge** that ignores “looks good to me.”  
+> The **capability factory** turns cycle lessons into **skills and tools** agents can reuse (propose → fill → soft accept → activate — creation ≠ activation).
 
 Three pillars:
 
 1. **Collective reasoning** — different models in different roles; adversary + meta-review, not a single chat  
 2. **Reliability & verifiability** — resume after crash; success = criteria + artifacts  
-3. **Practical jobs** — `nexus do`, `nexus research`, `nexus procure`, **self-improve** (`alive` / full cycle)  
+3. **Practical jobs** — `nexus do`, `nexus research`, `nexus procure`, **self-improve** (`alive` / full cycle) + **skill factory**  
 
 | Domain | Entry | What you get |
 |--------|-------|----------------|
@@ -51,6 +99,7 @@ Three pillars:
 | **Research** | `nexus research "…"` | arXiv + brief; **CSV ledger** skips papers already used |
 | **Procurement** | `nexus procure demo` | Engine math + expert lenses (+ LLM extract) |
 | **Self-improve** | `nexus alive once` / full-cycle script | Mine 10 repos + 10 papers → Grok reason/apply → push if tests green |
+| **Skill factory** | harvest after REAL / `capability_factory` | Lessons → skill/tool candidates → fill → accept → `skillpacks/` + MCP tools |
 
 ---
 
@@ -115,7 +164,9 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **Hybrid / LLM-optional** | Heuristic-only **or** any mix of CLIs/local | Cost control; degrades gracefully |
 | **GitHub / arXiv / procurement** | Real job entrypoints + **security gate** on community drafts | Panel applied to concrete work; unsafe replies blocked |
 | **Self-improve (alive / full cycle)** | Mine → score → arXiv → Grok reason → apply → push | Improves *this* repo under a token budget |
-| **Safe publish** | Allowlisted paths only; **pytest green** required; never force-push | Self-improve can land on GitHub without wrecking main |
+| **Capability factory** | Lessons → propose skill/tool → fill → soft accept → activate | Mints reusable skills/tools; MCP + multi_llm `--real` call them |
+| **Multi-LLM critique panel** | Claude / GPT / Antigravity → Grok ACCEPT/SKIP/DEFER | Real debate on each portfolio slice, not monologue review |
+| **Safe publish** | Allowlisted paths only; **pytest green** + S08 input health; never force-push | Self-improve can land on GitHub without wrecking main |
 | **Grok hard / local light** | Grok 4.5 grades + hard apply; Ollama for light bus work | Spend cloud where it counts |
 | **arXiv ledger** | [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) (Excel-friendly) | Don’t reprocess the same paper twice |
 | **Skill packs** | [`skillpacks/`](skillpacks/README.md) — Markdown source + manifest | Portable patterns for Grok / Cursor / Claude / local |

@@ -117,6 +117,26 @@ class AliveConfig:
     implement_min_github: int = 1
     implement_max_ideas: int = 10
     cross_pattern_scan: bool = True
+    # S08 soft REAL input gate: block *publish* (not research/implement) when X/engine failed
+    real_gate_publish: bool = True
+    real_gate_override: bool = False
+    # When False, X live input is not required for publish health
+    x_review: bool = True
+    # S05 soft accept predicate (advisory; default on)
+    accept_predicate_enable: bool = True
+    # S07 cross-run lessons harvest/inject (default on)
+    cross_run_lessons_enable: bool = True
+    # S06 portfolio quarantine worktree promote (default off)
+    implement_quarantine: bool = False
+    # S04 idea scope contract DNA inject (default off; opt-in)
+    scope_contract_enable: bool = False
+    # S03 portfolio cooldown after successful implement
+    portfolio_cooldown_days: float = 7.0
+    portfolio_cooldown_disable: bool = False
+    # S12/S13 capability factory — harvest skills after REAL (fill+accept; activate if on)
+    skill_factory_enable: bool = True
+    # Wave E: auto-activate soft-accepted skill candidates into skillpacks/
+    skill_factory_auto_activate: bool = True
     # Canonical step names (must match unified_pipeline / StepPolicy.default)
     pipeline: list[str] = field(
         default_factory=lambda: [
@@ -209,8 +229,74 @@ class AliveConfig:
             implement_min_github=max(1, int(d.get("implement_min_github") or 1)),
             implement_max_ideas=max(2, min(10, int(d.get("implement_max_ideas") or 10))),
             cross_pattern_scan=bool(d.get("cross_pattern_scan", True)),
+            real_gate_publish=bool(d.get("real_gate_publish", True)),
+            real_gate_override=bool(d.get("real_gate_override", False)),
+            x_review=bool(d.get("x_review", True)),
+            accept_predicate_enable=bool(d.get("accept_predicate_enable", True)),
+            cross_run_lessons_enable=bool(d.get("cross_run_lessons_enable", True)),
+            implement_quarantine=bool(d.get("implement_quarantine", False)),
+            scope_contract_enable=bool(d.get("scope_contract_enable", False)),
+            portfolio_cooldown_days=float(d.get("portfolio_cooldown_days") or 7.0),
+            portfolio_cooldown_disable=bool(d.get("portfolio_cooldown_disable", False)),
+            skill_factory_enable=bool(d.get("skill_factory_enable", True)),
+            skill_factory_auto_activate=bool(
+                d.get("skill_factory_auto_activate", True)
+            ),
             pipeline=[str(x) for x in pipe],
         )
+
+
+def _real_input_health(report: dict[str, Any], cfg: "AliveConfig") -> dict[str, Any]:
+    """S08 soft gate: record X + canonical engine health; may block publish only.
+
+    Research and implement still run when X/engine fail. Publish is blocked when
+    ``real_gate_publish`` is true (default), both inputs are required, and neither
+    override nor gate-off is set.
+    """
+    steps = [s for s in (report.get("steps") or []) if isinstance(s, dict)]
+    by_name: dict[str, dict[str, Any]] = {}
+    for s in steps:
+        name = str(s.get("step") or "")
+        if name and name not in by_name:
+            by_name[name] = s
+
+    x_enabled = bool(getattr(cfg, "x_review", True))
+    x_note: Optional[str] = None
+    if not x_enabled:
+        x_ok = True
+        x_note = "x_review_disabled"
+    else:
+        x_step = by_name.get("x_live_input") or by_name.get("x_review")
+        # Strict: missing or non-true ok ⇒ not healthy
+        x_ok = bool(x_step is not None and x_step.get("ok") is True)
+
+    eng = by_name.get("canonical_engine")
+    engine_ok = bool(eng is not None and eng.get("ok") is True)
+
+    gate_on = bool(getattr(cfg, "real_gate_publish", True))
+    override = bool(getattr(cfg, "real_gate_override", False))
+    if not gate_on or override:
+        publish_allowed = True
+    else:
+        publish_allowed = bool(x_ok and engine_ok)
+
+    out: dict[str, Any] = {
+        "x_ok": x_ok,
+        "engine_ok": engine_ok,
+        "publish_allowed": publish_allowed,
+        "override": override,
+        "gate_publish": gate_on,
+    }
+    if x_note is not None:
+        out["x_note"] = x_note
+    if not publish_allowed:
+        reasons: list[str] = []
+        if not x_ok:
+            reasons.append("x_live_input not ok")
+        if not engine_ok:
+            reasons.append("canonical_engine not ok")
+        out["block_reason"] = "; ".join(reasons) or "real input unhealthy"
+    return out
 
 
 def _root(workdir: Optional[Path] = None) -> Path:
@@ -1756,12 +1842,104 @@ def cycle_once(
         except Exception as e:
             report["steps"].append({"step": "meta_review", "error": str(e)})
 
+    # S07: harvest cross-run lessons from this cycle (soft; never aborts)
+    if bool(getattr(cfg, "cross_run_lessons_enable", True)):
+        try:
+            from . import cross_run_lessons as crl
+
+            cycle_tag = ""
+            if isinstance(applied, dict):
+                cycle_tag = str(applied.get("cycle_id") or "")
+            harvested = crl.harvest_lessons_from_report(
+                root, report, cycle_id=cycle_tag
+            )
+            report["steps"].append({
+                "step": "cross_run_lessons",
+                "ok": bool(harvested.get("ok")),
+                "written": harvested.get("written"),
+                "codes": harvested.get("codes"),
+            })
+        except Exception as e:
+            report["steps"].append({
+                "step": "cross_run_lessons",
+                "ok": False,
+                "error": str(e)[:300],
+            })
+
+    # S12: skill factory harvest from lessons → fill + soft-accept (+ activate if on)
+    if bool(getattr(cfg, "skill_factory_enable", True)):
+        try:
+            from . import capability_factory as cfact
+
+            auto_act = bool(getattr(cfg, "skill_factory_auto_activate", True))
+            factory_out = cfact.harvest_skill_proposals_from_lessons(
+                root,
+                limit=2,
+                dry_run=False,
+                fill=True,
+                auto_accept=True,
+                auto_activate=auto_act,
+                use_grok_fill=True,
+            )
+            report["steps"].append({
+                "step": "skill_factory_harvest",
+                "ok": bool(factory_out.get("ok")),
+                "proposed": factory_out.get("proposed"),
+                "lesson_codes": factory_out.get("lesson_codes"),
+                "auto_activate": auto_act,
+                "note": (
+                    "fill+accept; activate into skillpacks"
+                    if auto_act
+                    else "fill+accept candidates — activate opt-in only"
+                ),
+            })
+            if auto_act:
+                try:
+                    act_out = cfact.auto_activate_ready_skills(
+                        root, limit=2, fill_first=True, use_grok_fill=False
+                    )
+                    report["steps"].append({
+                        "step": "skill_factory_auto_activate",
+                        "ok": bool(act_out.get("ok")),
+                        "activated": act_out.get("activated"),
+                    })
+                except Exception as e2:
+                    report["steps"].append({
+                        "step": "skill_factory_auto_activate",
+                        "ok": False,
+                        "error": str(e2)[:300],
+                    })
+        except Exception as e:
+            report["steps"].append({
+                "step": "skill_factory_harvest",
+                "ok": False,
+                "error": str(e)[:300],
+            })
+
+    # S08: soft real-input health (record every REAL cycle; may block publish only)
+    health = _real_input_health(report, cfg)
+    report["steps"].append({"step": "real_input_health", **health})
+
     # 4d) publish to GitHub (commit + optional push) — needs push_github
     if cfg.push_github:
         if not checks.get("ok"):
             report["steps"].append({
                 "step": "publish_github",
                 "skipped": "tests not green — refusing commit/push",
+            })
+        elif not health.get("publish_allowed"):
+            report["steps"].append({
+                "step": "publish_github",
+                "skipped": (
+                    "real_input_health blocked publish — "
+                    f"{health.get('block_reason') or 'X or engine not ok'}; "
+                    "set real_gate_override=true or real_gate_publish=false to force"
+                ),
+                "health": {
+                    "x_ok": health.get("x_ok"),
+                    "engine_ok": health.get("engine_ok"),
+                    "override": health.get("override"),
+                },
             })
         else:
             try:

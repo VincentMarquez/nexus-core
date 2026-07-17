@@ -1,0 +1,25 @@
+{
+  "id": "engine-fail-aware-brief",
+  "version": "0.1.0",
+  "name": "Engine Fail Aware Brief",
+  "tags": [
+    "nexus",
+    "factory",
+    "from-lesson",
+    "engine_failed_open"
+  ],
+  "privilege": "read",
+  "entrypoints": {
+    "skill": "SKILL.md"
+  },
+  "harnesses": [
+    "grok",
+    "claude",
+    "local"
+  ],
+  "required_tools": [],
+  "factory_activated": {
+    "ts": 1784315792.1885402,
+    "from": ".nexus_state/capability_factory/candidates/skills/engine-fail-aware-brief-4e483f30"
+  }
+}
