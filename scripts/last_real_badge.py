@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/assets/last-real-badge.svg + docs/hype/LAST_REAL.md from the latest summary.
+"""Generate docs/assets/last-real-badge.svg + docs/share/LAST_REAL.md from the latest summary.
 
 Usage (repo root)::
 
@@ -95,34 +95,36 @@ def main(argv: list[str] | None = None) -> int:
     badge = root / "docs" / "assets" / "last-real-badge.svg"
     badge.parent.mkdir(parents=True, exist_ok=True)
     write_badge(badge, meta["ideas"], meta["tests"], args.runtime, meta["pushed"])
-    hype = root / "docs" / "hype"
-    hype.mkdir(parents=True, exist_ok=True)
-    (hype / "LAST_REAL.md").write_text(
-        f"""# Last REAL (generated)
+    share = root / "docs" / "share"
+    share.mkdir(parents=True, exist_ok=True)
+    (share / "LAST_REAL.md").write_text(
+        f"""# Latest self-improve snapshot
 
-![Last REAL](../assets/last-real-badge.svg)
+Status badge for the most recent documented self-improve (REAL) cycle.
 
-Regenerate::
+![Latest self-improve](../assets/last-real-badge.svg)
+
+Refresh after a cycle:
 
 ```bash
-python3 scripts/last_real_badge.py --runtime "{args.runtime}"
+python3 scripts/last_real_badge.py --runtime "~XhYm"
 ```
 
 | Field | Value |
 |-------|-------|
-| Timestamp | `{meta["ts"]}` |
+| Date | `{meta["ts"]}` |
 | Ideas landed | **{meta["ideas"]}** |
 | Final tests | **{meta["tests"]}** |
 | Wall clock | **{args.runtime}** |
 | Publish | **{meta["pushed"]}** |
 | Health | **{meta["health"]}** |
 
-Full write-up: [`docs/LATEST_IMPLEMENT_SUMMARY.md`](../LATEST_IMPLEMENT_SUMMARY.md)
+Details: [`docs/LATEST_IMPLEMENT_SUMMARY.md`](../LATEST_IMPLEMENT_SUMMARY.md)
 """,
         encoding="utf-8",
     )
     print(f"wrote {badge}")
-    print(f"wrote {hype / 'LAST_REAL.md'}")
+    print(f"wrote {share / 'LAST_REAL.md'}")
     print(
         f"last REAL · {meta['ideas']} · tests {meta['tests']} · "
         f"{args.runtime} · publish {meta['pushed']}"

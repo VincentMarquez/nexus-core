@@ -1,15 +1,17 @@
-# Public share shots (clean)
+# Public screenshots
 
-No home paths. No desktop noise. Safe for X / GitHub / decks.
+Share-safe stills for the project page and posts. Paths in the images are project-relative (no home directories).
 
-| File | What |
-|------|------|
-| **G-hero-folder-and-ui.png** | **Best single share** — folder + self-improve UI |
-| A-folder-files.png | Where project files live (relative paths only) |
-| B-self-improve-console.png | Self-Improve DRY/REAL working console |
-| C-arxiv-ledger.png | arXiv research landing (247 papers) |
-| D-agents-online.png | Agent bus online |
-| E-scoreboard.png | REAL 10/10 scoreboard |
-| F-architecture.png | Self-improve architecture diagram |
+| File | Description |
+|------|-------------|
+| G-hero-folder-and-ui.png | Layout + Self-Improve UI |
+| N-skill-factory-pipeline.png | Capability factory lifecycle |
+| O-skill-reason-from-lesson.png | Lesson → new skill |
+| P-skill-md-body.png | Generated SKILL.md |
+| J-code-swe-adept.png | Product code sample |
+| H-runtime-duration.png | Autonomous cycle duration |
+| I-github-commits.png | Public commit history |
+| F-architecture.png | Dual-path architecture |
+| A–R*.png | Additional stills for carousels |
 
-Video: `docs/assets/nexus-demo-reel.mp4`
+See also [docs/share/CAROUSEL.md](../../share/CAROUSEL.md).
