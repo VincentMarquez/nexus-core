@@ -41,7 +41,7 @@ You could not spawn a random free-form agent without that DNA. Specialists (PPO,
 
 ### B. NEXUS AGENT DNA — prompt DNA (D*=0)
 
-File: `Desktop/Projects/research/AGENT_DNA.md`  
+File: `lab workspace/AGENT_DNA.md`  
 Injection: `nexus_dna_patch.py` + `patch_dna_into_runpy.py`
 
 | Rule | Meaning |

@@ -146,7 +146,7 @@ nexus alive watch         # keep both: improve + publish
 
 ```bash
 # terminal 1 — lab infrastructure
-cd ~/Desktop/research && python3 run.py
+cd `$NEXUS_LAB_ROOT` && python3 run.py
 
 # terminal 2 — product self-improve → GitHub
 cd ~/nexus-core && source .venv/bin/activate

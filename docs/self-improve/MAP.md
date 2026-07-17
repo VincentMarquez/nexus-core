@@ -8,7 +8,7 @@
                                 │ remote control only
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  LAB  ~/Desktop/Projects/research/security-lab                      │
+│  LAB  `$NEXUS_LAB_ROOT` (lab workspace)                      │
 │   bridge/server.js          chat intercepts → product               │
 │   bridge/product_control.js  spawns nexus alive / waits summary     │
 │   src/ProductSelfImprove.jsx  DRY / REAL / mine buttons             │
