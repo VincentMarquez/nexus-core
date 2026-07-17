@@ -6,7 +6,7 @@ You have **two layers**. They are meant to work together, not replace each other
 |-------|------|------|
 | **Product / OSS** | `~/nexus-core` → github.com/VincentMarquez/nexus-core | Durable engine, mine, alive, community bot, demos, CLI `nexus` |
 | **Staging (safe)** | `~/nexus-core-staging` | Clean `origin/main` worktree — **test GitHub code here first** |
-| **Lab / research** | `~/Desktop/research` (`run.py`, bridges, EEG, agents…) | Your full autonomous research machine |
+| **Lab / research** | `$NEXUS_LAB_ROOT` (`run.py`, bridges, EEG, agents…) | Your full autonomous research machine |
 
 ## Developer path: Grok Build (coding agent)
 
@@ -16,7 +16,7 @@ For day-to-day work on the **product** tree, use Grok Build as the coding agent 
 
 ## Safe pull of “best GitHub code” without breaking lab
 
-**Never** copy GitHub over `Desktop/research` while ops services are running. Use:
+**Never** copy GitHub over `lab workspace` while ops services are running. Use:
 
 ```bash
 # 1) Isolated eval (does NOT touch lab or rewrite product until green)
@@ -46,7 +46,7 @@ Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
 
 ```text
 ┌─────────────────────────────────────┐
-│  Lab NEXUS  (Desktop/research)      │
+│  Lab NEXUS  (lab workspace)      │
 │  run.py · bus · CLIs · Ollama       │  ← boots infrastructure you already use
 └─────────────────┬───────────────────┘
                   │  same machine, same Ollama, same gh
@@ -67,7 +67,7 @@ Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
 | Goal | `NEXUS_PROJECT_ROOT` / `--path` |
 |------|----------------------------------|
 | Improve the open-source product | `~/nexus-core` (default) |
-| Improve the lab research tree | `~/Desktop/research` |
+| Improve the lab research tree | `$NEXUS_LAB_ROOT` |
 | Improve another personal repo | path after `github init` |
 
 ## One-time integrate (this machine)
@@ -132,7 +132,7 @@ nexus alive init --path "$NEXUS_PROJECT_ROOT" \
   --repo VincentMarquez/nexus-core
 
 nexus alive once --path "$NEXUS_PROJECT_ROOT"
-# plans/clones land under Desktop/research/.nexus_state/ and .nexus_workspaces/
+# plans/clones land under lab workspace/.nexus_state/ and .nexus_workspaces/
 ```
 
 Lab still boots with `python3 run.py`. Product CLI is the **self-improve / GitHub product** control plane.

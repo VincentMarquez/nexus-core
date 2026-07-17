@@ -108,7 +108,7 @@ Study Grok Build’s *ideas* and map them into NEXUS:
 ### 4) Safe experiment (don’t break lab NEXUS)
 
 ```bash
-# Product staging only — never overwrite Desktop/research
+# Product staging only — never overwrite lab workspace
 bash ~/nexus-core/scripts/safe_product_eval.sh --compare
 
 # Interactive Grok Build only in product tree
@@ -116,7 +116,7 @@ cd ~/nexus-core-staging   # or ~/nexus-core
 grok -p "Read src/nexus/engine.py and propose one small durability test"
 ```
 
-Lab (`~/Desktop/research`) stays your live ops workspace; product is the coding target.
+Lab (`$NEXUS_LAB_ROOT`) stays your live ops workspace; product is the coding target.
 
 ---
 
@@ -150,7 +150,7 @@ print(r.get('ok'), r.get('returncode'), (r.get('text') or '')[:500])
 | Vendor entire Grok Build into the repo | Binary + marketplace already on machine; license/update burden |
 | Run unbounded `grok -p` in loops overnight | Token burn (you already saw this) |
 | Replace DurableEngine with only Grok sessions | Lose multi-vendor audit + crash resume |
-| Point Grok Build at lab `Desktop/research` while ops units run | Risk of accidental edits to live workspace |
+| Point Grok Build at lab `lab workspace` while ops units run | Risk of accidental edits to live workspace |
 
 ---
 

@@ -90,7 +90,7 @@ for f in docs/LATEST_IMPLEMENT_SUMMARY.md docs/LATEST_IDEA_PORTFOLIO.md \
 done
 echo
 echo "--- lab remote control (separate tree) ---"
-LAB="${NEXUS_LAB:-$HOME/Desktop/Projects/research/security-lab}"
+LAB="${NEXUS_LAB:-`${NEXUS_LAB_ROOT:-~/lab}`}"
 if [[ -d "$LAB" ]]; then
   echo "  $LAB"
   for f in bridge/server.js bridge/product_control.js \

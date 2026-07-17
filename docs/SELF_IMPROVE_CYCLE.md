@@ -1,35 +1,32 @@
 # Self-improve cycle — Grok 4.5
 
-_Generated 2026-07-17_
+_Generated 2026-07-17 (FIX LOOP: pytest green / S03–S08 surface restore)_
 
-Model: `grok-4.5` · portfolio **[github] builderz-labs/mission-control**
+Model: `grok-4.5` · role: **fix-loop worker**
 
 ## Reasoning plan (this cycle)
 
-1. **Read evidence** — mission-control is a self-hosted SQLite control plane: task governance, spend tracking, Aegis quality reviews, completion/audit receipts, multi-surface operators (CLI/MCP/TUI). Local clone under `.nexus_workspaces/scout_repos/builderz-labs__mission-control`.
-2. **Map to NEXUS** — already have `ops_store` (jobs+spend), `budget_plane`, `control_plane_planner`, maf_bench `control_plane`. Gap: quality-review gate before complete + signed completion receipts + job-level spend hard-caps.
-3. **Pick First apply slice** — `mission_gate.py` on top of OpsStore: reviews table, fail-closed complete, HMAC receipts, gated spend.
-4. **Hard apply** — module + tests; docs; keep pytest green. No tree vendor.
-5. **Document** — update `LATEST_IMPROVE_PLAN.md` + append to `ALIVE_IMPROVEMENTS.md`.
+1. **Read** `docs/SELF_IMPROVE_CYCLE.md`, `IMPROVE_OURS.md`, `LATEST_IMPROVE_PLAN.md`.
+2. **Reproduce** `pytest:rc=2` (collection ImportError on `_real_input_health`).
+3. **Restore** missing AliveConfig + portfolio APIs expected by S03–S08 tests.
+4. **Prove** full suite green; update plan / alive log.
 
-## Evidence → engineering map
+## Landed
 
-| Source | Pattern (shape only) | Landed |
-|--------|----------------------|--------|
-| mission-control quality_reviews | Aegis approve/reject/needs_work | **MissionGate.record_review** |
-| mission-control task complete gate | Block complete until review | **check_complete** / **complete** |
-| mission-control task-costs | Spend attribution + caps | **gated_record_spend** + max_tokens |
-| mission-control receipt-signing | Canonicalize → hash → sign | **sign_receipt** / **verify_receipt** (HMAC) |
-| mission-control ops board | Operator inspect surfaces | Module CLI + **summary** |
-| Existing ops_store | SQLite jobs + spend | Reused; new tables in same DB |
+| Area | Change |
+|------|--------|
+| S08 soft gate | `_real_input_health` + publish skip when X/engine not ok |
+| Config SSOT | accept / cross-run / quarantine / scope / cooldown / real_gate / x_review |
+| S03 ledger | append / cooled_keys / order_with_cooldown / bootstrap / select demote |
+| S04 inject | `implement_portfolio(scope_contract_enable=)` DNA prepend |
+| Capability | `select_portfolio(capability=, max_capability=)` |
 
-## First apply slice (session result)
+## Session result
 
-See `docs/LATEST_IMPROVE_PLAN.md` — **landed**.
+See `docs/LATEST_IMPROVE_PLAN.md` — fix-loop landed (**1225 passed, 1 skipped**).
 
 Prove with:
 
 ```bash
-PYTHONPATH=src python3 -m pytest -q tests/test_mission_gate.py
 PYTHONPATH=src python3 -m pytest -q
 ```

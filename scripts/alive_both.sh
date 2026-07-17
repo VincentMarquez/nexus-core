@@ -8,7 +8,7 @@
 #
 set -euo pipefail
 PRODUCT="${NEXUS_PRODUCT_ROOT:-$HOME/nexus-core}"
-LAB="${NEXUS_LAB_ROOT:-$HOME/Desktop/research}"
+LAB="${NEXUS_LAB_ROOT:-${NEXUS_LAB_ROOT:-~/lab}}"
 # shellcheck disable=SC1091
 source "$PRODUCT/.venv/bin/activate" 2>/dev/null || true
 export PATH="$PRODUCT/.venv/bin:$HOME/.local/bin:$PATH"
@@ -60,7 +60,7 @@ Usage: $0 setup|once|watch|lab
 
 Env:
   NEXUS_PRODUCT_ROOT  (default ~/nexus-core)
-  NEXUS_LAB_ROOT      (default ~/Desktop/research)
+  NEXUS_LAB_ROOT      (default `$NEXUS_LAB_ROOT`)
   OLLAMA_MODEL        (default gemma4:26b)
 EOF
     ;;

@@ -8,7 +8,7 @@ Track git status of only this spine: `bash scripts/track_self_improve.sh`
 | Layer | Location | Role |
 |-------|----------|------|
 | **Product core** | `~/nexus-core` → GitHub `VincentMarquez/nexus-core` | Research, engine+judge, apply, push |
-| **Lab workspace** | `~/Desktop/Projects/research/security-lab` (`:5173` / bus `:3099`) | UI + chat that call product |
+| **Lab workspace** | ``$NEXUS_LAB_ROOT` (lab workspace)` (`:5173` / bus `:3099`) | UI + chat that call product |
 | **State / reports** | `~/nexus-core/docs/LATEST_*` + `.nexus_state/` | Cycle outputs (local) |
 | **Runtime logs** | `/tmp/nexus-alive-watch.log` | Alive process log |
 

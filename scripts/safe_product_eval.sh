@@ -2,7 +2,7 @@
 # Safe evaluate of GitHub product code WITHOUT touching the live lab NEXUS.
 #
 # Layers:
-#   Lab (live):     ~/Desktop/research   — leave running; do not overwrite
+#   Lab (live):     `$NEXUS_LAB_ROOT`   — leave running; do not overwrite
 #   Product (live): ~/nexus-core         — your working product tree
 #   Staging:        ~/nexus-core-staging — clean origin/main worktree for tests
 #
@@ -16,9 +16,9 @@ set -euo pipefail
 PRODUCT="${NEXUS_PRODUCT:-$HOME/nexus-core}"
 STAGING="${NEXUS_STAGING:-$HOME/nexus-core-staging}"
 # Lab is never written by this script — path is for logging / operator awareness only.
-LAB="${NEXUS_LAB:-$HOME/Desktop/Projects/research}"
-if [[ ! -d "$LAB" && -d "$HOME/Desktop/research" ]]; then
-  LAB="$HOME/Desktop/research"
+LAB="${NEXUS_LAB:-${NEXUS_LAB_ROOT:-~/lab}}"
+if [[ ! -d "$LAB" && -d "${NEXUS_LAB_ROOT:-~/lab}" ]]; then
+  LAB="${NEXUS_LAB_ROOT:-~/lab}"
 fi
 PROMOTE=0
 COMPARE=0
@@ -105,7 +105,7 @@ if [[ $COMPARE -eq 1 ]]; then
     - fixtures/                required for CI tests
 
   Lab stays the boss of:
-    - Desktop/research/run.py, EEG, bridges, ops systemd units
+    - lab workspace/run.py, EEG, bridges, ops systemd units
 EOF
 fi
 

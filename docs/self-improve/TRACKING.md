@@ -5,7 +5,7 @@
 | Tree | GitHub? | What belongs there |
 |------|---------|-------------------|
 | **`~/nexus-core`** | Yes — [VincentMarquez/nexus-core](https://github.com/VincentMarquez/nexus-core) | alive, engine, portfolio, MCP, `docs/self-improve` |
-| **`~/Desktop/Projects/research/security-lab`** | Research monorepo (messy) | UI/bus only; avoid dumping product logic here |
+| **``$NEXUS_LAB_ROOT` (lab workspace)`** | Research monorepo (messy) | UI/bus only; avoid dumping product logic here |
 
 We **cannot** cleanly put the whole lab monorepo on the product GitHub.  
 We **can** put the entire product self-improve spine on GitHub and treat the lab as a thin remote.
@@ -48,7 +48,7 @@ tests/test_comm_bench.py
 ## Lab tracking
 
 ```text
-~/Desktop/Projects/research/security-lab/docs/self-improve/README.md
+`$NEXUS_LAB_ROOT` (lab workspace)/docs/self-improve/README.md
   → points at product docs
 ```
 

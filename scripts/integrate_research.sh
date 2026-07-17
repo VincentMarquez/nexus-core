@@ -3,7 +3,7 @@
 # Safe: no delete, no overwrite of run.py — only helpers + PATH tips.
 set -euo pipefail
 PRODUCT="${NEXUS_PRODUCT_ROOT:-$HOME/nexus-core}"
-LAB="${NEXUS_LAB_ROOT:-$HOME/Desktop/research}"
+LAB="${NEXUS_LAB_ROOT:-${NEXUS_LAB_ROOT:-~/lab}}"
 
 if [[ ! -d "$PRODUCT/src/nexus" ]]; then
   echo "ERROR: product not found at $PRODUCT"

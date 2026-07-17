@@ -8,7 +8,7 @@ You asked whether SARSI felt like the Bubbles network where every agent had DNA 
 
 **Where:** `Downloads/bubbles_core.py` — class `UniversalBubble`  
 **Also:** many `*Bubble.py` specialists, `bubbles_overseer.py`, runtime under  
-`Desktop/Projects/research/.bubbles/{nexus,kairos}/`
+`lab workspace/.bubbles/{nexus,kairos}/`
 
 ### What every bubble *had* to have
 
@@ -38,9 +38,9 @@ Specialists (RAG, PPO, LangGraph, QFD, …) only added domain behavior **on top 
 
 | Artifact | Path |
 |----------|------|
-| Source of truth | `Desktop/Projects/research/AGENT_DNA.md` |
+| Source of truth | `lab workspace/AGENT_DNA.md` |
 | Injector | `.cleanup-archive-…/scripts/nexus_dna_patch.py` |
-| Boot patch | `Desktop/Projects/research/patch_dna_into_runpy.py` |
+| Boot patch | `lab workspace/patch_dna_into_runpy.py` |
 | Master index | `~/nexus_index.json` (D*=1) |
 
 ### What every agent *had* to have

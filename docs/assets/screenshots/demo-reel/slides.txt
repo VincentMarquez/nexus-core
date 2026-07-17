@@ -1,0 +1,17 @@
+file '01-title.png'
+duration 3.5
+file '02-agents-live.png'
+duration 3.5
+file '03-portfolio.png'
+duration 3.5
+file '04-panel.png'
+duration 3.5
+file '05-scoreboard.png'
+duration 3.5
+file '06-modules.png'
+duration 3.5
+file '07-clone-run.png'
+duration 3.5
+file '08-end.png'
+duration 4.0
+file '08-end.png'

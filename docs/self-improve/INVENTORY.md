@@ -44,7 +44,7 @@
 
 ## Lab files (remote control — different tree)
 
-Root: `~/Desktop/Projects/research/security-lab`
+Root: ``$NEXUS_LAB_ROOT` (lab workspace)`
 
 | Path | Role | Note |
 |------|------|------|

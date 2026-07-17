@@ -1493,3 +1493,304 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - non-goals kept: no live LLM for path rank; no auto edits in plan phase; no force-push; no secrets
 - next open: wire resolve.* into Caller registry · DFS dependency walk · dedicated MCP tool
 - evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_swe_adept_plan.py` → 17 passed; full suite → **978 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — Solace agent mesh pattern (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] SolaceLabs/solace-agent-mesh — event-driven multi-agent mesh without Solace coupling`
+- mine: IMPROVE_OURS SolaceLabs/solace-agent-mesh (score 15) plan=`.nexus_state/repo_mine/IMPROVE_OURS.md` + scope contract
+- apply slice (**First apply slice** this session):
+  - `src/nexus/agent_mesh.py` — `nexus.agent_mesh/v1` in-process mesh
+  - Topic hierarchy (discovery / request / status / response / system events)
+  - `AgentCard` + `AgentRegistry` (TTL heartbeat, expire_stale, find_by_capability)
+  - `AgentMesh` pub/sub with Solace-style `*` / `>` wildcards; announce; bind_agent; delegate
+  - Demo CLI: `python -m nexus.agent_mesh demo|topics|snapshot`
+  - tests: `tests/test_agent_mesh.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: Solace Agent Mesh A2A topics + registry + capability delegation (shape only, no broker/ADK/tree vendor)
+- non-goals kept: no Solace dependency; no force-push; no secrets; no vendored upstream
+- next open: map topics onto lab bus / engine journal · wire delegate into multi_llm_agent · MCP snapshot tool
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_agent_mesh.py` → **18 passed**; related bus/protocol → 41 passed
+
+## Cycle 2026-07-17 synthesis — Solace agent mesh critique apply (Grok 4.5)
+- goal: `SYNTHESIS editor on SolaceLabs/solace-agent-mesh — apply panel critiques to product code`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/SolaceLabs_solace-agent-mesh`
+- decisions: `synthesis/decisions.md` (ACCEPT core integrity + CLI; DEFER full async FIFO / immutability)
+- apply slice:
+  - `src/nexus/agent_mesh.py` — single-level sanitize; Solace `>` ≥1 level; bind guard + unbind/rebind lifecycle; capped `_replies`; registry TTL honor; handler_error audit; `request_and_wait`; `__all__`
+  - `src/nexus/cli.py` — `nexus mesh demo|topics|snapshot`
+  - tests: `tests/test_agent_mesh.py` (28)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- non-goals kept: no Solace/ADK/tree vendor; no force-push; no secrets
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_agent_mesh.py` → **28 passed**
+
+## Cycle 2026-07-17 hard-apply — SWE-Exp Experience Bank (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [arxiv] arxiv:2507.23361v2 — structured Experience Bank for repair patterns`
+- paper: SWE-Exp: Experience-Driven Software Issue Resolution (https://arxiv.org/abs/2507.23361v2)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/experience_bank.py` — schema `nexus.experience_bank/v1`
+  - Append-only JSONL bank; record success/failure/prior; classify issue text → type
+  - `recommend()` Laplace-smoothed ranking ("If issue type X, try approach Y first")
+  - Cold-start `DEFAULT_PRIORS` + idempotent `seed_priors()`; harvest from implement results
+  - CLI: `python -m nexus.experience_bank {record,recommend,list,stats,seed,types}`
+  - tests: `tests/test_experience_bank.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: SWE-Exp experience-driven repair (shape only, no tree vendor); adjacent to failure_patterns / cross_run_lessons
+- non-goals kept: no vendored SWE-bench/SWE-Exp tree; no force-push; no secrets; no forbidden_prefixes
+- next open: inject recommend brief into context_pack / dual_review · auto-harvest from ledger/ops · main CLI surface
+
+## Cycle 2026-07-17 synthesis — SWE-Exp Experience Bank critique apply (Grok 4.5)
+- goal: `SYNTHESIS editor on arxiv:2507.23361v2 — apply panel critiques to Experience Bank`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/arxiv:2507.23361v2`
+- decisions: `synthesis/decisions.md` (ACCEPT A-F1/F2/F3/F4/F6/F9/F10 + G-F3; DEFER wiring/confidence/trust/BM25)
+- apply slice:
+  - `src/nexus/experience_bank.py` — per-type prior cold-start; load fail-open; newest-window truncation; abstracted harvest; failure-aware abstracts; classifier clamp
+  - tests: `tests/test_experience_bank.py` (21)
+  - docs: `docs/experience_bank.md`, `docs/LATEST_IMPROVE_PLAN.md`, this log
+- non-goals kept: no orchestrator wiring; no confidence scoring redesign; no force-push; no secrets; no tree vendor
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_experience_bank.py` → **21 passed**
+
+## Cycle 2026-07-17 hard-apply — SWE-Adept × routa delivery board (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2603.01327v2+phodal/routa — localization→resolution planning on multi-agent delivery board`
+- arxiv: **2603.01327v2** SWE-Adept (structured localization vs resolution)
+- mine: phodal/routa local clone (shape only) + existing `swe_adept_plan`
+- apply slice (**First apply slice** this session):
+  - `src/nexus/swe_delivery_board.py` — `nexus.swe_delivery_board/v1` hybrid
+    - Map localization → backlog/todo (Localizer); resolution → dev/review/done
+    - Lane specialists, distinct roles, traces, evidence, continue/replan signal
+    - `plan_to_board` / `build_board_for_issue` / `format_board` / CLI
+  - `src/nexus/orchestrator.py` — wire `with_swe_plan` / `swe_max_targets` / `swe_require_targets`
+    - envelope + ops meta + status: `swe_adept_plan`, `swe_adept_summary`, `delivery_board`
+    - default board rides with successful SWE plan (routa pattern)
+  - `src/nexus/mcp_server.py` — `run_task` schema + handler knobs
+  - tests: `tests/test_swe_adept_plan.py` (orchestrator wiring fixed), `tests/test_swe_delivery_board.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: SWE-Adept phase separation × routa delivery board (shape only, no monorepo vendor)
+- non-goals kept: no Next.js/Tauri/Rust vendor; no live LLM path rank; no auto edits in plan phase; no force-push
+- next open: engine refuse resolve.edit before localization · advance lanes from journal · MCP board tool
+
+
+## Cycle 2026-07-17 synthesis — SWE-Adept × routa board critique apply (Grok 4.5)
+- goal: `SYNTHESIS editor on novel:arxiv:2603.01327v2+phodal/routa — apply panel critiques`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/novel:arxiv:2603.01327v2+phodal_routa`
+- decisions: `synthesis/decisions.md` (ACCEPT opt-out/isolation/status/traces/handoff/sanitize/MCP JSON; DEFER planned vs observed, actor-ID roles, blocked lane polish)
+- apply slice:
+  - `src/nexus/orchestrator.py` — tri-state board knob; plan/board try isolation; `swe_plan_status`/`swe_plan_error`; worker Task.meta handoff
+  - `src/nexus/mcp_server.py` — pass-through `with_delivery_board` only when present; `_mcp_json_bounded`
+  - `src/nexus/swe_delivery_board.py` — opt-out `or` gate; transition-only `_enter`; brief string + brief_lines; mark_ready on reuse; lane/history align
+  - `src/nexus/swe_adept_plan.py` — reject `.env` paths; tiny resolution budget → one lifecycle
+  - tests: `tests/test_swe_delivery_board.py`, `tests/test_swe_adept_plan.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_swe_adept_plan.py tests/test_swe_delivery_board.py` → **50 passed**
+- non-goals kept: no vendored routa/SWE trees; no full engine phase DAG; no force-push; no secrets
+- next open: engine refuse resolve.edit pre-localization · journal-driven lane advance · board signal → alive replan
+
+## Cycle 2026-07-17 hard-apply — harness_state (Code as Agent Harness × wshobson) (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [cross_pattern] novel:arxiv:2605.18747v1+wshobson/agents — dedicated harness_state for shared verifiable multi-agent state`
+- arxiv: **2605.18747v1** *Code as Agent Harness* (consistent shared state + verification)
+- mine: wshobson/agents marketplace catalog surfaces (shape only)
+- apply slice (**First apply slice** this session):
+  - `src/nexus/harness_state.py` — `nexus.harness_state/v1`
+    - `HarnessState` / `ActiveAgent` / `SharedValue` / event seq
+    - `content_hash()` + `verify()` (orphan writers, hash match, event continuity)
+    - marketplace seed via in-tree `marketplace.list_plugins`
+    - `maybe_init_for_task` / `plan_for_orchestrator` / `format_brief`
+  - `src/nexus/orchestrator.py` — opt-in meta wire
+    - envelope + status: `harness_state`, `harness_state_init`, brief, paper
+    - worker Task.meta + journal_seed handoff
+  - tests: `tests/test_harness_state.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: Code-as-harness shared state × wshobson single-source marketplace roster (no tree vendor)
+- non-goals kept: no default-on; no live LLM; no force-push; no secrets; no vendored upstream
+- next open: engine StateSlice put/get · JSONL durability · MCP inspect · evidence pack hash
+
+## Cycle 2026-07-17 synthesis — harness_state panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on novel:arxiv:2605.18747v1+wshobson/agents — apply panel critiques`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/novel:arxiv:2605.18747v1+wshobson_agents`
+- decisions: `synthesis/decisions.md` (ACCEPT trust-boundary hash / JSON domain / merge-reregister / CAS / surface ids / max_events / drops / lazy import; DEFER live multi-writer, seq-out-of-hash, event MACs, module split)
+- apply slice:
+  - `src/nexus/harness_state.py`
+    - pass-through `verify(expected_hash=embedded content_hash)` detects tamper
+    - `ensure_json_value` / closed hash domain (no `default=str`); defensive copy
+    - merge-on-reregister; `expected_version` CAS + monotonic `key_versions`
+    - surface-aware marketplace collision; `max_events` ≥ 1
+    - deserialization_drops → verify issues; seed report in meta
+  - `tests/test_harness_state.py` — 30 tests (lazy orch import + new integrity cases)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_harness_state.py` → **30 passed**
+- non-goals kept: no vendored upstream; no force-push; no secrets; no default-on
+- next open: engine StateSlice put/get · JSONL durability · optional seq-free content_hash
+
+## Cycle 2026-07-17 hard-apply — PatchDiff × claim_verify (Grok 4.5)
+- goal: `IMPLEMENT novel:arxiv:2503.15223v2+wshobson/agents — differential testing in claim_verify`
+- idea: Cross-pattern agentic/bench/testing — PatchDiff-style compare of generated patches at claim_verify; marketplace check catalog shape from wshobson/agents
+- paper: [arXiv:2503.15223v2](https://arxiv.org/abs/2503.15223v2) *Are "Solved Issues" in SWE-bench Really Solved Correctly?*
+- apply slice (**First apply**):
+  - `src/nexus/patch_diff.py` — `nexus.patch_diff/v1`
+    - marketplace `CHECK_CATALOG` (empty / test_only / file_set / content_divergence / …)
+    - `parse_unified_diff` → `PatchView`; `compare_patches`; `diff_from_grade`
+    - offline structural only (no live harness execution)
+  - `src/nexus/claim_verify.py` — soft attach `claim["patch_diff"]`; hard gate `require_patch_diff_ok`
+  - tests: `tests/test_patch_diff.py`, extended `tests/test_claim_verify.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- patterns: PatchDiff differential testing × wshobson single-source check marketplace (no tree vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_patch_diff.py tests/test_claim_verify.py` → **29 passed**
+- non-goals kept: no vendored upstream; no force-push; no secrets; soft default (not hard-fail)
+- next open: hard mode in worktree_apply / apply_select · CLI surface · AST / execution-based diff
+
+## Cycle 2026-07-17 synthesis — PatchDiff × claim_verify panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on novel:arxiv:2503.15223v2+wshobson/agents — apply panel critiques`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/novel:arxiv:2503.15223v2+wshobson_agents`
+- decisions: `synthesis/decisions.md` (ACCEPT soft-error wrap / min_overlap teeth / narrow keys / unparseable gold / honest equivalent / fail_verdicts / test-path+parser harden; DEFER behavioral PatchDiff rename-only-docs / hunk rewrite / catalog evaluators / no_production redesign / require_patch_present)
+- apply slice:
+  - `src/nexus/patch_diff.py` — structural preflight framing; `reference_unparseable`; min_overlap → `ok=False`; path-only ≠ equivalent; explicit payload keys only; safer parse + test-path heuristics
+  - `src/nexus/claim_verify.py` — catch `PatchDiffError` in soft mode; `patch_diff_fail_verdicts` opt-in
+  - tests: `tests/test_patch_diff.py`, `tests/test_claim_verify.py` (43 total)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_patch_diff.py tests/test_claim_verify.py` → **43 passed**
+- non-goals kept: no vendored upstream; no force-push; no secrets; soft default
+- next open: worktree_apply hard wire · CLI · stateful hunk parser · execution-based PatchDiff
+
+
+## Cycle 2026-07-17 hard-apply — Self-play SSR × wshobson marketplace (Grok 4.5)
+- goal: `IMPLEMENT novel:arxiv:2512.18552v3+wshobson/agents — self-play inject/repair in grok_worker`
+- idea: Cross-pattern agentic/codebase/tests/worker — SSR self-play loop + marketplace plugins
+- paper: [arXiv:2512.18552v3](https://arxiv.org/abs/2512.18552v3) *Toward Training Superintelligent Software Agents through Self-Play SWE-RL*
+- apply slice (**First apply**):
+  - `src/nexus/self_play_ssr.py` — `nexus.self_play_ssr/v1`
+    - marketplace `INJECT_CATALOG` / `REPAIR_CATALOG` (list/validate/self_check)
+    - mutators: flip_bool, off_by_one, break_equality, drop_guard, typo_name
+    - repairs: oracle_inverse, restore_baseline, heuristic_scan, noop
+    - `run_self_play` complexity ramp + fail-to-pass rewards
+  - `src/nexus/grok_worker.py` — `grok_self_play_ssr` (offline + optional agentic)
+  - tests: `tests/test_self_play_ssr.py` (22)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- patterns: Self-play SWE-RL inject/repair × wshobson single-source plugin marketplace (no tree vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_self_play_ssr.py` → **22 passed**
+- non-goals kept: no vendored upstream; no force-push; no secrets; offline-first (no default worktree mutation)
+- next open: CLI surface · sandboxed real-repo mutator · episode JSONL store · claim_verify/patch_diff on repairs
+
+## Cycle 2026-07-17 synthesis — Self-play SSR panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on novel:arxiv:2512.18552v3+wshobson/agents — apply panel critiques`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/novel:arxiv:2512.18552v3+wshobson_agents`
+- decisions: `synthesis/decisions.md` (ACCEPT position-anchor + oracle fallback / agentic ok+dirty / restricted verify / soft offline once / repair surface / curriculum max-pref; DEFER disposable worktree / full repo runner / handler-on-plugin registry)
+- apply slice:
+  - `src/nexus/self_play_ssr.py` — pos-splice inject/oracle; verify timeout+builtins; catalog/repair validation; brief(report=); curriculum honesty
+  - `src/nexus/grok_worker.py` — soft offline once; agentic_ok + text_head + dirty_files; `_resolve_turns_timeout`
+  - tests: `tests/test_self_play_ssr.py` (34)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_self_play_ssr.py` → **34 passed**
+- non-goals kept: no vendored upstream; no force-push; no secrets; offline-first
+- next open: alive/repo_mine wire · disposable worktree · subprocess sandbox · CLI · episode JSONL
+
+## Cycle 2026-07-17 hard-apply — phodal/routa workspace review board (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] phodal/routa — workspace-first traces + stacked review gate`
+- mine: local clone `.nexus_workspaces/scout_repos/phodal__routa` (shape only)
+- apply slice (**First apply** this session):
+  - `src/nexus/workspace_review_board.py` — `nexus.workspace_review_board/v1`
+    - Workspace-scoped board/cards (backlog→todo→dev→review→done|blocked)
+    - Lane specialists + distinct coordinator/crafter/gate roles
+    - Append-only traces (Harness Monitor) + evidence (Fitness)
+    - Stacked review gate: harness → fitness → gate specialist
+    - Entry-gated `try_move_card`; journal-driven `advance_from_journal`
+    - CLI `--demo-gate`; `maybe_build_for_task` opt-in
+  - `src/nexus/orchestrator.py` — opt-in `meta.with_workspace_board`
+    - envelope + status: board payload, summary, brief, pattern
+  - tests: `tests/test_workspace_review_board.py` (26)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- patterns: phodal/routa workspace-first delivery board + stacked review gate (shape only, no monorepo vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_workspace_review_board.py` → **26 passed**
+- non-goals kept: no Next.js/Tauri/Rust vendor; no default-on; no live LLM gate prompts; no force-push; no secrets
+- next open: MCP board tool · engine status journal advance · durable board snapshot · SWE↔workspace bridge
+
+## Cycle 2026-07-17 synthesis — phodal/routa panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on phodal/routa — apply panel critiques to product code`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/phodal_routa`
+- decisions: `synthesis/decisions.md` (ACCEPT journal claims-not-checks, unknown-lane reject, exact AC match, safe float, from_dict, git None, start_lane cap, roles triad, latest-wins fitness, norm guard; DEFER principal auth / frozen traces / force audit / evidence revisions; SKIP manifest/BLOCKED export)
+- apply slice:
+  - `src/nexus/workspace_review_board.py` — gate integrity + mutation fail-closed + board rehydrate
+  - tests: `tests/test_workspace_review_board.py` (33)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_workspace_review_board.py` → **33 passed**
+- non-goals kept: no vendored Routa; no force-push; no secrets; offline-first
+- next open: principal-bound mutations · frozen traces · MCP board tool · durable snapshot
+
+## Cycle 2026-07-17 hard-apply First apply slice — labsai/EDDI conversation middleware (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] labsai/EDDI — config-driven multi-agent conversational middleware`
+- mine: local clone `.nexus_workspaces/scout_repos/labsai__EDDI` (shape only; architecture + conversation-memory + behavior-rules)
+- apply slice (**First apply** this session):
+  - `src/nexus/conversation_middleware.py` — `nexus.conversation_middleware/v1`
+    - ConversationMemory (step / conversation / longTerm scopes)
+    - Expression dictionary parse + `type(*)` matchers
+    - Behavior groups first-match-wins; EDDI condition types
+    - Lifecycle: parse → rules → orchestrate → output
+    - Actions: reply / route / handoff / memory_set / mcp / openapi / end (dry-run)
+    - BotConfig validate fail-closed; demo config + CLI main
+  - `src/nexus/cli.py` — `nexus conversation demo|config|turn` + allowlist
+  - tests: `tests/test_conversation_middleware.py` (22)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- patterns: labsai/EDDI config-driven routing + memory + API orchestration (shape only, no Quarkus vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_conversation_middleware.py` → **22 passed**
+- non-goals kept: no vendored EDDI tree; no live MCP/OpenAPI; no force-push; no secrets
+- next open: mesh handoff bridge · durable memory snapshot · MCP conversation tools · privilege gate on actions
+
+## Cycle 2026-07-17 synthesis — labsai/EDDI panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on labsai/EDDI — apply panel critiques to product code`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/labsai_EDDI`
+- decisions: `synthesis/decisions.md` (ACCEPT longTerm write-through, validate fail-closed, ending outputs, error audit, capability gate, Goodbye order, matcher, CLI, tests, ownership; DEFER full condition dialect / transactional rollback / durable CAS / A2A / occurrence N≥1)
+- apply slice:
+  - `src/nexus/conversation_middleware.py` — write-through longTerm; ownership check; validate fallback/default_agent/conditions; ENDED output flush; error step commit; mcp/openapi capability gate; Goodbye-before-Welcome; match_expression fixes; CLI `--config` + unknown-cmd exit 2
+  - tests: `tests/test_conversation_middleware.py` (25) — exact assertions + regressions
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_conversation_middleware.py` → **25 passed**
+- non-goals kept: no vendored EDDI; no live MCP/OpenAPI; no force-push; no secrets
+- next open: durable longTerm adapter · full condition dialect · transactional turns · A2A protocol · mesh/MCP bridge
+
+## Cycle 2026-07-17 hard-apply First apply slice — automagik-dev/forge board (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] automagik-dev/forge — kanban control plane + multi-attempt worktree isolation`
+- mine: local clone `.nexus_workspaces/scout_repos/automagik-dev__forge` (shape only; README + shared/types Task/TaskAttempt + status mapping)
+- apply slice (**First apply** this session):
+  - `src/nexus/forge_board.py` — `nexus.forge_board/v1`
+    - Wish → Forge → Review → Done kanban (forge todo/inprogress/inreview/done mapped)
+    - Multi-attempt per task (executor + agent pairs)
+    - Sandbox isolation under `.nexus_workspaces/forge_attempts/<task>/<attempt>/`
+    - Optional git isolation via `worktree_apply.create_worktree`
+    - `select_attempt` / `compare_attempts` / fail-closed `ship_task`
+    - `maybe_build_for_task` opt-in (`with_forge_board` / `forge_board`)
+    - CLI: `python -m nexus.forge_board --demo`
+  - tests: `tests/test_forge_board.py` (27)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- patterns: automagik-dev/forge Wish/Forge/Review control plane + multi-attempt worktree isolation (shape only, no Rust/TS monorepo vendor)
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_forge_board.py` → **27 passed**
+- non-goals kept: no vendored forge tree; no live providers; no force-push; no secrets; offline-first
+- next open: orchestrator envelope wire · `nexus forge` CLI · durable board snapshot · MCP attempt tools · promote selected attempt
+
+## Cycle 2026-07-17 synthesis — automagik-dev/forge panel critiques (Grok 4.5)
+- goal: `SYNTHESIS editor on automagik-dev/forge — apply panel critiques to product code`
+- pack: `.nexus_state/critiques/20260717T164149Z-455b3a/automagik-dev_forge`
+- decisions: `synthesis/decisions.md` (ACCEPT path jail, select atomic, strict lanes, truthful isolation, save/load, orchestrator wire, alias SSOT, id uniqueness, task-scoped ship, git strict; DEFER per-task signal / promote-on-ship / default-git; SKIP already-covered terminal guards)
+- apply slice:
+  - `src/nexus/forge_board.py` — `_safe_component` path jail; validate-then-mutate `select_attempt`; `normalize_lane(strict=)`; truthful `isolation_mode`; `save_board`/`load_board`; unique ids; task-scoped Done gate; git forced-mode refuse soft sandbox; `git_fallback_error` on auto
+  - `src/nexus/orchestrator.py` — opt-in `with_forge_board` env_meta + status payload surface
+  - tests: `tests/test_forge_board.py` (39) — hostile ids, select no-op, unknown lanes, persist round-trip, orch wire
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, `docs/SELF_IMPROVE_CYCLE.md`, this log
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_forge_board.py` → **39 passed**
+- non-goals kept: no vendored forge tree; no force-push; no secrets; board still opt-in only
+- next open: per-task signal · worktree promote-on-ship · MCP forge tools · `nexus forge` CLI
+
+## Cycle 2026-07-17 FIX LOOP — pytest green (Grok 4.5 CLI)
+- goal: `FIX LOOP attempt 1/5: make install/pytest/smoke GREEN (pytest:rc=2)`
+- root cause: collection ImportError + drifted S03–S08 APIs (tests present, impl missing)
+- apply slice:
+  - `src/nexus/alive.py` — `_real_input_health` soft publish gate (S08); AliveConfig flags for accept/cross-run/quarantine/scope/cooldown/x_review/real_gate; REAL cycle records health + may skip publish only
+  - `src/nexus/idea_portfolio.py` — implement ledger JSONL, `cooled_keys` / `order_with_cooldown` / bootstrap from alive_state; `select_portfolio(cooled_ids=, capability=)`; `implement_portfolio` scope DNA + accept predicate + ledger append
+  - tests exercised: `test_real_input_health`, `test_implement_ledger`, `test_scope_contract`, `test_accept_predicate`, `test_cross_run_lessons`, `test_portfolio_quarantine`, capability portfolio select
+- evidence: `PYTHONPATH=src python3 -m pytest -q` → **1225 passed, 1 skipped**
+- non-goals kept: no force-push; no secrets; soft gates only; no vendored trees
+- next open: wire live `x_live_input` step on REAL path; S11 publish harden; hard accept when flagged
+
+## Cycle 2026-07-17 19:13:47Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- self_check: ok=False
+- self_check: ok=True
+- self_check: ok=False
+- self_check: ok=True
+- evidence: 6 file(s) under `docs/evidence/`

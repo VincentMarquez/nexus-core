@@ -27,7 +27,7 @@
 
 ## Lab — remote control only
 
-**Root:** `~/Desktop/Projects/research/security-lab`  
+**Root:** ``$NEXUS_LAB_ROOT` (lab workspace)`  
 (sits inside a large research monorepo — keep product logic out of it)
 
 | Module | Path | Owns |
