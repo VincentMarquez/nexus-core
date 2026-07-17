@@ -29,3 +29,6 @@ docs/assets/screenshots/pro-reel/
 docs/assets/screenshots/demo-reel-v2/
 docs/assets/screenshots/demo-reel/*.mp4
 docs/assets/screenshots/demo-reel/clip_*.mp4
+
+# machine-local evidence dumps (absolute paths)
+docs/evidence/canon-*.json
