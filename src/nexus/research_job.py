@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .path_privacy import public_path
+
 import json
 import time
 import uuid
@@ -158,7 +160,7 @@ class ResearchJobRunner:
             rec = arxiv_ledger.record_papers(
                 papers,
                 query=query,
-                notes_path=str(work / "NEXUS_RESEARCH_REPORT.md"),
+                notes_path=public_path(work / "NEXUS_RESEARCH_REPORT.md", self.project_root),
                 workdir=self.project_root,
             )
             job.ledger["recorded"] = rec

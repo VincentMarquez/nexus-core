@@ -2,7 +2,7 @@
   "task_id": "canon-1784257375",
   "found": true,
   "schema": "nexus.evidence/v1",
-  "generated_at": 1784268104.7772973,
+  "generated_at": 1784268205.214853,
   "compact": false,
   "task": {
     "task_id": "canon-1784257375",
@@ -28,7 +28,7 @@
     "tokens_total": 3377,
     "max_tokens": null,
     "max_wall_s": null,
-    "elapsed_s": 10729.472,
+    "elapsed_s": 10829.9,
     "budget_exhausted": false,
     "wall_exhausted": false,
     "waiting_step": null,
@@ -167,7 +167,7 @@
       },
       "max_tokens": null,
       "max_wall_s": null,
-      "elapsed_s": 10729.469,
+      "elapsed_s": 10829.895,
       "remaining_wall_s": null,
       "wall_exhausted": false,
       "budget_exhausted": false
@@ -182,7 +182,7 @@
     "max_tokens": null,
     "remaining_tokens": null,
     "max_wall_s": null,
-    "elapsed_s": 10729.472,
+    "elapsed_s": 10829.9,
     "remaining_wall_s": null,
     "wall_exhausted": false,
     "budget_exhausted": false,
@@ -526,7 +526,7 @@
       {
         "id": "journal:canon-1784257375",
         "type": "journal",
-        "path": "/path/to/nexus-core/.nexus_state/tasks/canon-1784257375.events.jsonl",
+        "path": ".nexus_state/tasks/canon-1784257375.events.jsonl",
         "n_events": 17
       }
     ],

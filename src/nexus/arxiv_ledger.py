@@ -12,6 +12,8 @@ Columns: arxiv_id, title, first_seen, last_seen, query, notes_path, times_seen
 
 from __future__ import annotations
 
+from .path_privacy import public_path
+
 import csv
 import os
 import time
@@ -158,6 +160,9 @@ def record_papers(
     workdir: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Upsert papers into the CSV ledger. Returns counts."""
+    root = _root(workdir)
+    if notes_path:
+        notes_path = public_path(notes_path, root)
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     by_id: dict[str, dict[str, str]] = {}
     for r in load_rows(workdir):
@@ -208,7 +213,7 @@ def record_papers(
         "added": added,
         "updated": updated,
         "total": len(by_id),
-        "paths": [str(p) for p in paths],
+        "paths": [public_path(p, root) for p in paths],
     }
 
 

@@ -16,6 +16,8 @@ No GitHub follow/star API calls — ever.
 
 from __future__ import annotations
 
+from .path_privacy import public_path
+
 import json
 import os
 import re
@@ -679,7 +681,7 @@ def step_improve_ours(
     lines = [
         "# Improve *our* project from mined repos",
         "",
-        f"Target workdir: `{workdir}`",
+        f"Target workdir: `{public_path(workdir, workdir)}`",
         f"Sources (score ≥ {min_score}):",
         "",
     ]
@@ -690,14 +692,14 @@ def step_improve_ours(
             f"## {r.get('repo')} (score {r.get('score')})",
             f"- idea={r.get('idea')} skill={r.get('skill')}",
             f"- {r.get('summary') or r.get('description') or ''}",
-            f"- local clone: `{path}`",
+            f"- local clone: `{public_path(path, workdir)}`",
             f"- url: {r.get('html_url')}",
             "",
             "Port **patterns**, not the whole tree. Prefer tests + small modules.",
             "",
         ]
         goals.append(
-            f"From {r.get('repo')} ({path}): {r.get('summary') or r.get('description') or 'patterns'}"
+            f"From {r.get('repo')} ({public_path(path, workdir)}): {r.get('summary') or r.get('description') or 'patterns'}"
         )
 
     goal = (

@@ -14,6 +14,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
+from .path_privacy import public_path, scrub_obj
+
 # Paths we are willing to auto-commit from an alive cycle
 DEFAULT_ALLOW = (
     "src/",
@@ -32,7 +34,7 @@ DEFAULT_ALLOW = (
     "mkdocs.yml",
     "pyproject.toml",
     ".github/",
-    ".grok/",
+    ".grok/config.example.toml",
 )
 
 
@@ -52,10 +54,39 @@ def is_git_repo(root: Path) -> bool:
 
 
 def status_porcelain(root: Path) -> list[str]:
+    """Porcelain lines; empty list on failure (legacy). Prefer ``status_porcelain_checked``."""
+    lines, ok = status_porcelain_checked(root)
+    if not ok:
+        return []
+    return lines
+
+
+def status_porcelain_checked(root: Path) -> tuple[list[str], bool]:
+    """Return (lines, ok). *ok* False when git status failed (S11 fail-closed)."""
     r = _run(["git", "status", "--porcelain"], cwd=root)
     if not r["ok"]:
-        return []
-    return [ln for ln in (r["stdout"] or "").splitlines() if ln.strip()]
+        return [], False
+    return [ln for ln in (r["stdout"] or "").splitlines() if ln.strip()], True
+
+
+def parse_porcelain_paths(lines: list[str] | str) -> set[str]:
+    """Extract paths from porcelain lines (handles renames / quoted paths)."""
+    if isinstance(lines, str):
+        seq = [ln for ln in lines.splitlines() if ln.strip()]
+    else:
+        seq = list(lines)
+    out: set[str] = set()
+    for ln in seq:
+        if len(ln) < 4:
+            continue
+        path = ln[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1].strip()
+        if path.startswith('"') and path.endswith('"'):
+            path = path[1:-1]
+        if path:
+            out.add(path)
+    return out
 
 
 def _allowed(path: str, allow: tuple[str, ...]) -> bool:
@@ -86,9 +117,32 @@ def _allowed(path: str, allow: tuple[str, ...]) -> bool:
     return False
 
 
-def stage_allowed(root: Path, allow: tuple[str, ...] = DEFAULT_ALLOW) -> list[str]:
-    """git add allowlisted changed files; return list of staged paths."""
-    lines = status_porcelain(root)
+def unstage_all(root: Path) -> dict[str, Any]:
+    """Clear the index (unstage) without touching the working tree (S11)."""
+    # ``git reset`` (mixed) unstages; keep worktree
+    return _run(["git", "reset", "HEAD", "--"], cwd=root)
+
+
+def stage_allowed(
+    root: Path,
+    allow: tuple[str, ...] = DEFAULT_ALLOW,
+    *,
+    baseline_status: Optional[str | list[str]] = None,
+) -> list[str]:
+    """git add allowlisted changed files; return list of staged paths.
+
+    When *baseline_status* is provided (porcelain text or lines captured at
+    cycle start), only paths that became dirty **after** that baseline are
+    staged. Pre-existing dirty WIP is left unstaged so a cycle cannot ship
+    unrelated prior edits.
+    """
+    lines, st_ok = status_porcelain_checked(root)
+    if not st_ok:
+        return []  # caller should refuse cycle-scoped commit separately
+    baseline_paths: Optional[set[str]] = None
+    if baseline_status is not None:
+        baseline_paths = parse_porcelain_paths(baseline_status)
+
     staged: list[str] = []
     for ln in lines:
         # XY PATH or XY ORIG -> PATH
@@ -97,6 +151,9 @@ def stage_allowed(root: Path, allow: tuple[str, ...] = DEFAULT_ALLOW) -> list[st
             path = path.split(" -> ", 1)[1].strip()
         if path.startswith('"') and path.endswith('"'):
             path = path[1:-1]
+        if baseline_paths is not None and path in baseline_paths:
+            # Already dirty at cycle start — not this cycle's unit of work
+            continue
         if _allowed(path, allow):
             r = _run(["git", "add", "--", path], cwd=root)
             if r["ok"]:
@@ -112,19 +169,60 @@ def commit_and_maybe_push(
     remote: str = "origin",
     branch: Optional[str] = None,
     allow: tuple[str, ...] = DEFAULT_ALLOW,
+    baseline_status: Optional[str | list[str]] = None,
+    require_cycle_scope: bool = False,
 ) -> dict[str, Any]:
-    """Stage allowlisted changes, commit, optionally push (no force)."""
+    """Stage allowlisted changes, commit, optionally push (no force).
+
+    Pass *baseline_status* (porcelain at cycle start) to scope the commit to
+    paths introduced during this cycle only.
+
+    *require_cycle_scope* (S11): when True, refuse if baseline is missing or
+    ``git status`` fails — never silently widen to all dirty files.
+    When cycle-scoped, the index is reset first so pre-staged unrelated files
+    cannot ride into the commit.
+    """
     root = Path(root).resolve()
-    out: dict[str, Any] = {"root": str(root), "push": push}
+    out: dict[str, Any] = {
+        "root": str(root),
+        "push": push,
+        "cycle_scoped": baseline_status is not None,
+        "require_cycle_scope": bool(require_cycle_scope),
+    }
     if not is_git_repo(root):
         out["ok"] = False
         out["error"] = "not a git repository"
         return out
 
-    staged = stage_allowed(root, allow)
+    # S11: fail-closed when cycle scope was required but baseline unavailable
+    if require_cycle_scope and baseline_status is None:
+        out["ok"] = False
+        out["error"] = "cycle scope required but baseline missing (git status failed?)"
+        out["skipped"] = "publish fail-closed: no reliable baseline"
+        return out
+
+    # S11: when cycle-scoped, clear index so only our stage_allowed paths commit
+    if baseline_status is not None:
+        ur = unstage_all(root)
+        out["unstage_all"] = {"ok": ur.get("ok"), "returncode": ur.get("returncode")}
+
+    # Verify status works before staging
+    _lines, st_ok = status_porcelain_checked(root)
+    if not st_ok and (require_cycle_scope or baseline_status is not None):
+        out["ok"] = False
+        out["error"] = "git status failed — refusing cycle-scoped publish"
+        out["skipped"] = "publish fail-closed: git status failed"
+        return out
+
+    staged = stage_allowed(root, allow, baseline_status=baseline_status)
     out["staged"] = staged
     if not staged:
-        # still try commit if something already staged
+        # When cycle-scoped, do not fall through to pre-staged unrelated files.
+        if baseline_status is not None or require_cycle_scope:
+            out["ok"] = True
+            out["skipped"] = "nothing to commit (no cycle-scoped allowlisted changes)"
+            return out
+        # Legacy: still try commit if something already staged
         r = _run(["git", "diff", "--cached", "--name-only"], cwd=root)
         staged = [x for x in (r.get("stdout") or "").splitlines() if x.strip()]
         out["staged"] = staged
@@ -132,6 +230,25 @@ def commit_and_maybe_push(
         out["ok"] = True
         out["skipped"] = "nothing to commit (no allowlisted changes)"
         return out
+
+    # S11: drop any cached path we did not intentionally stage
+    if baseline_status is not None:
+        r = _run(["git", "diff", "--cached", "--name-only"], cwd=root)
+        cached = [x for x in (r.get("stdout") or "").splitlines() if x.strip()]
+        staged_set = set(staged)
+        extra = [p for p in cached if p not in staged_set]
+        for p in extra:
+            _run(["git", "restore", "--staged", "--", p], cwd=root)
+        if extra:
+            out["unstaged_extra"] = extra
+            # re-read staged
+            r2 = _run(["git", "diff", "--cached", "--name-only"], cwd=root)
+            staged = [x for x in (r2.get("stdout") or "").splitlines() if x.strip()]
+            out["staged"] = staged
+            if not staged:
+                out["ok"] = True
+                out["skipped"] = "nothing to commit after dropping pre-staged extras"
+                return out
 
     msg = (message or "chore(alive): self-improve cycle").strip()
     r = _run(["git", "commit", "-m", msg], cwd=root)
@@ -190,7 +307,8 @@ def write_evidence_snapshot(root: Path, *, limit: int = 5) -> list[Path]:
             path = out_dir / f"{tid}.json"
             import json
 
-            path.write_text(json.dumps(pack, indent=2, default=str) + "\n", encoding="utf-8")
+            safe_pack = scrub_obj(pack, root)
+            path.write_text(json.dumps(safe_pack, indent=2, default=str) + "\n", encoding="utf-8")
             written.append(path)
         # index
         idx = out_dir / "README.md"
@@ -222,12 +340,14 @@ def write_improvements_log(root: Path, cycle: dict[str, Any]) -> Path:
     for s in cycle.get("steps") or []:
         step = s.get("step")
         if step == "mine":
+            plan = public_path(s.get("improve_plan") or "", root)
             lines.append(
                 f"- mine: fetch={s.get('fetch')} eval={s.get('evaluated')} "
-                f"used={s.get('used')} plan=`{s.get('improve_plan')}`\n"
+                f"used={s.get('used')} plan=`{plan}`\n"
             )
         elif step == "arxiv":
-            lines.append(f"- arxiv: papers={s.get('papers')} notes=`{s.get('notes')}`\n")
+            notes = public_path(s.get("notes") or "", root)
+            lines.append(f"- arxiv: papers={s.get('papers')} notes=`{notes}`\n")
         elif step == "self_check":
             lines.append(f"- self_check: ok={s.get('ok')}\n")
         elif step == "self_approve_apply":

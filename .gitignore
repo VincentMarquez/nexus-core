@@ -7,7 +7,8 @@ dist/
 build/
 site/
 .nexus_workspaces/
-.nexus/                 # runtime workspace chat (not source)
+# runtime workspace chat (not source)
+.nexus/
 .mypy_cache/
 .ruff_cache/
 # runtime state from demos
@@ -19,3 +20,6 @@ site/
 results/
 results/*_artifact.txt
 .cursor/
+
+# Machine-local Grok MCP paths (use .grok/config.example.toml)
+.grok/config.toml
