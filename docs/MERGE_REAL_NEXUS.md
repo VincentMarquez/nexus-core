@@ -124,7 +124,7 @@ nexus github mine improve-ours --apply --repo VincentMarquez/nexus-core
 
 ```bash
 cd ~/nexus-core && source .venv/bin/activate
-export NEXUS_PROJECT_ROOT=/path/to/home/Desktop/research
+export NEXUS_PROJECT_ROOT=/path/to/your-project
 
 nexus alive init --path "$NEXUS_PROJECT_ROOT" \
   --goal "harden research stack: durability, dispatch, local LLM tools" \

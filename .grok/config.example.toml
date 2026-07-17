@@ -1,5 +1,7 @@
 # Project-scoped NEXUS mesh (Grok CLI --scope project)
-# Loaded when you run grok inside this repo.
+# Copy to config.toml and set absolute paths for your machine:
+#   cp .grok/config.example.toml .grok/config.toml
+# config.toml is gitignored (machine-local).
 
 [mcp_servers.nexus-workspace]
 command = "/path/to/nexus-core/.venv/bin/python"

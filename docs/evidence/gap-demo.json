@@ -195,7 +195,7 @@
       {
         "severity": "error",
         "code": "journal_missing",
-        "msg": "no journal at /path/to/nexus-core/.nexus_state/tasks/gap-demo.events.jsonl but status=completed step=10"
+        "msg": "no journal at .nexus_state/tasks/gap-demo.events.jsonl but status=completed step=10"
       },
       {
         "severity": "error",

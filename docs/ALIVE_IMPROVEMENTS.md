@@ -8,15 +8,15 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 
 ## Cycle 2026-07-15 17:13:44Z
 - goal: `self-improve nexus-core: durability, demos, mine→apply→github publish`
-- mine: fetch=3 eval=3 used=3 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=4 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ad22656322.md`
+- mine: fetch=3 eval=3 used=3 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=4 notes=`.nexus_state/arxiv_improve/improve-rx-ad22656322.md`
 - self_check: ok=True
 - apply: {'status': 'completed', 'job_id': 'gh-VincentMarquez-nexus-core-8c645c3e', 'repo': 'VincentMarquez/nexus-core'}
 
 ## Cycle 2026-07-15 17:13:53Z
 - goal: `self-improve nexus-core: durability, demos, mine→apply→github publish`
-- mine: fetch=3 eval=3 used=3 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=4 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ad22656322.md`
+- mine: fetch=3 eval=3 used=3 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=4 notes=`.nexus_state/arxiv_improve/improve-rx-ad22656322.md`
 - self_check: ok=True
 - apply: {'status': 'completed', 'job_id': 'gh-VincentMarquez-nexus-core-8c645c3e', 'repo': 'VincentMarquez/nexus-core'}
 - publish: pushed=True sha=61a6a62d71a3 staged=['src/nexus/alive.py', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/LATEST_IMPROVE_PLAN.md']
@@ -37,7 +37,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 17:35:09Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ec0777735b.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-ec0777735b.md`
 
 ## Cycle 2026-07-15 hard-apply P1 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -53,7 +53,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 17:48:45Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-62b77a6ce8.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-62b77a6ce8.md`
 
 ## Cycle 2026-07-15 hard-apply P1 complete (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -70,7 +70,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 17:56:31Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-03b7641275.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-03b7641275.md`
 
 ## Cycle 2026-07-15 hard-apply P2 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -87,7 +87,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 18:04:21Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-703f35888a.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-703f35888a.md`
 
 ## Cycle 2026-07-15 hard-apply P3 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -106,7 +106,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 18:12:24Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5b885ba84d.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-5b885ba84d.md`
 
 ## Cycle 2026-07-15 hard-apply P4 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -123,7 +123,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 18:21:25Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-beb4144b26.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-beb4144b26.md`
 
 ## Cycle 2026-07-15 hard-apply P5 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -140,7 +140,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 18:28:53Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-7afb87b115.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-7afb87b115.md`
 
 ## Cycle 2026-07-15 hard-apply P6 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -157,17 +157,17 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 18:35:55Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-b98ae48d28.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-b98ae48d28.md`
 
 ## Cycle 2026-07-15 18:42:14Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bef427f9a3.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-bef427f9a3.md`
 
 ## Cycle 2026-07-15 18:49:46Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=10 used=10 plan=`None`
-- arxiv: papers=10 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-2b3131c793.md`
+- arxiv: papers=10 notes=`.nexus_state/arxiv_improve/improve-rx-2b3131c793.md`
 
 ## Cycle 2026-07-15 hard-apply P10 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -186,7 +186,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:07:33Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-48104de82f.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-48104de82f.md`
 
 ## Cycle 2026-07-15 hard-apply P11 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -205,7 +205,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:15:48Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bda446f48d.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-bda446f48d.md`
 
 ## Cycle 2026-07-15 hard-apply P0.3 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -224,7 +224,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:23:53Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-d6df1c0e2b.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-d6df1c0e2b.md`
 
 ## Cycle 2026-07-15 hard-apply P0.4 + P0.5 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -244,7 +244,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:33:23Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-feabc6cebc.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-feabc6cebc.md`
 
 ## Cycle 2026-07-15 hard-apply P0 first-apply-slice (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -263,7 +263,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:43:57Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-7bb7c48716.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-7bb7c48716.md`
 
 ## Cycle 2026-07-15 hard-apply P1.1 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -285,7 +285,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 19:54:34Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-999cc7be06.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-999cc7be06.md`
 
 ## Cycle 2026-07-15 hard-apply P1.2 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -304,7 +304,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:05:30Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-9df4f8edff.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-9df4f8edff.md`
 
 ## Cycle 2026-07-15 hard-apply P1.3 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -324,7 +324,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:15:38Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-6b7f9afae8.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-6b7f9afae8.md`
 
 ## Cycle 2026-07-15 hard-apply P1.4 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -345,7 +345,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:24:24Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a2984ea421.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-a2984ea421.md`
 
 ## Cycle 2026-07-15 hard-apply P1.5 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -366,7 +366,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:35:53Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-5536a7eec8.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-5536a7eec8.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -386,7 +386,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:48:25Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f732b12d4d.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-f732b12d4d.md`
 
 ## Cycle 2026-07-15 hard-apply P2.1 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -406,7 +406,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 20:59:55Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-406cb98836.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-406cb98836.md`
 
 ## Cycle 2026-07-15 hard-apply P2.2 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -425,7 +425,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 21:08:48Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-36f52aff73.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-36f52aff73.md`
 
 ## Cycle 2026-07-15 hard-apply P2.3 + P3 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -446,7 +446,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 21:20:12Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-b6536eed67.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-b6536eed67.md`
 
 ## Cycle 2026-07-15 hard-apply P2.4 + P2.5 + P3.1 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -467,7 +467,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 21:30:48Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-0a75f9514d.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-0a75f9514d.md`
 
 ## Cycle 2026-07-15 hard-apply P2.6 + P2.5 + P3.2 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -487,7 +487,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 21:42:28Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-3c113dc2aa.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-3c113dc2aa.md`
 
 ## Cycle 2026-07-15 hard-apply P2.7 + P3.3 + CI (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -507,7 +507,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 21:51:00Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ae18c1bce0.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-ae18c1bce0.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice P0.1–P0.4+P0.6 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -531,7 +531,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:02:51Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-3b40f6266f.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-3b40f6266f.md`
 
 ## Cycle 2026-07-15 hard-apply P0.5 (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -551,7 +551,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:12:59Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fb9207372a.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-fb9207372a.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — durable MCP context + verify-before-done (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -572,7 +572,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:25:42Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-aa3fa1d262.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-aa3fa1d262.md`
 
 ## Cycle 2026-07-15 hard-apply P0.1 promote-to-main (Grok 4.5 CLI worker)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -592,7 +592,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:35:43Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f79aa74b58.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-f79aa74b58.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — grade claims + MCP FTS evidence (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -616,7 +616,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:47:31Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-bc3837bb82.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-bc3837bb82.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — FTS select + roles + board (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -637,7 +637,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 22:58:56Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-051972dbae.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-051972dbae.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — decision→apply + board signals (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -659,7 +659,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 23:10:24Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-27056d5405.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-27056d5405.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — board→gaps + preferences (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -681,7 +681,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 23:21:25Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a7bfdd595a.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-a7bfdd595a.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — preference rank + board CI + spend pattern (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -702,7 +702,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 23:31:01Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-1bccfca000.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-1bccfca000.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — grade ledger + eval CLI (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -724,7 +724,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 23:46:37Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-eee4f605c5.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-eee4f605c5.md`
 
 ## Cycle 2026-07-15 hard-apply First apply slice — work ledger + dual-control (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -743,7 +743,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-15 23:56:22Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-8c2205e729.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-8c2205e729.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — work_ledger wire + transitions (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -765,7 +765,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 00:09:12Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-ebb5fe5b75.md`
+- arxiv: papers=0 notes=`.nexus_state/arxiv_improve/improve-rx-ebb5fe5b75.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — preference→context_pack + soul pattern (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -787,7 +787,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 00:18:33Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-f993cb901b.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-f993cb901b.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — improve_spine (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -808,7 +808,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 00:28:40Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-253098a619.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-253098a619.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — spine wire + dual-write (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -828,7 +828,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 00:40:47Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-14dc4121d6.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-14dc4121d6.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — spine board rank + openrouter pattern (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -848,7 +848,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 00:50:09Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fa89506430.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-fa89506430.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — spine method + MisterSmith/solace + gated Grok (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -867,7 +867,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 01:01:26Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-997436d67e.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-997436d67e.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — decide spine + zenith/fleet patterns (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -888,7 +888,7 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 01:11:20Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-4e382a3fbf.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-4e382a3fbf.md`
 
 ## Cycle 2026-07-16 hard-apply First apply slice — mine_eval_slice (Grok 4.5 CLI)
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
@@ -909,36 +909,36 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 ## Cycle 2026-07-16 01:21:59Z
 - goal: `self-improve nexus-core from 10 arXiv papers + 10 mined repos using Grok 4.5 for grading, reasoning, and hard apply`
 - mine: fetch=None eval=20 used=20 plan=`None`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-00eb6c8e07.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-00eb6c8e07.md`
 
 ## Cycle 2026-07-16 18:39:22Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-fabe51d925.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-fabe51d925.md`
 - self_check: ok=False
 - apply: tests not green — refusing self-approve
 - evidence: 6 file(s) under `docs/evidence/`
 
 ## Cycle 2026-07-16 19:23:30Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-a51508cdc1.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-a51508cdc1.md`
 - self_check: ok=False
 - apply: tests not green — refusing self-approve
 - evidence: 6 file(s) under `docs/evidence/`
 
 ## Cycle 2026-07-16 21:18:38Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=0 notes=`.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
 - self_check: ok=True
 - apply: {'via': 'grok', 'ok': False, 'model': 'grok-4.5', 'returncode': 1, 'summary': "--effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low\nError: --effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low", 'error': None}
 - evidence: 6 file(s) under `docs/evidence/`
 
 ## Cycle 2026-07-16 21:19:20Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=0 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=0 notes=`.nexus_state/arxiv_improve/improve-rx-e505d29ead.md`
 - self_check: ok=True
 - apply: {'via': 'grok', 'ok': False, 'model': 'grok-4.5', 'returncode': 1, 'summary': "--effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low\nError: --effort/--reasoning-effort: unknown effort level 'xhigh'; use one of: high, medium, low", 'error': None}
 - publish: pushed=True sha=3a60c2a05977 staged=['docs/ARXIV_LEDGER.csv', 'docs/ARXIV_LEDGER.md', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/LATEST_IMPROVE_PLAN.md', 'scripts/safe_product_eval.sh', 'skillpacks/gemma-local-tools/manifest.json', 'skillpacks/swe-pro-group-review/SKILL.md', 'skillpacks/swe-pro-group-review/manifest.json', 'src/nexus/mcp_server.py', 'docs/evidence/', 'scripts/run_swe_pro_official_gold.sh', 'scripts/swe_pro_full_suite.py']
@@ -946,18 +946,18 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 
 ## Cycle 2026-07-16 22:25:32Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
 - self_check: ok=True
-- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md'}
+- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '.nexus_state/repo_mine/IMPROVE_OURS.md'}
 - evidence: 6 file(s) under `docs/evidence/`
 
 ## Cycle 2026-07-16 22:26:15Z
 - goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
-- mine: fetch=0 eval=0 used=20 plan=`/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md`
-- arxiv: papers=20 notes=`/path/to/nexus-core/.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
+- mine: fetch=0 eval=0 used=20 plan=`.nexus_state/repo_mine/IMPROVE_OURS.md`
+- arxiv: papers=20 notes=`.nexus_state/arxiv_improve/improve-rx-c0538e30fa.md`
 - self_check: ok=True
-- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '/path/to/nexus-core/.nexus_state/repo_mine/IMPROVE_OURS.md'}
+- apply: {'via': 'grok', 'ok': True, 'model': 'grok-4.5', 'returncode': 1, 'summary': "I'll start by reading the self-improvement docs and the latest plan so we can land a small, tested slice.Next I'll scan recent open items and the scout repos for portable patterns.The open slice is APPLY_CANDIDATE dry-run, plan-reuse, sample packs, and preference pairs — I'll inspect those modules next.A lot of the slice code is already present — I'll verify completeness against tests and scout-repo patterns.Code for the first slice looks present — I'll verify the CLI path and hunt remaining gaps for the three source repos.Plan-slice falls back to wshobson when mission-control/solace aren't in fixtures — I'll fix loading and land the related improvements.I'll implement the fixture/repo-resolution fix, extend sample grades for the three sources, and finish the effort/apply-status fixes already in progress.Updating `load_fixture_grade` and extending the fixtures next.", 'error': None, 'plan': '.nexus_state/repo_mine/IMPROVE_OURS.md'}
 - publish: pushed=True sha=ec8935d06b01 staged=['docs/ALIVE_IMPROVEMENTS.md', 'docs/ARXIV_LEDGER.csv', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/evidence/gap-demo.json', 'docs/evidence/hitl-demo-3a6a46ef.json', 'docs/evidence/hitl-demo-7bcfe84d.json', 'src/nexus/alive.py', 'src/nexus/grok_worker.py', 'src/nexus/mine_eval_slice.py', 'tests/fixtures/mine_eval_sample.json', 'tests/test_mine_eval_slice.py', 'tests/test_usage_alive.py']
 - evidence: 6 file(s) under `docs/evidence/`
 
@@ -1393,3 +1393,103 @@ Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secret
 - self_check: ok=True
 - self_check: ok=True
 - evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-17 06:03:25Z
+- goal: `Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward highest SWE coding; 100% Pro not currently realistic for any public stack.`
+- self_check: ok=True
+- self_check: ok=True
+- publish: pushed=True sha=7f416d1fa529 staged=['bridge/bridges/stdin_to_grok.py', 'docs/ALIVE_IMPROVEMENTS.md', 'docs/ARXIV_LEDGER.csv', 'docs/ARXIV_LEDGER.md', 'docs/LATEST_ARXIV_IMPROVE.md', 'docs/SELF_IMPROVE_CYCLE.md', 'docs/evidence/README.md', 'docs/evidence/gap-demo.json', 'docs/evidence/hitl-demo-3a6a46ef.json', 'docs/evidence/hitl-demo-7bcfe84d.json', 'src/nexus/alive.py', 'src/nexus/arxiv_ledger.py', 'src/nexus/bus_client.py', 'src/nexus/cli.py', 'src/nexus/consensus.py', 'src/nexus/engine.py', 'src/nexus/github_autonomy.py', 'src/nexus/github_job.py', 'src/nexus/idea_portfolio.py', 'src/nexus/mcp_server.py', 'src/nexus/orchestrator.py', 'src/nexus/paper_improve.py', 'src/nexus/research_job.py', 'src/nexus/tool_catalog.py', 'src/nexus/unified_pipeline.py', 'tests/test_arxiv_ledger.py', 'tests/test_bus_client.py', 'tests/test_consensus.py', 'tests/test_orchestrator.py', 'docs/LATEST_DUAL_REVIEW.md', 'docs/LATEST_GITHUB_REVIEW.md', 'docs/LATEST_IDEA_PORTFOLIO.md', 'docs/LATEST_META_REVIEW.md', 'docs/evidence/canon-1784257375.json', 'docs/evidence/canon-1784257551.json', 'docs/evidence/canon-1784259317.json', 'docs/evidence/canon-1784260265.json', 'docs/evidence/canon-1784261206.json', 'src/nexus/agent_protocol.py', 'src/nexus/assetops_planner.py', 'src/nexus/assetops_work_gate.py', 'src/nexus/budget_alloc.py', 'src/nexus/budget_plane.py', 'src/nexus/cedar_policy.py', 'src/nexus/comm_bench.py', 'src/nexus/control_plane_planner.py', 'src/nexus/maf_bench.py', 'src/nexus/marketplace.py', 'src/nexus/marketplace_planner.py', 'src/nexus/mission_gate.py', 'src/nexus/multi_llm_agent.py', 'src/nexus/search_plane_planner.py', 'src/nexus/state_replay.py', 'src/nexus/user_intent.py', 'tests/test_agent_protocol.py', 'tests/test_assetops_planner.py', 'tests/test_assetops_work_gate.py', 'tests/test_budget_alloc.py', 'tests/test_budget_plane.py', 'tests/test_cedar_policy.py', 'tests/test_comm_bench.py', 'tests/test_control_plane_planner.py', 'tests/test_maf_bench.py', 'tests/test_marketplace.py', 'tests/test_marketplace_planner.py', 'tests/test_mission_gate.py', 'tests/test_multi_llm_agent.py', 'tests/test_search_plane_planner.py', 'tests/test_state_replay.py', 'tests/test_user_intent.py']
+- evidence: 6 file(s) under `docs/evidence/`
+
+## Cycle 2026-07-17 hard-apply — SWE-Master execution feedback loop (Grok 4.5 CLI)
+- goal: `IMPLEMENT idea from portfolio [arxiv] arxiv:2602.03411v2 — SWE-Master structured real execution feedback in multi_llm_agent`
+- mine: IMPROVE_OURS + portfolio #1 arXiv **2602.03411v2** SWE-Master; related multi_llm 2401.07324
+- apply slice (**First apply slice** this session):
+  - `src/nexus/multi_llm_agent.py` — `ExecutionFeedback` (`nexus.execution_feedback/v1`); `collect_execution_feedback` (tool errors, test-log signatures, exit codes, env deltas, external logs); `critique_from_feedback` (continue|replan|stop); `replan_with_feedback` (soft-avoid failed tools + feedback block in meta); `run_feedback_cycle` / `MultiLLMToolAgent.run(max_cycles=, feedback_loop=)`; dispatch actions `feedback` + `loop`; CLI `loop`/`feedback`
+  - `src/nexus/cli.py` — `nexus tool-agent loop|feedback` (+ `--max-cycles` on run)
+  - `src/nexus/mcp_server.py` — `tool_agent` actions feedback/loop + max_cycles/external_logs/feedback_json
+  - tests: `tests/test_multi_llm_agent.py` (roundtrip, collect, critique, replan, loop, dispatch, MCP)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: SWE-Master real execution feedback → critique → replan (shape only, no tree vendor); prior Planner→Caller gate kept
+- non-goals kept: no vendored harness; no live LLM in unit tests; no force-push; env snapshot allowlist (no secrets)
+- next open: orchestrator mid-run replan hook · pytest subprocess registry tool · preference/spine boost on replan
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_multi_llm_agent.py` → 43 passed; full suite see session summary
+
+## Cycle 2026-07-17 synthesis — SWE-Master feedback loop harden (Grok 4.5 CLI)
+- goal: `SYNTHESIS on [arxiv] arxiv:2602.03411v2 — apply multi-LLM panel critiques to multi_llm_agent feedback loop`
+- panel: antigravity full; claude/gpt bridge timeout
+- decisions: `.nexus_state/critiques/20260717T141044Z-c8f414/arxiv:2602.03411v2/synthesis/decisions.md`
+- apply (ACCEPT F1 F2 F3 F5 F6 F7 F8 F9; DEFER F4; SKIP F10):
+  - F1: failure regex + self-ok log-field scan (no `"0 failed"` false positive)
+  - F2: `recovered_by_avoidance` / re-verification semantics on loop `ok`
+  - F3: `feedback_loop=True` ⇒ ≥2 cycles in `MultiLLMToolAgent.run`
+  - F6: replan from latest-cycle feedback only
+  - F7: explicit `env_keys` secret fingerprint
+  - F8: dead ok fix + keep calls/summary on mid-loop non-ready
+  - F9: CLI/module feedback `--json` meaningful; thrash stop tests
+  - F5: tightened flagship loop test + regressions
+  - files: `src/nexus/multi_llm_agent.py`, `src/nexus/cli.py`, `tests/test_multi_llm_agent.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- next open: F4 real (read-only) registry for loop · orchestrator mid-run replan
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_multi_llm_agent.py` → 50 passed
+
+## Cycle 2026-07-17 hard-apply — wshobson/agents real registry (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [github] wshobson/agents — Markdown marketplace consumed by multi_llm_agent real local registry (F4)`
+- mine: IMPROVE_OURS primary **wshobson/agents** (score 16); local clone `.nexus_workspaces/scout_repos/wshobson__agents`
+- arxiv/context: closes deferred **F4** from SWE-Master synthesis (2602.03411) so feedback loop can observe real tool outcomes
+- apply slice (**First apply slice** this session):
+  - `src/nexus/multi_llm_agent.py` — `build_local_registry` / `resolve_registry` / `mock_registry`; RO invokers for marketplace (self_check/list/validate/catalog/collisions/capabilities/portability/garden), nexus_status, tool_catalog, list_project_files (path jail); write actions refuse; `dispatch_action(real=)`; module CLI `--real --workdir`
+  - `src/nexus/cli.py` — `nexus tool-agent run|loop --real [--workdir]`
+  - `src/nexus/mcp_server.py` — `tool_agent` inputSchema + dispatch pass-through for `real`
+  - tests: `tests/test_multi_llm_agent.py` (+8 cases: self_check, write refuse, path jail, dispatch real/mock, CLI, MCP, nexus CLI)
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: wshobson/agents marketplace self_check as reusable building block; SWE-Master real execution feedback needs real tools (shape only, no tree vendor)
+- related prior: full marketplace multi-harness generate/round-trip/garden already landed; this slice *wires* it into the agent Caller
+- non-goals kept: no vendored 94-plugin tree; default remains mock; no force-push; no secrets
+- next open: heuristic replan when real marketplace self_check fails · optional maf_bench/mcp_eval RO tools · opt-in quality smoke for `--real`
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_multi_llm_agent.py` → 58 passed; full suite: 879 passed, 1 skipped
+
+## Cycle 2026-07-17 hard-apply — Socratic-SWE failure patterns (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [arxiv] arxiv:2606.07412v1 — Socratic-SWE trace-derived agent skills`
+- arxiv: **2606.07412v1** Socratic-SWE: Self-Evolving Coding Agents via Trace-Derived Agent Skills
+- apply slice (**First apply slice** this session):
+  - `src/nexus/failure_patterns.py` — `nexus.failure_patterns/v1` offline failure-trace miner
+  - Sources: `decision_ledger` (fail/reject/veto/… actions + grade ok=false) + `ops_store` (status=failed)
+  - Catalog: missing_dependency_check, incorrect_api_usage, file_or_path_missing, permission_or_auth, test_assertion_failure, timeout_or_hang, syntax_or_parse_error, network_or_connectivity, budget_or_rate_limit, policy_or_gate_denied, generic_runtime_error
+  - API: `classify_text` / `collect_traces` / `analyze_failure_patterns` / `skill_brief` / `format_report`
+  - CLI: `python -m nexus.failure_patterns` + `nexus improve failure-patterns`
+  - tests: `tests/test_failure_patterns.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: Socratic-SWE historical trajectory → recurring failure modes → agent skill hints (shape only, no tree vendor)
+- related prior: SWE-Master online execution feedback in `multi_llm_agent` kept orthogonal; this is *historical* mine over ledger/ops
+- non-goals kept: no live LLM for classify; no auto skillpack write-back; no force-push; no secrets
+- next open: wire skill_brief into replan/context_pack · promote top skills to skillpacks/ · MCP analyze surface
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_failure_patterns.py` → 15 passed; full suite → **899 passed, 1 skipped**
+
+## Cycle 2026-07-17 FIX LOOP attempt 1/5 — tool_catalog privilege map (Grok 4.5 CLI)
+- goal: make install/pytest/smoke GREEN (`pytest:rc=1`)
+- failure: `tests/test_tool_catalog.py::test_live_mcp_tools_validate_and_export` — unmapped S13 factory tools
+- apply slice (minimal):
+  - `src/nexus/tool_catalog.py` — `TOOL_PRIVILEGE` entries (all `read`):
+    `nexus_lesson_query`, `nexus_scope_check`, `nexus_skill_search`, `nexus_pack_validate`, `nexus_code_review`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log
+- patterns: fail-closed privilege catalog (unknown → ops); every live MCP tool must be labeled
+- non-goals kept: no force-push; no secrets; no behavior change beyond catalog tags
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_tool_catalog.py` → 11 passed; full suite → **961 passed, 1 skipped**
+
+## Cycle 2026-07-17 hard-apply — SWE-Adept localization→resolution (Grok 4.5 CLI)
+- goal: `IMPLEMENT portfolio [arxiv] arxiv:2603.01327v2 — SWE-Adept structured localization vs resolution planning`
+- arxiv: **2603.01327v2** SWE-Adept: An LLM-Based Agentic Framework for Deep Codebase Analysis and Structured Issue Resolution
+- apply slice (**First apply slice** this session):
+  - `src/nexus/swe_adept_plan.py` — `nexus.swe_adept_plan/v1` two-phase planner (offline heuristic)
+  - Phase 1 **localization**: `localize()` → ranked file/module targets + `locate.scan|rank|confirm` steps (read-only walk)
+  - Phase 2 **resolution**: `plan_resolution()` → `resolve.read|edit|test|verify|checkpoint` against targets
+  - Orchestrator: `run_task(with_swe_plan=True)` → `envelope.meta["swe_adept_plan"]` + ops meta + engine journal seed
+  - MCP: `run_task` schema adds `with_swe_plan` / `swe_max_targets` / `swe_require_targets`
+  - tests: `tests/test_swe_adept_plan.py`
+  - docs: `docs/LATEST_IMPROVE_PLAN.md`, this log, `docs/SELF_IMPROVE_CYCLE.md`
+- patterns: SWE-Adept two-agent shape — localize where before resolving how (shape only, no tree vendor)
+- related prior: multi_llm_agent `with_plan` is tool decomposition; this is issue localization→resolution phase split
+- non-goals kept: no live LLM for path rank; no auto edits in plan phase; no force-push; no secrets
+- next open: wire resolve.* into Caller registry · DFS dependency walk · dedicated MCP tool
+- evidence: `PYTHONPATH=src python3 -m pytest -q tests/test_swe_adept_plan.py` → 17 passed; full suite → **978 passed, 1 skipped**

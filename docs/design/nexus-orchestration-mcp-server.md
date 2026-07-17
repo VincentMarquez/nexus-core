@@ -6,7 +6,7 @@
 | **Author** | TBD (Nexus maintainers) |
 | **Date** | 2026-07-16 |
 | **Status** | Draft (rev 2.2 — WAL always-on decision) |
-| **Primary repo** | `/path/to/nexus-core` |
+| **Primary repo** | this repository (clone path varies) |
 | **Related package** | `nexus-multi-agent` v0.9.1 (`pyproject.toml`) |
 | **Existing server** | `nexus-workspace` v0.7.4, protocol `2024-11-05` (`src/nexus/mcp_server.py`) |
 

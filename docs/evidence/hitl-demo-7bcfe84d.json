@@ -929,7 +929,7 @@
       {
         "id": "journal:hitl-demo-7bcfe84d",
         "type": "journal",
-        "path": "/path/to/nexus-core/.nexus_state/tasks/hitl-demo-7bcfe84d.events.jsonl",
+        "path": ".nexus_state/tasks/hitl-demo-7bcfe84d.events.jsonl",
         "n_events": 37
       }
     ],

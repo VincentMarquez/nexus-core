@@ -15,6 +15,8 @@ Env:
 
 from __future__ import annotations
 
+from .path_privacy import public_path
+
 import json
 import os
 import re
@@ -312,7 +314,7 @@ def step_paper_improve(
     lines = [
         "# PAPER_IMPROVE — ranked applicability to nexus-core",
         "",
-        f"Source note: `{note_path}`  ",
+        f"Source note: `{public_path(note_path, root)}`  ",
         f"Papers read: {read}/{len(papers)}  ",
         "",
         "| rank | score | effort | paper | target | concrete change |",
