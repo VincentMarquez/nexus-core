@@ -4,8 +4,8 @@ You have **two layers**. They are meant to work together, not replace each other
 
 | Layer | Path | Role |
 |-------|------|------|
-| **Product / OSS** | `~/nexus-core` → github.com/VincentMarquez/nexus-core | Durable engine, mine, alive, community bot, demos, CLI `nexus` |
-| **Staging (safe)** | `~/nexus-core-staging` | Clean `origin/main` worktree — **test GitHub code here first** |
+| **Product / OSS** | `$NEXUS_PROJECT_ROOT` → github.com/VincentMarquez/nexus-core | Durable engine, mine, alive, community bot, demos, CLI `nexus` |
+| **Staging (safe)** | `$NEXUS_STAGING_ROOT` | Clean `origin/main` worktree — **test GitHub code here first** |
 | **Lab / research** | `$NEXUS_LAB_ROOT` (`run.py`, bridges, EEG, agents…) | Your full autonomous research machine |
 
 ## Developer path: Grok Build (coding agent)
@@ -19,15 +19,19 @@ For day-to-day work on the **product** tree, use Grok Build as the coding agent 
 **Never** copy GitHub over `lab workspace` while ops services are running. Use:
 
 ```bash
+# Run from the nexus-core clone root.
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+export NEXUS_STAGING_ROOT="${NEXUS_STAGING_ROOT:-${NEXUS_PROJECT_ROOT}-staging}"
+
 # 1) Isolated eval (does NOT touch lab or rewrite product until green)
-bash ~/nexus-core/scripts/safe_product_eval.sh --compare
+bash "$NEXUS_PROJECT_ROOT/scripts/safe_product_eval.sh" --compare
 
 # 2) Only if tests passed, fast-forward product tree to GitHub main
-bash ~/nexus-core/scripts/safe_product_eval.sh --promote
+bash "$NEXUS_PROJECT_ROOT/scripts/safe_product_eval.sh" --promote
 
 # 3) Use product from lab WITHOUT merging lab code:
-export PYTHONPATH=~/nexus-core/src
-# or: pip install -e ~/nexus-core
+export PYTHONPATH="$NEXUS_PROJECT_ROOT/src"
+# or: pip install -e "$NEXUS_PROJECT_ROOT"
 nexus doctor
 nexus task list
 ```
@@ -40,7 +44,7 @@ nexus task list
 | multi-vendor live, alive/mine | domain experiments |
 | fixtures + tests (CI green) | systemd ops units |
 
-Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
+Staging worktree: `git worktree add "$NEXUS_STAGING_ROOT" origin/main`
 
 ## Recommended merge model
 
@@ -66,7 +70,7 @@ Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
 
 | Goal | `NEXUS_PROJECT_ROOT` / `--path` |
 |------|----------------------------------|
-| Improve the open-source product | `~/nexus-core` (default) |
+| Improve the open-source product | `$NEXUS_PROJECT_ROOT` (default) |
 | Improve the lab research tree | `$NEXUS_LAB_ROOT` |
 | Improve another personal repo | path after `github init` |
 
@@ -74,17 +78,18 @@ Staging worktree: `git worktree add ~/nexus-core-staging origin/main`
 
 ```bash
 # 1) Product package (editable)
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 
 # 2) Put `nexus` on PATH (optional)
 mkdir -p ~/.local/bin
-ln -sfn ~/nexus-core/.venv/bin/nexus ~/.local/bin/nexus
+ln -sfn "$NEXUS_PROJECT_ROOT/.venv/bin/nexus" ~/.local/bin/nexus
 # ensure ~/.local/bin is on PATH
 
 # 3) Link lab → product helpers
-bash ~/nexus-core/scripts/integrate_research.sh
+bash "$NEXUS_PROJECT_ROOT/scripts/integrate_research.sh"
 
 # 4) Same Ollama / gh you already use
 export OLLAMA_HOST=http://127.0.0.1:11434
@@ -94,7 +99,7 @@ export OLLAMA_MODEL=gemma4:26b   # or whatever you run
 ## Real self-improvement run (product tree)
 
 ```bash
-cd ~/nexus-core
+cd "$NEXUS_PROJECT_ROOT"
 source .venv/bin/activate
 
 # budget so it can't run away
@@ -123,7 +128,7 @@ nexus github mine improve-ours --apply --repo VincentMarquez/nexus-core
 ## Real run targeting the **lab** tree
 
 ```bash
-cd ~/nexus-core && source .venv/bin/activate
+cd "$NEXUS_PROJECT_ROOT" && source .venv/bin/activate
 export NEXUS_PROJECT_ROOT=/path/to/your-project
 
 nexus alive init --path "$NEXUS_PROJECT_ROOT" \

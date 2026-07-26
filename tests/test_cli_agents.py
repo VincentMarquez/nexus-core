@@ -63,3 +63,30 @@ def test_enable_agents_no_cli():
     assert backends["gemini"] == "mock"
     assert backends["grok"] == "mock"
     assert all(t[0] == "mock" for t in rt.started)
+
+
+def test_enable_agents_leave_provider_models_unpinned_by_default(monkeypatch):
+    for name in (
+        "NEXUS_CLAUDE_MODEL",
+        "NEXUS_CLAUDE_EFFORT",
+        "NEXUS_CODEX_MODEL",
+        "NEXUS_CODEX_REASONING",
+        "NEXUS_CODEX_SERVICE_TIER",
+        "NEXUS_GEMINI_MODEL",
+        "NEXUS_GROK_MODEL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    rt = FakeRT()
+    hw = HW({"claude": True, "codex": True, "gemini": True, "grok": True})
+    enable_agent_bridges(rt, hw, use_cli=True, ollama_ok=False, model="")
+
+    commands = {
+        entry[1]: list(entry[2])
+        for entry in rt.started
+        if entry[0] == "cli"
+    }
+    assert "--model" not in commands["claude"]
+    assert not any(arg.startswith('model="') for arg in commands["gpt"])
+    assert "-m" not in commands["gemini"]
+    assert "gpt-5.6-sol" not in " ".join(commands["gpt"])

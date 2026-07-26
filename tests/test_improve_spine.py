@@ -85,7 +85,7 @@ def test_grade_record_round_trip(tmp_path: Path):
             score=15.0,
             idea=7.0,
             skill=8.0,
-            method="grok:grok-4.5",
+            method="grok:test-model",
             summary="Supervisor/workers in git worktrees + MCP/SQLite",
             path=".nexus_workspaces/mine_eval/codingagentsystem__cas",
             run_id="demo-cas",
@@ -94,7 +94,7 @@ def test_grade_record_round_trip(tmp_path: Path):
         assert g["score"] == 15.0
         assert g["idea"] == 7.0
         assert g["skill"] == 8.0
-        assert g["method"] == "grok:grok-4.5"
+        assert g["method"] == "grok:test-model"
         assert "worktrees" in g["summary"] or "MCP" in g["summary"]
 
         got = store.get_grade("codingagentsystem/cas", run_id="demo-cas")
@@ -176,7 +176,7 @@ def test_ingest_fixture_cas(tmp_path: Path):
     g = report["grades"][0]
     assert g["repo_or_paper_id"] == "codingagentsystem/cas"
     assert float(g["score"]) >= 10.0
-    assert g["method"] == "grok:grok-4.5"
+    assert g["method"] == "grok:test-model"
     events = report["ledger"]
     stages = [e["stage"] for e in events]
     assert STAGE_SCOUTED in stages
@@ -381,7 +381,7 @@ def test_ensure_grade_for_apply_creates_spine_row(tmp_path: Path):
         "score": 16.0,
         "idea": 8.0,
         "skill": 8.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": ".nexus_workspaces/mine_eval/wshobson__agents",
         "summary": "Markdown SoT marketplace",
     }

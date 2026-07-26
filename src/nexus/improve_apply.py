@@ -45,7 +45,7 @@ PHASES: tuple[str, ...] = (
 PHASE_INDEX: dict[str, int] = {p: i for i, p in enumerate(PHASES)}
 
 SCHEMA_VERSION = "nexus.improve_apply/v1"
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 
 
 class PhaseGuardError(RuntimeError):

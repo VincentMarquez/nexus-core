@@ -44,7 +44,7 @@
 
 ## Lab files (remote control — different tree)
 
-Root: ``$NEXUS_LAB_ROOT` (lab workspace)`
+Root: `$NEXUS_LAB_ROOT` (operator-defined lab workspace)
 
 | Path | Role | Note |
 |------|------|------|

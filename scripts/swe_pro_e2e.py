@@ -48,15 +48,13 @@ if _envf.is_file():
         _kv = _line.replace("export ", "", 1).strip()
         if "=" in _kv:
             _k, _v = _kv.split("=", 1)
-            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+            _k, _v = _k.strip(), _v.strip().strip('"').strip("'")
+            if _v.startswith("${") and _v.endswith("}") and ":-" in _v:
+                _ref, _default = _v[2:-1].split(":-", 1)
+                _v = os.environ.get(_ref, _default)
+            if _v:
+                os.environ.setdefault(_k, _v)
 
-os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
-os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "max")
-os.environ.setdefault("NEXUS_CLAUDE_MODEL", "fable")
-os.environ.setdefault("NEXUS_CLAUDE_EFFORT", "max")
-os.environ.setdefault("NEXUS_CODEX_MODEL", "gpt-5.6-sol")
-os.environ.setdefault("NEXUS_CODEX_REASONING", "ultra")
-os.environ.setdefault("NEXUS_CODEX_SERVICE_TIER", "fast")
 os.environ.setdefault("NEXUS_CLI_TIMEOUT_S", "600")
 os.environ.setdefault("NEXUS_MSG_TIMEOUT_MS", "600000")
 os.environ.setdefault("NEXUS_GROK_BRIDGE_TURNS", "12")
@@ -312,7 +310,10 @@ def stage_spawn_reviews(port: int, plan: dict, implement: dict) -> dict[str, Any
     )
     plan_snip = str(plan.get("text") or "")[:2000]
 
-    claude_prompt = f"""You are Claude (Fable max) — line-by-line review L1 on the NEXUS SWE-Pro team.
+    claude_label = os.environ.get("NEXUS_CLAUDE_MODEL") or "provider default"
+    codex_label = os.environ.get("NEXUS_CODEX_MODEL") or "provider default"
+
+    claude_prompt = f"""You are Claude ({claude_label}) — line-by-line review L1 on the NEXUS SWE-Pro team.
 Review this practice patch context (normalize_path fixed after pytest):
 {diff_hint}
 
@@ -322,7 +323,7 @@ Plan was:
 Checklist: correctness, edge cases (/, .., empty), tests, scope.
 List BLOCKING issues (or NONE). End with REVIEW_L1_DONE."""
 
-    codex_prompt = f"""You are Codex/ChatGPT (gpt-5.6-sol ultra, service fast) — adversarial review L2.
+    codex_prompt = f"""You are Codex/ChatGPT ({codex_label}) — adversarial review L2.
 Challenge the practice fix for normalize_path. How could tests still be wrong?
 {diff_hint}
 
@@ -367,9 +368,16 @@ def stage_package(research, plan, implement, review) -> dict[str, Any]:
     _log("[5-6/6] PACKAGE predictions skeleton + summary")
     # Official format is instance_id + model_patch; skeleton for later Pro runs
     pred_path = OUT / "predictions.jsonl"
+    model_label = "+".join(
+        [
+            os.environ.get("NEXUS_GROK_MODEL") or "grok-default",
+            os.environ.get("NEXUS_CLAUDE_MODEL") or "claude-default",
+            os.environ.get("NEXUS_CODEX_MODEL") or "codex-default",
+        ]
+    )
     skeleton = {
         "instance_id": "PRACTICE-T01_normalize_path",
-        "model_name_or_path": "nexus-multi-ai/grok-4.5-max+claude-fable+gpt-5.6-sol",
+        "model_name_or_path": f"nexus-multi-ai/{model_label}",
         "model_patch": "",  # fill from real instance git diff
         "note": "Practice only — replace with real SWE-bench Pro instance patches",
     }

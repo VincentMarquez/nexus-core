@@ -115,7 +115,7 @@ def test_write_review_pack_layout(tmp_path: Path):
         cycle_id="cyc1",
         slice_files=["src/nexus/cedar_policy.py"],
         diff_text="diff --git a/src/nexus/cedar_policy.py",
-        grok_result={"ok": True, "model": "grok-4.5"},
+        grok_result={"ok": True, "model": "test-model"},
     )
     assert (pack / "MANIFEST.md").is_file()
     assert (pack / "DIFF.patch").is_file()

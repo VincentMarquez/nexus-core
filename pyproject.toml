@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # PyPI name: nexus-core is already taken (unrelated ETL package).
 name = "nexus-multi-agent"
-version = "0.9.1"
+version = "0.10.0"
 description = "Durable multi-agent engine: software jobs, arXiv research, procurement intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,6 +43,14 @@ Changelog = "https://github.com/VincentMarquez/nexus-core/blob/main/CHANGELOG.md
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.data-files]
+"fixtures/maf_bench/packs" = ["fixtures/maf_bench/packs/sample.json"]
+"plugins/nexus-durable" = ["plugins/nexus-durable/README.md"]
+"plugins/nexus-durable/.nexus-plugin" = ["plugins/nexus-durable/.nexus-plugin/plugin.json"]
+"plugins/nexus-durable/agents" = ["plugins/nexus-durable/agents/durable-operator.md"]
+"plugins/nexus-durable/commands" = ["plugins/nexus-durable/commands/task-board.md"]
+"plugins/nexus-durable/skills/durable-operator-board" = ["plugins/nexus-durable/skills/durable-operator-board/SKILL.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

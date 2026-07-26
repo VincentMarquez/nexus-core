@@ -7,7 +7,7 @@ Assets and short copy you can use when writing about the project. All paths unde
 | Demo video | [docs/assets/nexus-demo-reel.mp4](../assets/nexus-demo-reel.mp4) |
 | Demo GIF | [docs/assets/nexus-demo-reel.gif](../assets/nexus-demo-reel.gif) |
 | Architecture | [docs/assets/arch-governed-self-improve-capability-factory.png](../assets/arch-governed-self-improve-capability-factory.png) |
-| Public stills | [docs/assets/screenshots/public-shots/](../assets/screenshots/public-shots/) |
+| Public stills | [docs/assets/screenshots/public-shots/](../assets/screenshots/public-shots/README.md) |
 | Status badge | [docs/assets/last-real-badge.svg](../assets/last-real-badge.svg) |
 | Social post draft | [SOCIAL.md](SOCIAL.md) |
 | Image carousel captions | [CAROUSEL.md](CAROUSEL.md) |
@@ -19,7 +19,7 @@ Assets and short copy you can use when writing about the project. All paths unde
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
 cd nexus-core
-make install && make start && make demo-all-quick
+make install && make demo-all-quick
 ```
 
 Optional API keys enable live CLIs; without them, mocks and local Ollama (if installed) still exercise the bus.

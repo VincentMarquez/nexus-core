@@ -1,6 +1,6 @@
 # Small / local LLMs + full Grok tool belt
 
-**Problem:** A small local model (e.g. Gemma 4 NVFP4 or Ollama) can sit *inside* Grok CLI and theoretically call the same tools as cloud Grok — shell, files, MCP, GitHub — but weaker models often **talk about** tools instead of **calling** them.
+**Problem:** A small local model (e.g. Gemma 4 NVFP4 or Ollama) can sit *inside* a compatible Grok CLI session and access registered host tools, but only when the client supports tool calls and the model emits valid requests. Weaker models often **talk about** tools instead of **calling** them.
 
 **Pattern:** Keep tools on the **host** (Grok CLI). Give the small model a **cheat sheet skill** that teaches *when* and *how* to call them, plus which coding skills to load for big work.
 
@@ -20,14 +20,14 @@ User
 | Science kernel, etc. | Other MCP servers in `~/.grok/config.toml` |
 | “How to use all of that” | Skill pack **gemma-local-tools** |
 
-The model never embeds tools. **MCP and skills attach to the Grok session**, so switching `/model gemma4` keeps the same tool surface.
+The model never embeds tools. **MCP and skills attach to the Grok session**, so switching models keeps the registered host surface; successful calls still depend on client and model support.
 
 ## Cheat sheet skill pack
 
 | Path | Role |
 |------|------|
-| [`skillpacks/gemma-local-tools/SKILL.md`](../skillpacks/gemma-local-tools/SKILL.md) | Full cheat sheet (tools + coding skills) |
-| [`skillpacks/gemma-local-tools/manifest.json`](../skillpacks/gemma-local-tools/manifest.json) | Version / tags |
+| [gemma-local-tools/SKILL.md](https://github.com/VincentMarquez/nexus-core/blob/main/skillpacks/gemma-local-tools/SKILL.md) | Full cheat sheet (tools + coding skills) |
+| [gemma-local-tools/manifest.json](https://github.com/VincentMarquez/nexus-core/blob/main/skillpacks/gemma-local-tools/manifest.json) | Version / tags |
 
 Install for Grok CLI (user machine):
 
@@ -60,14 +60,14 @@ Or rely on skill auto-discovery when the description matches.
 ## Spark / NVFP4 notes
 
 - Primary local brain: vLLM NVFP4 Gemma (`gemma4` in Grok config) — see [PLATFORMS.md](PLATFORMS.md).  
-- Do not load heavy Ollama models while NVFP holds ~80–90 GiB unified memory.  
+- In the recorded Spark setup, NVFP used approximately 80–90 GiB of unified memory; measure your own deployment before co-loading another large model.
 - Tools still come from Grok, not from the vLLM container.
 
 ## Related
 
 - [PLATFORMS.md](PLATFORMS.md) — multi-platform mesh + local models  
 - [MCP_SETUP.md](MCP_SETUP.md) — workspace MCP  
-- [design/nexus-orchestration-mcp-server.md](design/nexus-orchestration-mcp-server.md) — future `run_task` facades (optional)  
+- [design/nexus-orchestration-mcp-server.md](design/nexus-orchestration-mcp-server.md) — implemented `run_task` / `get_task_status` and planned higher-level interfaces
 - Bus tool loop for Ollama without Grok: `bridge/bridges/ollama_tools.py`
 
 ## Why this helps small models

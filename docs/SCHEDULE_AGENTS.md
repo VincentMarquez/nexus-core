@@ -9,7 +9,7 @@ Yes: you can **schedule** work so cloud agents (ChatGPT, Claude) and local jobs 
 2. Score them (Ollama or heuristic)     idea + skill
 3. USE them (clone + prove locally)     not follow/star
 4. Improve OURS (plan + optional apply)
-5. Optional: ChatGPT/Claude on a schedule hit the same tools via MCP
+5. Optional: compatible ChatGPT/Claude clients can request registered MCP tools on a schedule
 ```
 
 ```bash

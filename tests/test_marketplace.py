@@ -669,7 +669,8 @@ def test_mcp_tool_registered():
 # ---------------------------------------------------------------------------
 
 
-def test_adapt_markdown_drops_claude_only_and_maps_model():
+def test_adapt_markdown_drops_claude_only_and_maps_model(monkeypatch):
+    monkeypatch.delenv("NEXUS_CODEX_MODEL", raising=False)
     src = (
         "---\nname: reviewer\nmodel: opus\ncolor: blue\ntools: Read, Grep\n---\n\n"
         "# Reviewer\n\nDo reviews.\n"
@@ -677,13 +678,17 @@ def test_adapt_markdown_drops_claude_only_and_maps_model():
     out, notes = mp.adapt_markdown(src, harness="codex", kind="agent")
     assert "color:" not in out
     assert "tools:" not in out
-    assert "model: gpt-5.5" in out
+    assert "model: inherit" in out
     assert any(n.startswith("model:") for n in notes)
     assert any(n.startswith("drop:") for n in notes)
     # claude keeps fields
     claude, _ = mp.adapt_markdown(src, harness="claude", kind="agent")
     assert "color: blue" in claude
     assert "model: opus" in claude
+
+    monkeypatch.setenv("NEXUS_CODEX_MODEL", "configured-codex-model")
+    configured, _ = mp.adapt_markdown(src, harness="codex", kind="agent")
+    assert "model: configured-codex-model" in configured
 
 
 def test_split_skill_for_cap():
@@ -703,7 +708,10 @@ def test_split_skill_for_cap():
     assert s2 == small
 
 
-def test_generate_adapters_codex_maps_commands_to_skills(tmp_path: Path):
+def test_generate_adapters_codex_maps_commands_to_skills(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("NEXUS_CODEX_MODEL", raising=False)
     _write_plugin(
         tmp_path,
         "demo-plugin",
@@ -740,7 +748,7 @@ def test_generate_adapters_codex_maps_commands_to_skills(tmp_path: Path):
     agent_out = (codex_plugin / "agents" / "demo-plugin-agent.md").read_text(
         encoding="utf-8"
     )
-    assert "model: gpt-5.5" in agent_out
+    assert "model: inherit" in agent_out
     assert "color:" not in agent_out
 
     # claude keeps commands native

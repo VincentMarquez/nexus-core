@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 SCHEMA_VERSION = "nexus.grade_ledger/v1"
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 DB_NAME = "grades.sqlite"
 LEDGER_REL = Path(".nexus_workspaces") / "mine_eval" / "ledger"
 CHECKPOINT_STAGE_GRADE = "grade"
@@ -250,7 +250,7 @@ class GradeLedger:
               score REAL NOT NULL,
               idea REAL NOT NULL,
               skill REAL NOT NULL,
-              method TEXT NOT NULL DEFAULT 'grok:grok-4.5',
+              method TEXT NOT NULL DEFAULT 'grok:provider-default',
               path TEXT NOT NULL DEFAULT '',
               digest_path TEXT NOT NULL DEFAULT '',
               summary TEXT NOT NULL DEFAULT '',

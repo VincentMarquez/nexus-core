@@ -155,7 +155,7 @@ def test_pack_from_grade(tmp_path: Path):
         "idea": 7.0,
         "skill": 8.0,
         "pattern": "phase guards + decision audit",
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "notes": "decision audit trails",
     }
     pack = pack_from_grade(tmp_path, grade)
@@ -200,7 +200,7 @@ def test_preference_brief_injected_into_context_pack(tmp_path: Path):
             "score": 16.0,
             "idea": 8.0,
             "skill": 8.0,
-            "method": "grok:grok-4.5",
+            "method": "grok:test-model",
         },
         include_research=False,
         include_repo_digests=False,

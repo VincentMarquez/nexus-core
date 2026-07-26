@@ -13,11 +13,11 @@ NEXUS Core runs an unattended multi-LLM self-improve loop:
 • Capability factory mints skills/tools from cycle lessons  
 • Fail-closed publish when the judge or inputs fail  
 
-Example cycle: ~2h54m alone · 10/10 ideas · tests green · publish gated by design  
+Recorded July 17 cycle: ~2h54m alone · 10/10 ideas · 1225 passed, 1 skipped · publish gated by design. Rerun current checks before relying on it.
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
-cd nexus-core && make install && make start && make demo-all-quick
+cd nexus-core && make install && make demo-all-quick
 ```
 
 https://github.com/VincentMarquez/nexus-core
@@ -33,14 +33,14 @@ https://github.com/VincentMarquez/nexus-core
 
 **3.** Capability factory: lessons (e.g. engine fail-open) → propose skill → fill SKILL.md → soft accept → activate into skillpacks/. Creation ≠ activation.  
 
-**4.** Example numbers: ~2h54m wall clock · 10/10 ideas · multi-LLM panel · tests green · publish blocked when engine judge fails (intentional).  
+**4.** Recorded July 17 numbers: ~2h54m wall clock · 10/10 ideas · multi-LLM panel · 1225 passed, 1 skipped · publish blocked when the engine judge failed (intentional). Not a current-branch claim.
 
 **5.** Try it:
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
 cd nexus-core
-make install && make start && make demo-all-quick
+make install && make demo-all-quick
 ```
 
 **6.** Architecture: Phase A governed self-edit spine + Phase B skills/tools factory (MCP + multi_llm --real). Stars and issues welcome.

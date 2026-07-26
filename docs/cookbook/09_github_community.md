@@ -39,7 +39,8 @@ Without `--autonomous`, watch only logs activity.
 
 ```bash
 nexus github search "multi agent durable resume" --limit 10
-nexus github scout "multi agent durable" --workdir .
+nexus github scout "multi agent durable" --workdir . --connect --prove
+nexus github connect owner/repo --prove
 # → .nexus_state/repo_scout/scout-*.md + latest.json
 
 nexus github improve --arxiv "durable multi-agent systems" --with-scout --max 6

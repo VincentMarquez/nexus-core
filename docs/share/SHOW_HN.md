@@ -15,12 +15,12 @@ Self-improve path:
 3. **MCP + multi_llm --real** — first-class read tools for lessons, scope, skill search, pack validate, code review.  
 4. **Fail-closed publish** — can block push when engine/X health fails even if local tests are green.
 
-Example unattended run: ~2h54m, 10/10 ideas, tests green, publish gated by design.
+In one recorded July 17 operator run: ~2h54m, 10/10 ideas, 1225 tests passed with 1 skipped, and publish was gated by design. This is not a claim about the current branch.
 
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
 cd nexus-core
-make install && make start && make demo-all-quick
+make install && make demo-all-quick
 ```
 
 Not a SWE-bench leaderboard claim—the product is the **governed loop**.

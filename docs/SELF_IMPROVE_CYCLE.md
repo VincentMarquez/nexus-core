@@ -2,7 +2,7 @@
 
 _Generated 2026-07-17 (FIX LOOP: pytest green / S03–S08 surface restore)_
 
-Model: `grok-4.5` · role: **fix-loop worker**
+Recorded model: `grok-4.5` · role: **fix-loop worker**. This is historical cycle evidence, not a current provider requirement.
 
 ## Reasoning plan (this cycle)
 

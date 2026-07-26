@@ -2,7 +2,7 @@
 
 This is the **developer path** for improving `nexus-core` itself: use **Grok Build** (xAI’s coding agent TUI + headless harness) as the primary implementer, while NEXUS remains the **orchestration / durability / multi-vendor bus**.
 
-You already have Grok Build installed on this machine (`grok` → Grok Build TUI). NEXUS already drives it headlessly via `nexus.grok_worker`.
+This optional operator workflow assumes Grok Build is installed (`grok` → Grok Build TUI). Model identifiers and CLI flags shown in recorded examples may change; use values supported by your installed CLI. NEXUS can drive the CLI headlessly through `nexus.grok_worker`.
 
 ---
 
@@ -61,7 +61,8 @@ Local docs: `~/.grok/docs/user-guide/` (headless, agents, MCP, permissions, sess
 ### 1) Day-to-day coding (interactive)
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 # MCP tools for project jail + checks (if platforms connect was run)
 nexus platforms connect --path .
 grok
@@ -75,9 +76,9 @@ grok
 # see nexus.grok_worker.grok_grade
 
 # Hard improve with tools + always-approve
-export NEXUS_GROK_MODEL=grok-4.5
-grok -p "Implement X; keep pytest green" -m grok-4.5 \
-  --max-turns 32 --always-approve --cwd ~/nexus-core
+export NEXUS_GROK_MODEL="<supported-grok-model>"
+grok -p "Implement X; keep pytest green" -m "$NEXUS_GROK_MODEL" \
+  --max-turns 32 --always-approve --cwd "$NEXUS_PROJECT_ROOT"
 ```
 
 NEXUS wrappers:
@@ -109,10 +110,11 @@ Study Grok Build’s *ideas* and map them into NEXUS:
 
 ```bash
 # Product staging only — never overwrite lab workspace
-bash ~/nexus-core/scripts/safe_product_eval.sh --compare
+export NEXUS_STAGING_ROOT="${NEXUS_STAGING_ROOT:-${NEXUS_PROJECT_ROOT}-staging}"
+bash "$NEXUS_PROJECT_ROOT/scripts/safe_product_eval.sh" --compare
 
 # Interactive Grok Build only in product tree
-cd ~/nexus-core-staging   # or ~/nexus-core
+cd "$NEXUS_STAGING_ROOT"   # or "$NEXUS_PROJECT_ROOT"
 grok -p "Read src/nexus/engine.py and propose one small durability test"
 ```
 
@@ -123,7 +125,7 @@ Lab (`$NEXUS_LAB_ROOT`) stays your live ops workspace; product is the coding tar
 ## Recommended workflow (developer path)
 
 1. **Open product tree**  
-   `cd ~/nexus-core && grok`  
+   `cd "$NEXUS_PROJECT_ROOT" && grok`
 2. **Small PR-sized change** with Grok Build (tests green).  
 3. **Orchestration / multi-agent** via NEXUS bus when you need Claude + Codex + Grok together.  
 4. **Self-improve** only with budget + staging eval first.  
@@ -131,8 +133,8 @@ Lab (`$NEXUS_LAB_ROOT`) stays your live ops workspace; product is the coding tar
 
 ```bash
 # Example: one headless improve slice under NEXUS control
-export NEXUS_GROK_MODEL=grok-4.5
-export NEXUS_PROJECT_ROOT=~/nexus-core
+export NEXUS_GROK_MODEL="<supported-grok-model>"
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
 PYTHONPATH=src python3 -c "
 from pathlib import Path
 from nexus.grok_worker import grok_hard_improve
