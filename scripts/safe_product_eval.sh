@@ -3,8 +3,8 @@
 #
 # Layers:
 #   Lab (live):     `$NEXUS_LAB_ROOT`   — leave running; do not overwrite
-#   Product (live): ~/nexus-core         — your working product tree
-#   Staging:        ~/nexus-core-staging — clean origin/main worktree for tests
+#   Product (live): `$NEXUS_PROJECT_ROOT` — your working product tree
+#   Staging:        `$NEXUS_STAGING_ROOT` — clean origin/main worktree for tests
 #
 # Usage:
 #   bash scripts/safe_product_eval.sh              # fetch + test staging
@@ -13,12 +13,12 @@
 #
 set -euo pipefail
 
-PRODUCT="${NEXUS_PRODUCT:-$HOME/nexus-core}"
-STAGING="${NEXUS_STAGING:-$HOME/nexus-core-staging}"
+PRODUCT="${NEXUS_PRODUCT:-${NEXUS_PROJECT_ROOT:-$PWD}}"
+STAGING="${NEXUS_STAGING:-${NEXUS_STAGING_ROOT:-${PRODUCT}-staging}}"
 # Lab is never written by this script — path is for logging / operator awareness only.
-LAB="${NEXUS_LAB:-${NEXUS_LAB_ROOT:-~/lab}}"
-if [[ ! -d "$LAB" && -d "${NEXUS_LAB_ROOT:-~/lab}" ]]; then
-  LAB="${NEXUS_LAB_ROOT:-~/lab}"
+LAB="${NEXUS_LAB:-${NEXUS_LAB_ROOT:-$HOME/lab}}"
+if [[ ! -d "$LAB" && -d "${NEXUS_LAB_ROOT:-$HOME/lab}" ]]; then
+  LAB="${NEXUS_LAB_ROOT:-$HOME/lab}"
 fi
 PROMOTE=0
 COMPARE=0
@@ -88,7 +88,7 @@ python3 -c "from nexus.engine import DurableEngine; from nexus.agents import Age
 if [[ $COMPARE -eq 1 ]]; then
   log "=== best product modules to use from lab (import, don't copy whole tree) ==="
   cat <<'EOF'
-  PYTHONPATH=~/nexus-core/src
+  PYTHONPATH=/path/to/nexus-core/src
   from nexus.engine import DurableEngine
   from nexus.agents import AgentPanel
   from nexus.grok_worker import grok_grade, grok_hard_improve

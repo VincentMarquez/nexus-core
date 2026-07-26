@@ -1,0 +1,14 @@
+{
+  "name": "nexus-durable",
+  "version": "0.10.0",
+  "description": "Operator helpers for crash-safe NEXUS tasks, evidence export, review gates, and human-approved resume.",
+  "category": "operations",
+  "privilege": "ops",
+  "tags": [
+    "nexus",
+    "durability",
+    "audit",
+    "hitl",
+    "operations"
+  ]
+}

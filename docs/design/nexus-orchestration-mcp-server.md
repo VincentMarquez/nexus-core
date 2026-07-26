@@ -7,7 +7,7 @@
 | **Date** | 2026-07-16 |
 | **Status** | Draft (rev 2.2 — WAL always-on decision) |
 | **Primary repo** | this repository (clone path varies) |
-| **Related package** | `nexus-multi-agent` v0.9.1 (`pyproject.toml`) |
+| **Related package** | `nexus-multi-agent` v0.10.0 (`pyproject.toml`) |
 | **Existing server** | `nexus-workspace` v0.7.4, protocol `2024-11-05` (`src/nexus/mcp_server.py`) |
 
 ---
@@ -31,7 +31,7 @@ We will **extend the existing `nexus-workspace` MCP process** with a small set o
 | Layer | What exists | Path / symbol |
 |-------|-------------|---------------|
 | MCP server | Stdio JSON-RPC + optional HTTP (`nexus mcp --http --port 8765`) | `src/nexus/mcp_server.py` |
-| Server identity | `SERVER_NAME="nexus-workspace"`, `SERVER_VERSION="0.7.4"`, `PROTOCOL_VERSION="2024-11-05"` | same |
+| Server identity | `SERVER_NAME="nexus-workspace"`, `SERVER_VERSION="0.8.0"`, `PROTOCOL_VERSION="2024-11-05"` | same |
 | Project jail | `NEXUS_PROJECT_ROOT` + `_safe_path()` | `mcp_server._root`, `_safe_path` |
 | Grok wiring (operator env) | `[mcp_servers.nexus-workspace]` → `.venv/bin/python -m nexus.mcp_server` | `~/.grok/config.toml` (host config, not in repo) |
 | Durable tasks | `Task` / `TaskStatus` / `DurableEngine.run` / `resume` | `src/nexus/engine.py` |
@@ -61,7 +61,7 @@ We will **extend the existing `nexus-workspace` MCP process** with a small set o
 
 ### Why now
 
-Grok already has `nexus-workspace` enabled with full tool access (operator host). Local models execute the same tools on the host. Closing the orchestration gap is a **facade + async job** layer, not a rewrite of the engine.
+In the recorded operator environment, Grok had `nexus-workspace` enabled on the host. Compatible local models could request those registered tools through the client. Closing the orchestration gap is a **facade + async job** layer, not a rewrite of the engine.
 
 ---
 
@@ -1184,7 +1184,7 @@ MVP acceptance: ops row reaches a terminal or blocked status for every submit; n
 | Claim | Citation |
 |-------|----------|
 | 38 tools, server name/version/protocol | `mcp_server.py` `SERVER_*`, `TOOLS` |
-| Package version 0.9.1 | `pyproject.toml` `version` |
+| Package version 0.10.0 | `pyproject.toml` `version` |
 | JOB_STATUSES / JOB_KINDS | `ops_store.py` |
 | Unknown kind → `"other"` | `ops_store.upsert_job` kind check |
 | TaskStatus values | `engine.TaskStatus` |
@@ -1201,7 +1201,7 @@ MVP acceptance: ops row reaches a terminal or blocked status for every submit; n
 | `run()` forces `status=running` | `engine.DurableEngine.run` ~line 811 |
 | ResearchJobRunner `with_brief=True` default | `research_job.ResearchJobRunner.run` |
 
-**Operator-env (not repo):** `~/.grok/config.toml` — **primary local model is `[model.gemma4]` → vLLM NVFP4** (`gemma4-nvfp4-interactive2` on `:8000`), not Ollama. Ollama is secondary (`nexus-local`). Same `mcp_servers.nexus-workspace` tools attach to Grok sessions on **either** model. NVFP4 RSS ~80–90 GiB; do not dual-load heavy Ollama with NVFP4.
+**Recorded operator environment (not a repo requirement):** `~/.grok/config.toml` used `[model.gemma4]` → vLLM NVFP4 (`gemma4-nvfp4-interactive2` on `:8000`) as the primary local model and `nexus-local` as a secondary Ollama model. Registered `mcp_servers.nexus-workspace` tools were available to either session when the selected client/model emitted valid tool calls. Observed NVFP4 RSS was approximately 80–90 GiB; measure the actual deployment before co-loading another large model.
 
 ---
 

@@ -16,7 +16,7 @@ def main() -> int:
     if not prompt.strip():
         print("[grok-bridge] empty prompt", file=sys.stderr)
         return 2
-    model = os.environ.get("NEXUS_GROK_MODEL") or "grok-4.5"
+    model = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
     max_turns = os.environ.get("NEXUS_GROK_BRIDGE_TURNS") or "12"
     # Canonical: none|minimal|low|medium|high|xhigh|max (max≡xhigh)
     raw_effort = (
@@ -42,8 +42,6 @@ def main() -> int:
         "grok",
         "-p",
         prompt,
-        "-m",
-        model,
         "--max-turns",
         str(max_turns),
         "--output-format",
@@ -53,6 +51,8 @@ def main() -> int:
         "--reasoning-effort",
         effort,
     ]
+    if model:
+        cmd[3:3] = ["-m", model]
     # Web search on for research-grade reviews unless explicitly disabled
     if os.environ.get("NEXUS_GROK_DISABLE_WEB", "").strip() in ("1", "true", "yes"):
         cmd.append("--disable-web-search")

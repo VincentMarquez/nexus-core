@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Full self-improve cycle: 10 repos + 10 arXiv + Grok 4.5 reason + apply + push.
+"""Full self-improve cycle: repos + arXiv + configured Grok reason/apply + push.
 
 One shot (stops when finished)::
 
-  PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle.py
+  PYTHONPATH=src NEXUS_GROK_MODEL=your-supported-model python3 scripts/full_self_improve_cycle.py
 
 Keep going until you stop it (Ctrl-C or stop file)::
 
-  PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 \\
+  PYTHONPATH=src NEXUS_GROK_MODEL=your-supported-model \\
     python3 scripts/full_self_improve_cycle.py --watch --interval 120
 
   # stop cleanly:
@@ -26,7 +26,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 os.chdir(ROOT)
-os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
 os.environ.setdefault("NEXUS_PROJECT_ROOT", str(ROOT))
 
 from nexus import alive as al  # noqa: E402
@@ -42,6 +41,8 @@ N_REPOS = int(os.environ.get("NEXUS_CYCLE_REPOS") or 20)
 N_PAPERS = int(os.environ.get("NEXUS_CYCLE_PAPERS") or 20)
 GROK_MAX_TURNS = int(os.environ.get("NEXUS_GROK_MAX_TURNS") or 64)
 GROK_TIMEOUT_S = float(os.environ.get("NEXUS_GROK_TIMEOUT_S") or 3600)
+GROK_MODEL = (os.environ.get("NEXUS_GROK_MODEL") or "").strip() or None
+GROK_MODEL_LABEL = GROK_MODEL or "provider-default"
 QUERY = "multi agent durable orchestration MCP"
 ARXIV_Q = "multi-agent systems durable orchestration LLM"
 STOP_FILE = ROOT / ".nexus_state" / "STOP_FULL_CYCLE"
@@ -56,7 +57,7 @@ def configure() -> al.AliveConfig:
     cfg = al.load_config(ROOT)
     cfg.goal = (
         "self-improve nexus-core from 10 arXiv papers + 10 mined repos "
-        "using Grok 4.5 for grading, reasoning, and hard apply"
+        "using the configured Grok CLI model for grading, reasoning, and hard apply"
     )
     cfg.queries = [QUERY]
     cfg.arxiv_queries = [ARXIV_Q]
@@ -78,7 +79,7 @@ def configure() -> al.AliveConfig:
 
 
 def reset_for_grok_regrade(limit: int = N_REPOS) -> int:
-    """Clear scores so evaluate re-runs with Grok 4.5 (hard grade)."""
+    """Clear scores so evaluate re-runs with the configured Grok model."""
     conn = rm.connect(ROOT)
     rows = rm.list_entries(conn, min_score=0.0, limit=100)
     # prefer unscored first, else top by score for re-grade
@@ -219,11 +220,11 @@ def _evidence_blob(mine: dict, arxiv: dict) -> str:
 
 
 def step_reason(mine: dict, arxiv: dict, goal: str) -> dict:
-    _log("=== 3/5 Grok 4.5 reasoning over papers + repos ===")
+    _log(f"=== 3/5 Grok reasoning over papers + repos ({GROK_MODEL_LABEL}) ===")
     if not gw.grok_available():
         return {"ok": False, "error": "grok CLI missing"}
     evidence = _evidence_blob(mine, arxiv)
-    res = gw.grok_reason(evidence, goal=goal, model="grok-4.5", label="cycle_reason")
+    res = gw.grok_reason(evidence, goal=goal, model=GROK_MODEL, label="cycle_reason")
     text = (res.get("text") or "").strip()
     # unwrap json envelope if present
     try:
@@ -234,9 +235,9 @@ def step_reason(mine: dict, arxiv: dict, goal: str) -> dict:
         pass
     out = ROOT / "docs" / "SELF_IMPROVE_CYCLE.md"
     header = (
-        "# Self-improve cycle — Grok 4.5\n\n"
+        "# Self-improve cycle — Grok\n\n"
         f"_Generated {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}_\n\n"
-        f"Model: `grok-4.5` · repos={N_REPOS} · arXiv={N_PAPERS}\n\n"
+        f"Model: `{GROK_MODEL_LABEL}` · repos={N_REPOS} · arXiv={N_PAPERS}\n\n"
         "---\n\n"
     )
     out.write_text(header + (text or "(empty reasoning)"), encoding="utf-8")
@@ -250,7 +251,7 @@ def step_reason(mine: dict, arxiv: dict, goal: str) -> dict:
 
 
 def step_apply(cfg: al.AliveConfig, reason: dict) -> dict:
-    _log("=== 4/5 Grok 4.5 hard improve (update the repo) ===")
+    _log(f"=== 4/5 Grok hard improve ({GROK_MODEL_LABEL}) ===")
     plan_path = reason.get("path") or str(ROOT / "docs" / "SELF_IMPROVE_CYCLE.md")
     goal = (
         f"{cfg.goal}\n\n"
@@ -263,7 +264,7 @@ def step_apply(cfg: al.AliveConfig, reason: dict) -> dict:
     hard = gw.grok_hard_improve(
         ROOT,
         goal,
-        model="grok-4.5",
+        model=GROK_MODEL,
         max_turns=GROK_MAX_TURNS,
         timeout_s=GROK_TIMEOUT_S,
     )
@@ -291,7 +292,7 @@ def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
     if cfg.push_github and checks.get("ok"):
         msg = (
         f"{cfg.commit_prefix} full cycle: {N_PAPERS} arxiv + {N_REPOS} repos "
-        f"+ Grok 4.5 apply (turns≤{GROK_MAX_TURNS})"
+        f"+ Grok apply ({GROK_MODEL_LABEL}, turns≤{GROK_MAX_TURNS})"
     )
         pub_res = pub.commit_and_maybe_push(
             ROOT,
@@ -362,7 +363,7 @@ def run_once(*, cycle_n: int = 1) -> int:
         "ts": time.time(),
         "cycle": cycle_n,
         "goal": cfg.goal,
-        "model": "grok-4.5",
+        "model": GROK_MODEL_LABEL,
         "n_repos": N_REPOS,
         "n_papers": N_PAPERS,
         "steps": [],

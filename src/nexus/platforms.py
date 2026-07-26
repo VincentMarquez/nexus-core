@@ -320,7 +320,7 @@ def ensure_grok_local_model_hint(
         f'base_url = "{base_url}"\n'
         f'name = "NEXUS local ({model_name})"\n'
         f'description = "Local LLM via Ollama — full tools via mcp_servers.nexus-workspace"\n'
-        f'api_key = "EMPTY"\n'
+        f'api_key = "not-required-for-local-server"\n'
         f'api_backend = "chat_completions"\n'
         f"context_window = 32768\n"
         f"max_completion_tokens = 4096\n"

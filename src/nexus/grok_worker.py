@@ -3,7 +3,7 @@
 Local LLM (Ollama) stays for light bus turns; **Grok** does scoring and
 agentic hard work when ``grader=grok`` / ``worker=grok`` (defaults under auto).
 
-  grok -p "…" -m grok-4.5 --max-turns N --json-schema '…'
+  grok -p "…" [-m "$NEXUS_GROK_MODEL"] --max-turns N --json-schema '…'
 """
 
 from __future__ import annotations
@@ -39,12 +39,8 @@ def grok_available() -> bool:
 
 
 def default_model() -> str:
-    """Prefer NEXUS_GROK_MODEL; ignore broken XAI_MODEL pins (e.g. unknown ids)."""
-    explicit = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
-    if explicit:
-        return explicit
-    # Latest cloud Grok for product work (subscription preferred over API).
-    return "grok-4.5"
+    """Return an operator pin, or empty to use the installed CLI default."""
+    return (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
 
 
 def default_effort() -> str:
@@ -70,12 +66,6 @@ def _child_env() -> dict[str, str]:
     Set NEXUS_GROK_USE_API=1 to keep API key billing instead.
     """
     env = os.environ.copy()
-    # Avoid child inheriting a broken model pin when we pass -m ourselves.
-    bad = env.get("XAI_MODEL") or ""
-    if bad and bad not in ("grok-4.5", "grok-composer-2.5-fast") and not os.environ.get(
-        "NEXUS_GROK_MODEL"
-    ):
-        env.pop("XAI_MODEL", None)
     # Prefer subscription over API unless explicitly requested
     use_api = (os.environ.get("NEXUS_GROK_USE_API") or "").strip().lower() in (
         "1",
@@ -143,7 +133,7 @@ def grok_prompt(
     if not grok_available():
         return {"ok": False, "error": "grok CLI not on PATH", "text": ""}
 
-    model = model or default_model()
+    model = (model or default_model()).strip()
     effort = default_effort()
     est = usage_mod.estimate_tokens(prompt) + 1024
     try:
@@ -155,14 +145,15 @@ def grok_prompt(
         "grok",
         "-p",
         prompt,
-        "-m",
-        model,
         "--reasoning-effort",
         effort,
         "--max-turns",
         str(max_turns),
         "--disable-web-search",
     ]
+    if model:
+        cmd[3:3] = ["-m", model]
+    model_label = model or "provider-default"
     if not allow_subagents:
         cmd.append("--no-subagents")
     if not allow_plan:
@@ -192,7 +183,7 @@ def grok_prompt(
         usage_mod.record_text(
             prompt,
             text,
-            source=f"grok:{model}",
+            source=f"grok:{model_label}",
             label=label,
             enforce=False,  # already pre-checked
         )
@@ -209,7 +200,7 @@ def grok_prompt(
             "text": text,
             "returncode": p.returncode,
             "stderr": (p.stderr or "")[-500:],
-            "model": model,
+            "model": model_label,
             "effort": effort,
             "auth": "api" if (os.environ.get("NEXUS_GROK_USE_API") or "").strip() else "subscription",
             "max_turns": max_turns,

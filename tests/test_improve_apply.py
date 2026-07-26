@@ -156,7 +156,7 @@ def test_audit_accepts_valid_evidence(tmp_path: Path):
         score=15.0,
         idea=7.0,
         skill=8.0,
-        method="grok:grok-4.5",
+        method="grok:test-model",
         pattern="idempotent phases + decision audit",
         files_touched=[rel],
         action_order=["briefed", "context_packed", "applying", "audited", "done"],

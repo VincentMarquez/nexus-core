@@ -91,8 +91,8 @@ I can wire a **local-only** `scripts/post_x.py` that reads env vars if you add k
 ## After you post
 
 1. Pin the post on your profile for 48h  
-2. Drop the same link once on LinkedIn (`SOCIAL_POSTS.md`)  
-3. Show HN when free (`SHOW_HN.md`)  
+2. Drop the same link once on LinkedIn (`share/SOCIAL.md`)
+3. Show HN when free (`share/SHOW_HN.md`)
 4. Watch GitHub Insights → traffic  
 
 Paste the X post URL here if you want the README updated with “As seen on …”

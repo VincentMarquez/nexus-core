@@ -299,6 +299,8 @@ def test_load_maf_pack_and_builtin(tmp_path: Path):
     assert any(s.mechanism == "market_plan" for s in builtin)
     assert any(s.mechanism == "control_plane" for s in builtin)
     assert any(s.mechanism == "delivery_board" for s in builtin)
+    # Wall-clock ratios remain report metrics, not CI correctness gates.
+    assert all("max_overhead_x" not in s.expected for s in builtin)
 
 
 def test_run_maf_scenarios_builtin_and_pack(tmp_path: Path):

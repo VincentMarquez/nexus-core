@@ -21,7 +21,7 @@ def _good(**overrides):
         "idea": 8.0,
         "skill": 8.0,
         "path": ".nexus_workspaces/mine_eval/wshobson__agents",
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
     }
     base.update(overrides)
     return base

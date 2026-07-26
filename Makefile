@@ -115,7 +115,7 @@ docs-serve:
 docs-build:
 	. .venv/bin/activate && pip install -q mkdocs-material && mkdocs build --strict
 
-release-check: install test smoke test-quality
+release-check: install test smoke test-quality docs-build
 	@echo "OK — ready to tag a release"
 
 clean:

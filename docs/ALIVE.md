@@ -130,7 +130,8 @@ alive once
 
 ```bash
 # Full autonomous product loop (lab can still run run.py separately)
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 nexus usage set --daily 500000
 nexus alive init \
   --goal "improve multi-agent durability and demos" \
@@ -146,10 +147,10 @@ nexus alive watch         # keep both: improve + publish
 
 ```bash
 # terminal 1 — lab infrastructure
-cd `$NEXUS_LAB_ROOT` && python3 run.py
+cd "$NEXUS_LAB_ROOT" && python3 run.py
 
 # terminal 2 — product self-improve → GitHub
-cd ~/nexus-core && source .venv/bin/activate
+cd "$NEXUS_PROJECT_ROOT" && source .venv/bin/activate
 nexus alive watch --interval 3600
 ```
 
@@ -185,7 +186,7 @@ Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `
 | `arxiv_count` | Max new arXiv papers per research step (full cycle uses **10**; ledger skips seen ids) |
 | `grader` / `worker` | Prefer `grok` for hard grade/apply; Ollama is light fallback |
 
-Full 10+10 cycle: `PYTHONPATH=src NEXUS_GROK_MODEL=grok-4.5 python3 scripts/full_self_improve_cycle.py`
+Full 10+10 cycle: `PYTHONPATH=src NEXUS_GROK_MODEL="<supported-grok-model>" python3 scripts/full_self_improve_cycle.py`
 
 ## Operator: durable task board
 

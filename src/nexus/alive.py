@@ -267,8 +267,20 @@ def _real_input_health(report: dict[str, Any], cfg: "AliveConfig") -> dict[str, 
         x_note = "x_review_disabled"
     else:
         x_step = by_name.get("x_live_input") or by_name.get("x_review")
-        # Strict: missing or non-true ok ⇒ not healthy
-        x_ok = bool(x_step is not None and x_step.get("ok") is True)
+        # Strict trust boundary: a successful search is not enough. Only
+        # directly verified X evidence may satisfy the automatic publish gate.
+        # Model/web-search fallback output is explicitly ineligible.
+        x_ok = bool(
+            x_step is not None
+            and x_step.get("ok") is True
+            and x_step.get("verified") is True
+            and x_step.get("gate_eligible") is True
+        )
+        if x_step is not None and not x_ok:
+            x_note = str(
+                x_step.get("error")
+                or "x evidence missing direct verification or gate eligibility"
+            )
 
     eng = by_name.get("canonical_engine")
     engine_ok = bool(eng is not None and eng.get("ok") is True)
@@ -292,7 +304,7 @@ def _real_input_health(report: dict[str, Any], cfg: "AliveConfig") -> dict[str, 
     if not publish_allowed:
         reasons: list[str] = []
         if not x_ok:
-            reasons.append("x_live_input not ok")
+            reasons.append("x_live_input lacks directly verified, gate-eligible evidence")
         if not engine_ok:
             reasons.append("canonical_engine not ok")
         out["block_reason"] = "; ".join(reasons) or "real input unhealthy"

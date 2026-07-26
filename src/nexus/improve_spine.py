@@ -41,7 +41,7 @@ from typing import Any, Optional, Sequence
 SCHEMA_VERSION = "nexus.improve_spine/v1"
 DB_NAME = "spine.sqlite"
 SPINE_REL = Path(".nexus_workspaces") / "improve_spine"
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 DEFAULT_FIXTURE_REL = Path("tests") / "fixtures" / "mine_eval_sample.json"
 
 # Ordered stage machine (plan §5)
@@ -228,7 +228,7 @@ class ImproveSpine:
               score REAL NOT NULL,
               idea REAL NOT NULL,
               skill REAL NOT NULL,
-              method TEXT NOT NULL DEFAULT 'grok:grok-4.5',
+              method TEXT NOT NULL DEFAULT 'grok:provider-default',
               summary TEXT NOT NULL DEFAULT '',
               path TEXT NOT NULL DEFAULT '',
               created_at REAL NOT NULL,

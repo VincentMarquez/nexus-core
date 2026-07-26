@@ -4,8 +4,8 @@
 
 | Tree | GitHub? | What belongs there |
 |------|---------|-------------------|
-| **`~/nexus-core`** | Yes — [VincentMarquez/nexus-core](https://github.com/VincentMarquez/nexus-core) | alive, engine, portfolio, MCP, `docs/self-improve` |
-| **``$NEXUS_LAB_ROOT` (lab workspace)`** | Research monorepo (messy) | UI/bus only; avoid dumping product logic here |
+| **`$NEXUS_PROJECT_ROOT`** | Yes — [VincentMarquez/nexus-core](https://github.com/VincentMarquez/nexus-core) | alive, engine, portfolio, MCP, `docs/self-improve` |
+| **`$NEXUS_LAB_ROOT`** | Research monorepo (operator-defined) | UI/bus only; avoid dumping product logic here |
 
 We **cannot** cleanly put the whole lab monorepo on the product GitHub.  
 We **can** put the entire product self-improve spine on GitHub and treat the lab as a thin remote.
@@ -48,7 +48,7 @@ tests/test_comm_bench.py
 ## Lab tracking
 
 ```text
-`$NEXUS_LAB_ROOT` (lab workspace)/docs/self-improve/README.md
+$NEXUS_LAB_ROOT/docs/self-improve/README.md
   → points at product docs
 ```
 
@@ -57,13 +57,14 @@ Source of truth for flow remains **product** `docs/self-improve/`.
 ## Status snapshot command
 
 ```bash
-bash ~/nexus-core/scripts/track_self_improve.sh
+bash "$NEXUS_PROJECT_ROOT/scripts/track_self_improve.sh"
 ```
 
 ## GitHub workflow (product)
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 bash scripts/track_self_improve.sh
 # stage only the spine (script prints the list)
 git add src/nexus/alive.py src/nexus/unified_pipeline.py ...

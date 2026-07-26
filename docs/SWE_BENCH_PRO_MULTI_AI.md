@@ -70,12 +70,13 @@ It does **not** replace the Pro harness.
 
 ```bash
 # SWE-bench harness (Pro dataset per Scale / SWE-bench docs)
-git clone https://github.com/SWE-bench/SWE-bench.git ~/SWE-bench
-cd ~/SWE-bench && python3 -m venv .venv && source .venv/bin/activate
+export SWE_BENCH_ROOT=/path/to/SWE-bench
+git clone https://github.com/SWE-bench/SWE-bench.git "$SWE_BENCH_ROOT"
+cd "$SWE_BENCH_ROOT" && python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 
 # Agent scaffold often used on leaderboards
-# git clone https://github.com/SWE-agent/mini-swe-agent.git ~/mini-swe-agent
+# git clone https://github.com/SWE-agent/mini-swe-agent.git /path/to/mini-swe-agent
 ```
 
 Follow current Scale / SWE-bench docs for **SWE-bench Pro** dataset name and `run_evaluation` flags (they evolve).  
@@ -87,7 +88,7 @@ Always score with **their** Docker eval, not local guesses.
 
 | Load | Approx |
 |------|--------|
-| NVFP4 Gemma | ~80–90 GiB |
+| NVFP4 Gemma | Approximately 80–90 GiB in the recorded Spark run; measure your deployment |
 | Multi-vendor CLIs (Claude/Codex/Grok/Gemini) | light (API/CLI) |
 | Heavy Ollama + NVFP together | **Avoid** |
 
@@ -102,7 +103,8 @@ Always score with **their** Docker eval, not local guesses.
 ## Start the multi-AI stack
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 
 # Campaign script: roles + workspace brief + durable multi-vendor run
 PYTHONPATH=src python3 scripts/swe_pro_multi_ai.py --once
@@ -116,7 +118,7 @@ nexus research "SWE-bench Pro agent scaffolds test-time compute" --max 10 --no-b
 # or with brief if an LLM is free
 ```
 
-Skill for reviewers: [`skillpacks/swe-pro-group-review/`](../skillpacks/swe-pro-group-review/).
+Skill for reviewers: [swe-pro-group-review](https://github.com/VincentMarquez/nexus-core/tree/main/skillpacks/swe-pro-group-review).
 
 ---
 
@@ -142,5 +144,4 @@ Skill for reviewers: [`skillpacks/swe-pro-group-review/`](../skillpacks/swe-pro-
 
 ## Max models
 
-See [MAX_MODELS.md](MAX_MODELS.md) — Claude Fable max, Codex gpt-5.6-sol ultra+fast, Grok 4.5 max.
-
+See [MAX_MODELS.md](MAX_MODELS.md) for a recorded operator configuration. Set model identifiers and effort values to options supported by your installed CLIs.

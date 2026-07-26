@@ -48,7 +48,7 @@ Injection: `nexus_dna_patch.py` + `patch_dna_into_runpy.py`
 |------|---------|
 | First in every prompt | `<NEXUS_DNA>…</NEXUS_DNA>` before spectral memory / RAG |
 | Every agent, no exceptions | Single source of truth |
-| Must read `~/nexus_index.json` | Navigate by index cascade (D*=1 → …) |
+| Must read `$NEXUS_INDEX_PATH` | Navigate by index cascade (D*=1 → …); the operator defines this path |
 | Last peeled | Highest survival in attention |
 
 Boot order you designed:
@@ -272,4 +272,3 @@ Full review: [S04-codex-2026-07-17.md](../reviews/S04-codex-2026-07-17.md).
 - [x] Tests green (27+ related)  
 - [x] TRACKER → done  
 - [x] BASELINE append  
-

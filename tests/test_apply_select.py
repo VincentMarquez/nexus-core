@@ -146,7 +146,7 @@ def test_spine_rank_delta_presence_and_align():
         {
             "score": 16.5,
             "run_id": "run-a",
-            "method": "grok:grok-4.5",
+            "method": "grok:test-model",
             "id": "g1",
         },
     )
@@ -155,7 +155,7 @@ def test_spine_rank_delta_presence_and_align():
     # presence boost + capped (16.5-14=2.5 → cap 2.0)
     assert delta == pytest.approx(asel.SPINE_BOOST + 2.0)
     assert meta["spine_boost"] == delta
-    assert meta["spine_method"] == "grok:grok-4.5"
+    assert meta["spine_method"] == "grok:test-model"
     assert meta["spine_run_id"] == "run-a"
     assert meta["spine_grade_id"] == "g1"
 
@@ -169,13 +169,13 @@ def test_spine_evidence_refs_includes_method_run():
     refs = asel.spine_evidence_refs(
         {
             "on_spine": True,
-            "spine_method": "grok:grok-4.5",
+            "spine_method": "grok:test-model",
             "spine_run_id": "run-a",
             "spine_grade_id": "g1",
             "spine_score": 16.0,
         }
     )
-    assert "spine:method:grok:grok-4.5" in refs
+    assert "spine:method:grok:test-model" in refs
     assert "spine:run:run-a" in refs
     assert "spine:grade:g1" in refs
     assert "spine:score:16.0" in refs
@@ -186,14 +186,14 @@ def test_gate_apply_decision_package_includes_spine_method():
     cand = {
         "repo": "wshobson/agents",
         "score": 16.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": ".nexus_workspaces/mine_eval/wshobson__agents",
         "evidence_hits": 1,
         "evidence": [
             {"path": "README.md", "statement": "Markdown marketplace"},
         ],
         "on_spine": True,
-        "spine_method": "grok:grok-4.5",
+        "spine_method": "grok:test-model",
         "spine_run_id": "spine-board-1",
         "spine_score": 16.0,
         "spine_boost": 1.0,
@@ -206,9 +206,9 @@ def test_gate_apply_decision_package_includes_spine_method():
         verifier="judge:verify",
     )
     assert dec["ok"] is True
-    assert dec["candidate"]["spine_method"] == "grok:grok-4.5"
+    assert dec["candidate"]["spine_method"] == "grok:test-model"
     assert dec["candidate"]["on_spine"] is True
-    assert dec["candidate"]["method"] == "grok:grok-4.5"
+    assert dec["candidate"]["method"] == "grok:test-model"
     refs = dec["evidence_refs"]
     assert any(r.startswith("spine:method:") for r in refs)
     assert any(r == "spine:run:spine-board-1" for r in refs)
@@ -281,7 +281,7 @@ def test_select_candidates_spine_boost_and_board(work: Path):
             score=16.0,
             idea=8.0,
             skill=8.0,
-            method="grok:grok-4.5",
+            method="grok:test-model",
             summary="Markdown skill marketplace",
             path="fixtures/mine_eval/grades_with_claims.json",
             run_id="spine-board-1",
@@ -314,7 +314,7 @@ def test_select_candidates_spine_boost_and_board(work: Path):
     assert w["on_spine"] is True
     assert w["spine_score"] == 16.0
     assert w["spine_boost"] >= asel.SPINE_BOOST
-    assert w["spine_method"] == "grok:grok-4.5"
+    assert w["spine_method"] == "grok:test-model"
     assert w["spine_run_id"] == "spine-board-1"
     assert w["rank"] >= w["score"] + asel.SPINE_BOOST - 0.01
 
@@ -326,7 +326,7 @@ def test_select_candidates_spine_boost_and_board(work: Path):
         verifier="judge:verify",
     )
     assert pkg["ok"] is True
-    assert any("spine:method:grok:grok-4.5" in r for r in pkg["evidence_refs"])
+    assert any("spine:method:grok:test-model" in r for r in pkg["evidence_refs"])
     assert pkg["candidate"].get("spine_run_id") == "spine-board-1"
 
     sel_off = asel.select_candidates(
@@ -359,9 +359,9 @@ def test_select_candidates_spine_boost_and_board(work: Path):
     assert top.get("on_spine") is True
     text = asel.format_board(board)
     assert "spine=" in text
-    assert "method=grok:grok-4.5" in text
+    assert "method=grok:test-model" in text
     sel_text = asel.format_selection(sel)
-    assert "method=grok:grok-4.5" in sel_text
+    assert "method=grok:test-model" in sel_text
 
 
 def test_decision_package_use_spine_flag(work: Path):
@@ -375,7 +375,7 @@ def test_decision_package_use_spine_flag(work: Path):
             score=16.0,
             idea=8.0,
             skill=8.0,
-            method="grok:grok-4.5",
+            method="grok:test-model",
             summary="Markdown skill marketplace",
             path="fixtures/mine_eval/grades_with_claims.json",
             run_id="decide-spine-1",
@@ -407,8 +407,8 @@ def test_decision_package_use_spine_flag(work: Path):
     assert on["selection"].get("use_spine") is True
     cand = on.get("candidate") or {}
     assert cand.get("on_spine") is True
-    assert cand.get("spine_method") == "grok:grok-4.5"
-    assert any("spine:method:grok:grok-4.5" in r for r in (on.get("evidence_refs") or []))
+    assert cand.get("spine_method") == "grok:test-model"
+    assert any("spine:method:grok:test-model" in r for r in (on.get("evidence_refs") or []))
 
     off = asel.decision_package(
         work,
@@ -689,7 +689,7 @@ def test_decision_for_grade_from_claims_fixture():
         "score": 16.0,
         "idea": 8.0,
         "skill": 8.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": ".nexus_workspaces/mine_eval/wshobson__agents",
         "claims": [
             {

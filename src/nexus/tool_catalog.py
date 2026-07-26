@@ -85,6 +85,12 @@ TOOL_PRIVILEGE: dict[str, str] = {
     "gap_board": "ops",
     "skillpacks": "ops",
     "marketplace": "read",
+    "capability_factory": "ops",
+    "nexus_code_review": "read",
+    "nexus_lesson_query": "read",
+    "nexus_pack_validate": "read",
+    "nexus_scope_check": "read",
+    "nexus_skill_search": "read",
 }
 
 

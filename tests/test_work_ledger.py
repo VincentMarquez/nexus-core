@@ -80,7 +80,7 @@ def test_dual_control_same_role_refused(tmp_path: Path):
             score=15.0,
             idea=7.0,
             skill=8.0,
-            method="grok:grok-4.5",
+            method="grok:test-model",
             agent="same-agent",
             role="grader",
         )
@@ -353,7 +353,7 @@ def test_ensure_apply_gate_accepts_dual_control(tmp_path: Path):
         "score": 16.0,
         "idea": 8.0,
         "skill": 8.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": ".nexus_workspaces/scout_repos/wshobson__agents",
         "pattern": "markdown skill SoT",
     }
@@ -420,7 +420,7 @@ def test_multi_worker_interleaving_stress(tmp_path: Path):
         "score": 17.0,
         "idea": 8.0,
         "skill": 9.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": "p",
         "pattern": "config-driven middleware",
     }
