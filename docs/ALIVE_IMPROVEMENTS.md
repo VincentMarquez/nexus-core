@@ -1,6 +1,6 @@
 # Alive improvement log
 
-Auto-appended by `nexus alive` when self-improve runs. Safe to commit; no secrets.
+Auto-appended by `nexus alive` when self-improve runs. Inspect and redact generated content before committing or sharing.
 
 ## Cycle 2026-07-15 17:09:32Z
 - goal: `test`

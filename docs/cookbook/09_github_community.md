@@ -1,14 +1,18 @@
 # 09 — GitHub community inbox, auto-reply, test loop, personal repos
 
-**Goal:** Answer anyone on issues/PRs from one desk; on every response **run tests and share results**; use the **same loop on personal repos**; optionally **keep running autonomously** and **pull arXiv papers to improve code**.
+**Goal:** Triage issues and trusted pull requests from one desk, share test
+results, and optionally feed research into a local improvement loop.
 
 ## Automatic loop (GitHub Actions)
 
 On **VincentMarquez/nexus-core** (or any repo after `init`):
 
-1. Issue/PR opens → greeting + baseline checks posted  
-2. Someone comments → bot runs install/pytest/smoke → posts PASS/FAIL  
-3. They reply again (or push PR commits) → loop repeats  
+1. Issue or PR opens → greeting
+2. Issues and same-repository trusted PR branches can run baseline checks
+3. Results are posted without merging
+
+Fork pull-request code is not executed by the bundled write-capable workflow.
+Testing untrusted forks requires a separate read-only, secret-free job.
 
 Opt out once: comment `/skip-loop`.
 
@@ -19,6 +23,7 @@ mkdir -p ~/code/my-app && cd ~/code/my-app
 git init
 # … add your code …
 nexus github init --path .
+# Review .github/workflows/community-bot.yml and NEXUS_COMMUNITY.md first.
 git add .github NEXUS_COMMUNITY.md
 git commit -m "chore: enable NEXUS community loop"
 gh repo create my-app --private --source=. --push
@@ -39,8 +44,8 @@ Without `--autonomous`, watch only logs activity.
 
 ```bash
 nexus github search "multi agent durable resume" --limit 10
-nexus github scout "multi agent durable" --workdir . --connect --prove
-nexus github connect owner/repo --prove
+nexus github scout "multi agent durable" --workdir . --connect
+nexus github connect owner/repo
 # → .nexus_state/repo_scout/scout-*.md + latest.json
 
 nexus github improve --arxiv "durable multi-agent systems" --with-scout --max 6
@@ -57,6 +62,7 @@ nexus github watch --autonomous --workdir . \
 ```bash
 gh auth login
 make install
+source .venv/bin/activate
 
 nexus github status
 nexus github inbox
@@ -70,6 +76,18 @@ nexus github loop 1
 
 - `<!-- nexus-community-bot -->` — greeting / triage  
 - `<!-- nexus-community-loop sha=… -->` — test result (dedupe per commit)
+
+## Safety
+
+Repository proof and test paths can run installers, build hooks, and tests from
+the selected checkout. The command allowlist is not a sandbox, and subprocesses
+inherit the environment and may reach CLI credential stores.
+
+Use the local loop only with a trusted checkout or in an isolated,
+credential-free environment. Do not execute untrusted pull-request code in a
+job with write-capable tokens or secrets. See
+[the full community guide](../GITHUB_COMMUNITY.md#safety) and
+[security boundaries](../SECURITY.md).
 
 ## Full doc
 

@@ -52,15 +52,19 @@ This is the **architecture pattern**. Every URL, token, and hostname stays in **
 
 | Kind | Transport | Typical client | Role |
 |------|-----------|----------------|------|
-| **Workspace MCP (remote)** | HTTPS + SSE | ChatGPT, Grok, Claude web “custom connector” | Read/write project files, workspace chat, handoff between agents |
+| **Workspace MCP (remote pattern)** | HTTPS + SSE / compatible remote MCP | ChatGPT, Grok, Claude web “custom connector” | Read/write project files, workspace chat, handoff between agents |
 | **Machine MCP (local stdio)** | stdio JSON-RPC | Claude Desktop / Claude Code | Shell queue, local files, tighter machine control |
+| **NEXUS HTTP tools demo** | Local HTTP JSON | Local development and API inspection | `/health`, catalog, and tool-call demos; not a full remote MCP transport |
 | **Science / tools MCP** | HTTPS or stdio | Any MCP client | Domain tools (papers, APIs) with their own auth |
 | **Phone memory MCP** | HTTPS via tunnel | Any MCP client | Personal context on your phone; best-effort |
 | **Event bus bridges** | HTTP + file-drop | NEXUS Core `bridge/` | CLI agents + Ollama + **GLM-5.2/colibrì** |
 | **Heavy local MoE** | OpenAI-compatible HTTP or CLI | colibrì `coli serve` | GLM-5.2 as agent `glm52` — see [GLM52.md](GLM52.md) |
 
-NEXUS Core ships the **bus + local LLM path** in-repo.  
-MCP servers are **patterns + example configs** you host yourself.
+NEXUS Core ships the **bus + local LLM path** and local stdio MCP in-repo.
+`nexus mcp --http` is a minimal, unauthenticated JSON tools API for local demos;
+it is not the full remote MCP-over-SSE or Streamable HTTP server assumed by web
+connectors. Remote MCP servers in this guide are **patterns + example configs**
+you deploy separately.
 
 ---
 
@@ -105,9 +109,16 @@ So logs show *which subscription* wrote the message.
 
 ### Security pattern
 
-- Prefer **private tailnet** or **authenticated tunnel** (not a naked public open proxy).  
-- Scope tools to a **project root** (path jail).  
-- No shell by default on the *remote* MCP (use Machine MCP for shell).  
+- Do not use the built-in HTTP tools demo as the remote connector endpoint. It
+  has no built-in authentication and should remain on localhost.
+- Prefer a **private tailnet** or **authenticated tunnel**, not a naked public
+  endpoint, for a separately deployed compatible remote MCP server.
+- Set `NEXUS_PROJECT_ROOT`. Direct file tools reject paths outside that root,
+  but this path check is not a complete capability sandbox.
+- Review the enabled tool catalog. It may contain write and operational tools;
+  privilege labels are descriptive rather than call-time authorization.
+- Do not expose shell or other high-impact tools to remote clients unless the
+  surrounding host and network controls are designed for them.
 
 Example env (yours, not committed):
 
@@ -235,7 +246,9 @@ Not MCP, but the same “connect what you already pay for” idea:
 | **Codex / GPT CLI** | same, agent slot `gpt` |
 | **Gemini CLI** | same, agent slot `gemini` |
 
-Auth stays in **your CLI login / env** — the bus never stores keys.
+Auth stays in **your CLI login / env**. Runtime logs and `.nexus_state/` may
+contain prompts, outputs, local paths, and tool arguments, so inspect and redact
+them before sharing.
 
 See [BRIDGES_AND_BUS.md](BRIDGES_AND_BUS.md) and `nexus start --help`.
 
@@ -248,7 +261,7 @@ See [BRIDGES_AND_BUS.md](BRIDGES_AND_BUS.md) and `nexus start --help`.
 | Run tasks | `nexus.engine` durable pipeline |
 | Local models | Ollama bridge |
 | Paid CLIs | CLI bridges (opt-in) |
-| Web AI apps | Remote Workspace MCP (you host) |
+| Web AI apps | Compatible remote Workspace MCP (you deploy separately) |
 | Desktop AI | Machine MCP stdio (you host) |
 | Phone context | Phone MCP (optional, fail-open) |
 | Dashboard | `nexus start` → browser |
@@ -271,12 +284,16 @@ Separately (your deploy):
 
 ## Minimal multi-client checklist
 
-1. **Local stack works:** `nexus start -y` → dashboard opens → `call_bus.py --agent local`  
+1. **Local stack works:** from a source checkout, run `make install`, activate
+   `.venv`, then `nexus start -y --no-pull` → dashboard opens
 2. **Tunnel / HTTPS** for remote MCP (Tailscale Serve/Funnel, Cloudflare Tunnel, Caddy, …)  
 3. **Add connector URL** in each AI app you subscribe to  
 4. **Per-agent identity** on workspace messages  
 5. **Phone MCP optional** — fail open when offline  
 6. **Never commit** tokens, tailnet names, or home paths  
+
+See [security and trust boundaries](SECURITY.md) for repository execution, runtime
+state, MCP, and publishing trust boundaries.
 
 ---
 

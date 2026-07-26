@@ -56,7 +56,8 @@ def _log(msg: str) -> None:
 def configure() -> al.AliveConfig:
     cfg = al.load_config(ROOT)
     cfg.goal = (
-        "self-improve nexus-core from 10 arXiv papers + 10 mined repos "
+        f"self-improve nexus-core from {N_PAPERS} arXiv papers + "
+        f"{N_REPOS} mined repos "
         "using the configured Grok CLI model for grading, reasoning, and hard apply"
     )
     cfg.queries = [QUERY]
@@ -73,8 +74,7 @@ def configure() -> al.AliveConfig:
     cfg.self_approve = True
     cfg.push_github = True
     cfg.our_repo = "VincentMarquez/nexus-core"
-    al.save_config(cfg, ROOT)
-    _log(f"config → {al.config_path(ROOT)}")
+    _log("using high-impact full-cycle settings in memory (alive.json unchanged)")
     return cfg
 
 
@@ -132,7 +132,8 @@ def step_mine(cfg: al.AliveConfig) -> dict:
                 f"    · {r['repo']}: idea={r['idea']} skill={r['skill']} "
                 f"sum={r.get('score')} [{r.get('method')}]"
             )
-    # prove install/test on 10 clones is multi-hour; connect+notes is enough for Grok port
+    # Proving every clone can be multi-hour; this operator path uses
+    # structure-only evidence before the hard apply stage.
     u = rm.step_use(
         ROOT,
         min_score=cfg.min_score,
@@ -278,7 +279,12 @@ def step_apply(cfg: al.AliveConfig, reason: dict) -> dict:
     return hard
 
 
-def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
+def step_checks_and_push(
+    cfg: al.AliveConfig,
+    report: dict,
+    *,
+    baseline_status: list[str] | None,
+) -> dict:
     _log("=== 5/5 checks + publish to GitHub ===")
     checks = al._run_checks(ROOT)
     report["checks"] = checks
@@ -291,15 +297,17 @@ def step_checks_and_push(cfg: al.AliveConfig, report: dict) -> dict:
     pub_res = None
     if cfg.push_github and checks.get("ok"):
         msg = (
-        f"{cfg.commit_prefix} full cycle: {N_PAPERS} arxiv + {N_REPOS} repos "
-        f"+ Grok apply ({GROK_MODEL_LABEL}, turns≤{GROK_MAX_TURNS})"
-    )
+            f"{cfg.commit_prefix} full cycle: {N_PAPERS} arxiv + {N_REPOS} repos "
+            f"+ Grok apply ({GROK_MODEL_LABEL}, turns≤{GROK_MAX_TURNS})"
+        )
         pub_res = pub.commit_and_maybe_push(
             ROOT,
             msg,
             push=True,
             remote=cfg.git_remote or "origin",
             branch=cfg.git_branch or None,
+            baseline_status=baseline_status,
+            require_cycle_scope=True,
         )
         _log(f"  publish: {json.dumps(pub_res, default=str)[:500]}")
     elif not checks.get("ok"):
@@ -334,6 +342,8 @@ def run_once(*, cycle_n: int = 1) -> int:
         f"  maxed: repos={N_REPOS} papers={N_PAPERS} "
         f"turns={GROK_MAX_TURNS} timeout_s={GROK_TIMEOUT_S}"
     )
+    baseline_lines, baseline_ok = pub.status_porcelain_checked(ROOT)
+    baseline_status = baseline_lines if baseline_ok else None
     _max_budget()
     try:
         usage_mod.check_budget(5_000, ROOT, raise_on_exceed=True)
@@ -357,7 +367,6 @@ def run_once(*, cycle_n: int = 1) -> int:
     ]
     cfg.queries = [mine_qs[(cycle_n - 1) % len(mine_qs)]]
     cfg.arxiv_queries = [arxiv_qs[(cycle_n - 1) % len(arxiv_qs)]]
-    al.save_config(cfg, ROOT)
 
     report: dict = {
         "ts": time.time(),
@@ -426,7 +435,11 @@ def run_once(*, cycle_n: int = 1) -> int:
         report["steps"].append({"step": "grok_hard_improve", "error": str(e)})
 
     try:
-        fin = step_checks_and_push(cfg, report)
+        fin = step_checks_and_push(
+            cfg,
+            report,
+            baseline_status=baseline_status,
+        )
         report["steps"].append({"step": "publish", **(fin or {})})
     except Exception as e:
         _log(f"publish FAILED: {e}")
@@ -506,7 +519,9 @@ def watch_loop(*, interval_s: float = 120.0) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="NEXUS full self-improve (Grok 4.5)")
+    ap = argparse.ArgumentParser(
+        description="NEXUS full self-improve (configured Grok CLI model)"
+    )
     ap.add_argument(
         "--watch",
         action="store_true",

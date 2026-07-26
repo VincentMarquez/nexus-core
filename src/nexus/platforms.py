@@ -195,7 +195,7 @@ def _src_on_path() -> str:
 
 
 def mcp_server_command_fixed(project_root: Path) -> dict[str, Any]:
-    """Stdio MCP launch spec — same tools for Grok, Cursor, Claude, local models."""
+    """Build a stdio MCP launch spec for compatible local clients."""
     root = Path(project_root).resolve()
     py = python_for_mcp(root)
     src = _src_on_path()
@@ -319,7 +319,7 @@ def ensure_grok_local_model_hint(
         f'model = "{model_name}"\n'
         f'base_url = "{base_url}"\n'
         f'name = "NEXUS local ({model_name})"\n'
-        f'description = "Local LLM via Ollama — full tools via mcp_servers.nexus-workspace"\n'
+        f'description = "Local LLM via Ollama; registered tools require compatible host tool calling"\n'
         f'api_key = "not-required-for-local-server"\n'
         f'api_backend = "chat_completions"\n'
         f"context_window = 32768\n"
@@ -540,9 +540,11 @@ def agent_flow_map() -> dict[str, Any]:
         ],
         "handoff": "send_to_workspace / read_workspace_chat with distinct agent ids",
         "rule": (
-            "Local LLM uses the same tools as cloud agents: "
-            "(1) inside Grok CLI via MCP host, and "
-            "(2) on the NEXUS bus via ollama-http tool loop (NEXUS_OLLAMA_TOOLS=1)"
+            "Compatible local models can request registered host tools "
+            "(1) through a configured MCP host, or "
+            "(2) through the optional Ollama HTTP tool loop "
+            "(NEXUS_OLLAMA_TOOLS=1). Availability and reliability depend on "
+            "the client, enabled catalog, and model."
         ),
         "bus_local_tools": "bridge/bridges/ollama_tools.py — TOOL_CALL loop calling nexus.mcp_server.call_tool",
     }

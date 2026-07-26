@@ -1,69 +1,112 @@
 # Publishing to PyPI
 
-**Distribution name:** `nexus-multi-agent`  
-*(PyPI already has an unrelated package named `nexus-core` — do not use that name.)*
+**Distribution name:** `nexus-multi-agent`
 
-**Import / CLI:**
+PyPI already contains an unrelated distribution named `nexus-core`; do not
+publish this project under that name. The Python import path and CLI remain
+`nexus`.
+
+## Current installation status
+
+The source checkout is the canonical runtime installation:
 
 ```bash
-pip install nexus-multi-agent
+git clone https://github.com/VincentMarquez/nexus-core.git
+cd nexus-core
+make install
+source .venv/bin/activate
 nexus doctor
-nexus start -y
 ```
 
-Python import path remains `import nexus` (package under `src/nexus`).
+Do not advertise `pip install nexus-multi-agent` as generally available until a
+release has been uploaded and verified from the public index.
 
-## Build (any machine)
+The current wheel packages the Python modules and selected data files, but the
+Node.js `bridge/` runtime used by `nexus start` is source-tree infrastructure.
+Before presenting the wheel as a complete runtime install, either package those
+assets and resolve them from installed package data or document the wheel as a
+Python-core-only distribution.
+
+## Build and inspect
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -U build twine
 python -m build
 twine check dist/*
+python -m zipfile --list dist/*.whl
 ```
 
-## Option A — Trusted publishing (recommended)
+Create a clean environment and install the exact wheel before publishing:
+
+```bash
+python3 -m venv /tmp/nexus-wheel-smoke
+source /tmp/nexus-wheel-smoke/bin/activate
+pip install dist/*.whl
+nexus --help
+nexus doctor
+```
+
+Test every command claimed to work from a wheel. In particular, do not add
+`nexus start` to public wheel instructions until the bridge assets are present
+and the clean-environment smoke test passes.
+
+## Option A — trusted publishing
 
 One-time setup on [pypi.org](https://pypi.org):
 
-1. Create project **`nexus-multi-agent`** (or let the first upload create it).
-2. **Publishing → Add a new pending publisher** with:
+1. Create the `nexus-multi-agent` project, or let the first upload create it.
+2. Add a pending trusted publisher with:
    - Owner: `VincentMarquez`
    - Repository: `nexus-core`
    - Workflow: `publish.yml`
-   - Environment name: `pypi`
-3. On GitHub: create Environment **`pypi`** under repo Settings → Environments (optional protection rules).
-4. Publish a GitHub Release (or re-run the **Publish to PyPI** workflow).
+   - Environment: `pypi`
+3. Create the `pypi` GitHub Environment and add suitable protection rules.
+4. Publish a GitHub Release or explicitly run the publishing workflow.
 
-The workflow is `.github/workflows/publish.yml` (OIDC, no long-lived token in the repo).
+The repository workflow is `.github/workflows/publish.yml` and uses OIDC, so it
+does not require a long-lived PyPI token in the repository.
 
 ## Option B — API token
 
-Never commit the token.
+Prefer trusted publishing. If a token is required, store it outside the
+repository and never print or commit it:
 
 ```bash
 export TWINE_USERNAME=__token__
-export TWINE_PASSWORD=pypi-...your-token...
+export TWINE_PASSWORD="<your-pypi-token>"
 twine upload dist/*
 ```
 
-Test PyPI first:
+Use TestPyPI first:
 
 ```bash
 twine upload --repository testpypi dist/*
-pip install -i https://test.pypi.org/simple/ nexus-multi-agent
+python3 -m venv /tmp/nexus-testpypi-smoke
+source /tmp/nexus-testpypi-smoke/bin/activate
+pip install --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ nexus-multi-agent
+nexus --help
+nexus doctor
 ```
 
-## After publish
+## Release gate
+
+Before publishing:
 
 ```bash
-pip install nexus-multi-agent
-nexus doctor
-nexus start -y
-nexus mcp --http
+make release-check
 ```
 
-## Version policy
+Then confirm:
 
-Tag releases as `vMAJOR.MINOR.PATCH` matching `pyproject.toml` version.
-Current target: **0.4.1**.
+- the version in `pyproject.toml` matches the intended `vMAJOR.MINOR.PATCH` tag;
+- `CHANGELOG.md` contains that version;
+- the clean wheel smoke test passes;
+- every README installation claim matches what the wheel actually contains;
+- the public project page exists after upload; and
+- a fresh install from the public index resolves the uploaded version.
+
+After those checks pass, update the README and documentation to make the PyPI
+installation visible.

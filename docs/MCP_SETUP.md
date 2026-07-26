@@ -3,17 +3,26 @@
 Step-by-step for connecting **your** AI subscriptions to a **NEXUS-style** machine.  
 Replace every `<placeholder>` with your values. Nothing here is a live secret.
 
+Transport note: `nexus mcp` implements local stdio MCP. `nexus mcp --http`
+starts a minimal unauthenticated JSON tools API for local demos; it is not the
+full remote MCP-over-SSE or Streamable HTTP server assumed in sections A, B,
+and D. Use a separately deployed, compatible remote MCP server for web-app
+connectors.
+
 ---
 
 ## A. ChatGPT → Workspace MCP (remote)
 
-1. Deploy or run an MCP SSE server on your machine (project-scoped tools).  
-2. Expose it with HTTPS (tunnel or reverse proxy), e.g.  
-   `https://<your-tunnel-host>/mcp`  
-3. In ChatGPT: **Settings → Connectors / Apps → Add custom MCP**.  
-4. Paste the URL. Name it something like `nexus-workspace`.  
-5. In a new chat, **enable** the connector (tools must appear).  
-6. Test: list files in the project root; send a workspace ping with  
+1. Deploy a web-client-compatible remote MCP server with project-scoped tools.
+   Do not substitute the built-in HTTP demo API.
+2. Put authentication and TLS in front of it with a private tunnel or reverse
+   proxy.
+3. Expose the authenticated endpoint with HTTPS, e.g.
+   `https://<your-tunnel-host>/mcp`
+4. In ChatGPT: **Settings → Connectors / Apps → Add custom MCP**.
+5. Paste the URL. Name it something like `nexus-workspace`.
+6. In a new chat, **enable** the connector (tools must appear).
+7. Test: list files in the project root; send a workspace ping with
    `agent: "chatgpt_web"`.
 
 ---
@@ -65,6 +74,7 @@ export PHONE_MCP_URL="https://<your-phone-tunnel>/mcp"
 
 ```bash
 make install
+source .venv/bin/activate
 nexus start -y                 # Ollama + bus + dashboard
 nexus start -y --with-cli      # also Claude/Codex/Gemini CLIs if installed
 ```
@@ -77,11 +87,16 @@ Subscriptions authenticate via **CLI login**, not via this git repo.
 
 | Rule | Detail |
 |------|--------|
-| Project jail | Tools only under `NEXUS_PROJECT_ROOT` |
+| Project root | Direct file tools reject paths outside `NEXUS_PROJECT_ROOT`; this is not a complete capability sandbox |
 | No fake tools | If connector isn’t attached, say so |
 | Agent labels | Distinct id per AI product |
-| Logs | JSONL with timestamps; no secrets |
+| Logs | JSONL may contain prompts, outputs, paths, and tool arguments; inspect and redact before sharing |
 | Rotate | Tunnel auth / tokens outside git |
+
+The wider MCP catalog may include write and operational tools. Catalog
+privilege labels describe tools but do not enforce authorization at call time.
+Restrict the enabled catalog, operating-system permissions, network access, and
+available credentials. See [security and trust boundaries](SECURITY.md).
 
 ---
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|--------|
-| Status | **done** Wave A/B (2026-07-17) — Wave D/E later |
+| Status | **done** Waves A–E (2026-07-17); activation remains opt-in |
 | Phase | P4 — Capability factory |
 | Risk | Medium (opt-in; quarantine first) |
 | Depends on | S05 accept, S06 quarantine, S07 lessons, skillpacks layout |
@@ -63,17 +63,17 @@ When improvement works (or when a novel need is detected), the system can **prop
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `skill_factory_enable` | `false` | Master opt-in |
+| `skill_factory_enable` | `true` | Harvest/fill/accept candidate state after a real Alive cycle |
 | `skill_factory_auto_activate` | `false` | Even if accept, require owner or second gate |
 | `skill_factory_max_per_cycle` | `2` | Cap spam |
 
-### Acceptance criteria (when implementing)
+### Acceptance criteria
 
-- [ ] Propose never writes under live `skillpacks/`  
-- [ ] Activate is explicit step; creation ≠ activation  
-- [ ] Unit tests: scaffold, validate, refuse path escape  
-- [ ] Cooldown: same skill id not re-proposed every cycle  
-- [ ] At least one golden path: lesson → candidate → verify dry  
+- [x] Propose never writes under live `skillpacks/`
+- [x] Activate is explicit step; creation ≠ activation
+- [x] Unit tests: scaffold, validate, refuse path escape
+- [x] Cooldown: same skill id not re-proposed every cycle
+- [x] At least one golden path: lesson → candidate → verify dry
 
 ## Relation to tools (S13)
 

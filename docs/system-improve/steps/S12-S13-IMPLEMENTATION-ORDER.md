@@ -37,7 +37,7 @@ Do **not** implement everything at once. Same discipline as S01–S11.
 3. Skill may spawn tool candidate; tool may spawn skill  
 4. Cooldown + max per cycle  
 
-## Wave E — Meta (later)
+## Wave E — Meta (implemented)
 
 1. Meta-skill: how the factory itself proposes better  
 2. Auto-activate only for read + high accept_rate  
@@ -45,8 +45,8 @@ Do **not** implement everything at once. Same discipline as S01–S11.
 
 ## Definition of done for P4 v1
 
-- [ ] At least one **new skill** activated from evidence (not hand-waved)  
-- [ ] At least one **new read tool** callable by agent/MCP after activate  
-- [ ] Creation never equals activation  
-- [ ] Flags default off for generate/activate  
-- [ ] Docs in system-improve + skillpacks README pointer  
+- [x] At least one **new skill** activated from evidence (not hand-waved)
+- [x] At least one **new read tool** callable by agent/MCP after activate
+- [x] Creation never equals activation
+- [x] Activation defaults off and requires an explicit flag or action
+- [x] Docs in system-improve + skillpacks README pointer

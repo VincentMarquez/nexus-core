@@ -314,7 +314,8 @@ def write_evidence_snapshot(root: Path, *, limit: int = 5) -> list[Path]:
         idx = out_dir / "README.md"
         lines = [
             "# Task evidence snapshots\n\n",
-            "Written by alive/publish when self-improve runs. Safe to commit.\n\n",
+            "Written by alive/publish when self-improve runs. Inspect and redact "
+            "runtime content before committing or sharing.\n\n",
         ]
         for p in written:
             lines.append(f"- [`{p.name}`]({p.name})\n")
@@ -374,7 +375,7 @@ def write_improvements_log(root: Path, cycle: dict[str, Any]) -> Path:
         header = (
             "# Alive improvement log\n\n"
             "Auto-appended by `nexus alive` when self-improve runs. "
-            "Safe to commit; no secrets.\n"
+            "Inspect and redact generated content before committing or sharing.\n"
         )
         log.write_text(header, encoding="utf-8")
     with open(log, "a", encoding="utf-8") as f:

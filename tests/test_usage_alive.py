@@ -68,8 +68,18 @@ def test_alive_init_and_dry(tmp_path, monkeypatch):
     assert rep.get("dry_run") is True
 
 
+def test_alive_skill_factory_activation_is_opt_in():
+    default_cfg = al.AliveConfig.from_dict({})
+    assert default_cfg.skill_factory_enable is True
+    assert default_cfg.skill_factory_auto_activate is False
+    explicit_cfg = al.AliveConfig.from_dict(
+        {"skill_factory_auto_activate": True}
+    )
+    assert explicit_cfg.skill_factory_auto_activate is True
+
+
 def test_alive_config_arxiv_and_use_limits(tmp_path, monkeypatch):
-    """Full-cycle knobs: 10 papers + 10 repos (alive config round-trip)."""
+    """Alive paper/repository limit knobs round-trip independently."""
     monkeypatch.chdir(tmp_path)
     cfg = al.AliveConfig(
         goal="depth",

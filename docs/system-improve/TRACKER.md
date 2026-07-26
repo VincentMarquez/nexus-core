@@ -16,7 +16,7 @@ Statuses: `done` · `in_progress` · `ready` · `blocked` · `later` · `wontfix
 | S12 | **done** | harvest → fill → soft-accept; golden skill activated |
 | S13 | **done** | builtins + first-class MCP `nexus_*` tools + multi_llm `--real` registry |
 | Wave D | **done** | portfolio `capability:skill\|tool` select + implement via factory |
-| Wave E | **done** | auto-activate soft-accepted skills (`skill_factory_auto_activate`, default on) + retire |
+| Wave E | **done** | opt-in auto-activate for soft-accepted skills (`skill_factory_auto_activate`) + retire |
 
 ## Closed-loop factory (complete)
 
@@ -28,7 +28,7 @@ Statuses: `done` · `in_progress` · `ready` · `blocked` · `later` · `wontfix
 | multi_llm `--real` registry | **done** (`REAL_LOCAL_TOOLS` + `build_local_registry`) |
 | skill ↔ tool spawn | **done** (`_spawn_required_tools` on propose+fill) |
 | Portfolio capability ideas | **done** (`collect_capability_ideas` / `implement_capability_idea`) |
-| Auto-activate + retire | **done** (CLI/MCP/alive; auto-activate default on) |
+| Auto-activate + retire | **done** (CLI/MCP/alive; auto-activate is opt-in) |
 
 ## Now
 
@@ -42,7 +42,7 @@ Statuses: `done` · `in_progress` · `ready` · `blocked` · `later` · `wontfix
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `skill_factory_enable` | `true` | harvest after REAL |
-| `skill_factory_auto_activate` | `true` | Wave E: activate accepted skill candidates into `skillpacks/` |
+| `skill_factory_auto_activate` | `false` | Wave E: opt in to activating accepted skill candidates into `skillpacks/` |
 
 ## Recently completed
 

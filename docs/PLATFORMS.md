@@ -34,7 +34,7 @@ See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and the [gemma-local-
 
 | Want | How |
 |------|-----|
-| Run **NVFP4 Gemma4** inside Grok + workspace MCP | `[model.gemma4]` → `:8000` (already default); keep `mcp_servers.nexus-workspace` enabled |
+| Reproduce the recorded **NVFP4 Gemma4** setup inside Grok | Configure a supported local model id and endpoint; the recorded operator used `[model.gemma4]` → `:8000` |
 | Run a **light Ollama** model in Grok | `nexus platforms connect` registers `[model.nexus-local]` + same MCP |
 | Auto-connect Grok / Cursor / Claude | `nexus platforms connect` |
 | Agents from other products join the same job | Distinct `agent` ids + `send_to_workspace` / bus bridges |
@@ -43,11 +43,18 @@ See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and the [gemma-local-
 ## One-time setup
 
 ```bash
-cd /path/to/your/project
-pip install -e ".[dev]"   # or make install
+export NEXUS_PROJECT_ROOT=/path/to/your/nexus-core-checkout
+cd "$NEXUS_PROJECT_ROOT"
+make install
+source .venv/bin/activate
 nexus platforms status
-nexus platforms connect --start
+nexus platforms doctor
+nexus platforms connect --path "$NEXUS_PROJECT_ROOT"
 ```
+
+`status` and `doctor` are read-only. Run `connect` only after reviewing which
+client configuration it will write. `--force` overwrites existing MCP entries,
+and `--start` also launches the source-checkout runtime.
 
 What `connect` does:
 
@@ -62,7 +69,7 @@ What `connect` does:
 
 | Tool | Purpose |
 |------|---------|
-| `list_project_files` | Tree under project jail |
+| `list_project_files` | Tree under configured project root |
 | `read_project_file` / `write_to_project` | File IO |
 | `send_to_workspace` / `read_workspace_chat` | Multi-agent handoff log |
 | `nexus_status` | Root + runtime |
@@ -146,10 +153,19 @@ Same MCP server command:
 
 ## Safety
 
-- Tools are **project-jailed** (`NEXUS_PROJECT_ROOT`)
-- `connect` only writes config when you run it (opt-in)
-- Local model still goes through the host’s permission UI (Grok/Cursor)
-- Bus CLI bridges remain separate from MCP (both can run together)
+- Direct file tools reject paths outside `NEXUS_PROJECT_ROOT`; this is a
+  guardrail, not a complete capability sandbox.
+- The catalog also contains write and operational tools. Privilege labels are
+  descriptive and do not enforce authorization at call time.
+- `connect` is opt-in, but it writes client configuration and may place
+  absolute machine-local paths in project example files. Inspect the diff
+  before committing or sharing it.
+- Client permission prompts vary by host and configuration; do not assume that
+  every tool call receives an interactive approval.
+- Bus CLI bridges remain separate from MCP, and both can run together with the
+  permissions of the host account.
+
+See [security and trust boundaries](SECURITY.md).
 
 ## Local LLM on the bus (tool loop)
 

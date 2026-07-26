@@ -21,7 +21,7 @@ It is a **specialized multi-agent orchestration engine** for **reliable, long-ru
 | Crash mid-task | Usually lost | Often lost | Checkpoints if you wire them | **Checkpoints by default** |
 | “Did it work?” | Eyeball / print | Often “model replied” | Your nodes decide | **Rubric judge + evidence** |
 | Multi-CLI / local LLM | Custom glue | Vendor SDKs | Custom | **Bus + file-drop bridges** |
-| Autonomy loops | Easy to leave on | Common | Your choice | **Default OFF** |
+| Autonomy loops | Easy to leave on | Common | Your choice | **Explicit per workflow; inspect advanced defaults** |
 | Repo-native job | Ad hoc | Conversation-centric | Graph-centric | **`nexus do owner/repo`** |
 | Weight | Tiny | Medium–heavy | Medium | **Small core + optional bus** |
 | LLM required? | No | Usually yes | Usually yes | **Heuristic-only mode exists** |
@@ -46,7 +46,7 @@ It is a **specialized multi-agent orchestration engine** for **reliable, long-ru
 | Main strength | Fast inline edit, Composer, chat | Long, reliable, **verifiable** workflows |
 | Crash recovery | Editor state | First-class **checkpoint / resume** |
 | Verification | You + model judgment | **Rubric judge + tests + meta-review** |
-| Scope | One codebase in the IDE | Whole repos **autonomously** (e.g. `nexus do`) |
+| Scope | One codebase in the IDE | Repository jobs with optional automation (for example, `nexus do`) |
 | Best at | Daily coding assistance | Autonomous repair, test, validation loops |
 
 They are **complementary**, not competitors:
@@ -64,7 +64,7 @@ They are **complementary**, not competitors:
 | Rubric judge | Explicit criteria, not presence | One of the strongest product points |
 | Adversarial pipeline | Challenge step before implement | Less common as a default |
 | Hybrid / LLM-optional | Heuristics without a model | Rare in agent frameworks |
-| Workspace MCP | Jail for external AI apps | Emerging; carefully scoped here |
+| Workspace MCP | Project-root checks for direct file tools | Useful guardrail; not a complete capability sandbox |
 | GitHub-native jobs | URL → clone → fix → report | Very practical |
 | Event bus + dashboard | Live multi-agent visibility | Most systems are black boxes |
 
@@ -85,6 +85,10 @@ They are **complementary**, not competitors:
 - You need **success criteria**, not vibes  
 - You want **GitHub URL → working checks** with a fix loop  
 - Local Ollama / paid CLIs without baking secrets into the app  
+
+Repository install/test paths execute repository-controlled code. Use trusted
+inputs or an isolated environment; see
+[security and trust boundaries](SECURITY.md).
 
 ## When something else may fit better
 
