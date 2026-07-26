@@ -1,12 +1,17 @@
 # 04 — Workspace MCP (AI clients)
 
-**Goal:** Expose project-jail tools to Claude Desktop / local clients.
+**Goal:** Expose project-jail tools to local MCP clients, or inspect the
+separate localhost-only HTTP demo API.
 
-## HTTP demo API (easiest)
+## HTTP tools demo (local inspection only)
+
+This endpoint is an unauthenticated JSON tools API for local demos. It is not
+the full MCP-over-HTTP transport, and it should not be exposed or tunneled to
+the public internet.
 
 ```bash
 export NEXUS_PROJECT_ROOT="$PWD"
-nexus mcp --http --port 8765
+nexus mcp --http --host 127.0.0.1 --port 8765
 ```
 
 In another terminal:
@@ -26,7 +31,8 @@ curl -s -X POST http://127.0.0.1:8765/tools/call \
 
 ## Claude Desktop (stdio MCP)
 
-Add to Claude Desktop config (paths absolute on **your** machine):
+For a client that can launch a local stdio MCP server, add an entry like this
+to its MCP configuration (paths must be absolute on **your** machine):
 
 ```json
 {

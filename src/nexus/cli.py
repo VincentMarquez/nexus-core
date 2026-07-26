@@ -330,7 +330,8 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     # --- Agents (auto) ---
     print("→ wiring agents (real tools when installed, mock otherwise)…")
-    # Local Ollama bridge uses MCP tool loop by default (same tools as Grok CLI)
+    # Local Ollama bridge enables the registered tool loop by default. Actual
+    # tool availability depends on the active catalog and model behavior.
     os.environ.setdefault("NEXUS_OLLAMA_TOOLS", "1")
     os.environ.setdefault("NEXUS_PROJECT_ROOT", str(Path.cwd().resolve()))
     backends = enable_agent_bridges(
@@ -5026,7 +5027,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     # --- multi-platform mesh (Grok CLI, Cursor, local LLM tools) ---
     pl = sub.add_parser(
         "platforms",
-        help="detect/connect Grok CLI, Cursor, Claude; local LLM gets full tools",
+        help="detect/connect supported clients and optional local-model tools",
     )
     pl_sub = pl.add_subparsers(dest="platforms_cmd")
     pl_st = pl_sub.add_parser("status", help="show installed platforms + agent ids")
@@ -5034,7 +5035,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     pl_st.set_defaults(func=cmd_platforms)
     pl_co = pl_sub.add_parser(
         "connect",
-        help="auto-wire MCP + local model so all agents share NEXUS tools",
+        help="configure MCP and an optional local model for compatible clients",
     )
     pl_co.add_argument("--path", default=".", help="project root")
     pl_co.add_argument("--force", action="store_true", help="overwrite existing MCP entries")
@@ -5175,7 +5176,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     sch = sub.add_parser(
         "schedule",
-        help="print cron lines: heartbeat + mine + optional MCP for ChatGPT/Claude",
+        help="print cron lines: heartbeat + mine + optional local HTTP tools demo",
     )
     sch.add_argument("--path", default=".")
     sch.add_argument("--query", "-q", default="multi agent durable")
@@ -5184,7 +5185,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     sch.add_argument(
         "--mcp-http",
         action="store_true",
-        help="include @reboot nexus mcp --http (tunnel for ChatGPT connectors)",
+        help="include localhost-only @reboot HTTP tools demo (do not expose)",
     )
     sch.set_defaults(func=cmd_schedule)
 

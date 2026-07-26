@@ -1,7 +1,7 @@
 /**
- * NEXUS start console — GitHub Pages interactive helpers.
- * Does not start local processes (browser sandbox); builds copy-ready commands
- * and probes localhost bus if the user already ran ./run.
+ * NEXUS documentation front door — interactive helpers.
+ * Does not start local processes; it builds copy-ready commands and probes the
+ * localhost bus only when the user has already started it.
  */
 (function () {
   "use strict";
@@ -68,7 +68,8 @@
       const r = (repo.value || "owner/repo").trim() || "owner/repo";
       const g = (goal.value || "").trim();
       let cmd =
-        "git clone https://github.com/VincentMarquez/nexus-core && cd nexus-core && ./run " +
+        "git clone https://github.com/VincentMarquez/nexus-core.git && cd nexus-core && " +
+        "make install && . .venv/bin/activate && nexus do " +
         shellQuote(r);
       if (g) cmd += " --goal " + shellQuote(g);
       out.textContent = cmd;
@@ -135,7 +136,7 @@
         /* try next port */
       }
     }
-    el.textContent = "no local bus (run ./run on your machine)";
+    el.textContent = "no local bus (optional: run ./run --no-pull)";
     el.className = "nx-status";
     if (agents) {
       agents.innerHTML =

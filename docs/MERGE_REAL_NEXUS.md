@@ -149,9 +149,13 @@ Lab still boots with `python3 run.py`. Product CLI is the **self-improve / GitHu
 nexus alive watch --interval 3600
 
 # or cron
-nexus schedule --mcp-http
+nexus schedule
 crontab -e   # paste
 ```
+
+`nexus schedule --mcp-http` additionally prints an optional localhost-only
+HTTP tools demo job. That demo is unauthenticated and is not a remote MCP
+connector; do not expose or tunnel it.
 
 ## Safety
 

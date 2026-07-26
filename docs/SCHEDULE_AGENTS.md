@@ -1,101 +1,98 @@
-# Schedule ChatGPT / Claude / Grok on NEXUS + auto-mine for *your* code
+# Schedule local NEXUS jobs and optional remote reviews
 
-Yes: you can **schedule** work so cloud agents (ChatGPT, Claude) and local jobs keep using NEXUS — and scored external repos feed **improvements to your project**.
+NEXUS can print cron entries for local heartbeat, repository-mining, and Alive
+jobs. Remote AI applications require their own scheduler and a compatible,
+authenticated remote MCP deployment.
 
-## The chase (what you wanted)
-
-```text
-1. Discover other repos (search)
-2. Score them (Ollama or heuristic)     idea + skill
-3. USE them (clone + prove locally)     not follow/star
-4. Improve OURS (plan + optional apply)
-5. Optional: compatible ChatGPT/Claude clients can request registered MCP tools on a schedule
-```
+## Print the local schedule
 
 ```bash
-# Score → use → write plan to improve *this* repo
-nexus github mine run -q "multi agent durable" -n 8 --improve
-# Actually port patterns (opt-in durable job):
-nexus github mine improve-ours --apply --repo VincentMarquez/nexus-core
+nexus schedule --query "multi agent durable"
 ```
 
-## Schedule on this machine
+The command only prints lines; it does not install them. Review the output, then
+paste selected entries into `crontab -e`.
 
-```bash
-nexus schedule --query "multi agent durable" --mcp-http
-# paste into: crontab -e
-```
-
-Typical lines:
+Typical entries:
 
 | When | Job |
-|------|-----|
-| every 5 min | `nexus heartbeat once` (cloud poke if host dies) |
-| 09:00 & 21:00 | `nexus github mine run …` (discover + grade + use) |
-| 09:30 & 21:30 | `nexus github mine improve-ours` (refresh IMPROVE_OURS.md) |
-| @reboot | `nexus mcp --http` (for ChatGPT remote connector) |
+|---|---|
+| Every 5 minutes | `nexus heartbeat once` |
+| Twice daily | Heuristic repository discovery and grading |
+| Twice daily | Refresh the local improvement plan |
+| Every 6 hours | One Alive cycle using the current `alive.json` |
 
-**`--apply` is never on cron by default** — only plan files. You run apply when you want code changes.
+Review [Alive](ALIVE.md) before scheduling it. Even with implementation and push
+flags disabled, a real cycle can use network services and update local candidate
+state and planning/evidence documents.
 
-## ChatGPT on a schedule using NEXUS
-
-ChatGPT cannot natively “cron” itself easily; two patterns work:
-
-### A. Always-on MCP + you (or Zapier) open a scheduled chat
-
-1. On the lab machine:
+`--mcp-http` can add an `@reboot` entry for the built-in local HTTP tools demo:
 
 ```bash
-nexus platforms connect --force
-nexus mcp --http --host 127.0.0.1 --port 8765
-# tunnel:
-cloudflared tunnel --url http://127.0.0.1:8765
+nexus schedule --mcp-http
 ```
 
-2. ChatGPT → **Settings → Connectors → Custom MCP** → paste `https://….trycloudflare.com`.  
-3. Enable connector in a chat.  
-4. Schedule a reminder (phone/calendar/Zapier) that opens ChatGPT with a prompt like:
+That demo API is unauthenticated and is not a full remote MCP transport. Keep it
+on localhost. Do not tunnel it to the internet or use it as a web-app connector.
 
-> Using nexus-workspace tools: run list_platforms, run_project_checks,  
-> github_scout for "multi agent", and send_to_workspace a summary as agent chatgpt_web.
+## Repository research loop
 
-### B. Machine cron does the heavy lifting; ChatGPT only reviews
+Run these interactively before scheduling them:
 
-Cron runs `mine` + `improve-ours` and writes:
+```bash
+nexus github mine run -q "multi agent durable" -n 8 --improve
+nexus github mine improve-ours --repo YOU/REPO
+```
 
-- `.nexus_state/repo_mine/USE_LATEST.md`  
-- `.nexus_state/repo_mine/IMPROVE_OURS.md`  
+Repository clone/proof paths can execute project-controlled installers and
+tests. The generated schedule uses heuristic-only mining, but operators should
+still review its current commands and use isolated, credential-free execution
+for untrusted repositories.
 
-You (or a scheduled ChatGPT/Claude session with MCP) only **read those files** and approve/apply:
+Code application remains a separate explicit action:
 
 ```bash
 nexus github mine improve-ours --apply --repo YOU/REPO
 ```
 
-## Claude on a schedule
+Do not place `--apply`, self-approval, or push commands on a schedule until the
+target, branch protection, token budget, credentials, and recovery plan have
+been reviewed.
 
-1. `nexus platforms connect` → Claude Desktop / `claude-desktop.nexus.json`  
-2. Or Claude Code CLI with MCP.  
-3. Same cron files as above; Claude can be pointed at `IMPROVE_OURS.md`.  
-4. Bus path: `nexus start -y` so agent `claude` is on the event bus for long jobs.
+## Remote AI clients
 
-## Grok CLI
+For ChatGPT, Claude, Grok, or another web client:
 
-Already first-class: `nexus platforms connect` + local model + MCP tools.  
-Schedule: same cron; interactive Grok when you want to drive tools by hand.
+1. deploy a compatible remote MCP server separately;
+2. protect it with authentication, TLS, least-privilege tools, and host/network
+   isolation;
+3. connect the client using its supported connector flow; and
+4. use that product's supported task/reminder scheduler if unattended reviews
+   are required.
 
-## End-to-end daily loop
+The built-in `nexus mcp` command supports local stdio MCP. The
+`nexus mcp --http` mode is only a local JSON tools demo and is not a substitute
+for the remote server in this pattern.
+
+See [MCP setup](MCP_SETUP.md), [Connectors](CONNECTORS.md), and
+[Security and trust boundaries](SECURITY.md).
+
+## Review workflow
+
+A safer division of responsibility is:
 
 ```text
-cron: mine run
-   → high-score repos cloned under .nexus_workspaces/scout_repos/
-   → IMPROVE_OURS.md updated
-cron: heartbeat
-   → Healthchecks knows the host is alive
-you / ChatGPT / Claude (MCP):
-   → read IMPROVE_OURS.md
-   → optional: improve-ours --apply
-   → make demo-all-quick
+local cron
+  → heartbeat
+  → heuristic discovery / candidate state
+  → planning artifacts
+
+operator or authenticated remote reviewer
+  → inspect artifacts
+  → approve a clean, dedicated branch
+  → run apply manually
+  → verify tests and diff
 ```
 
-That **is** the chase: **score other repos → use them to improve ours**, with cloud AIs optional co-pilots on the same NEXUS tool surface.
+Runtime files under `.nexus_state/` may contain prompts, outputs, paths, logs,
+and operator feedback. Inspect and redact them before sharing.

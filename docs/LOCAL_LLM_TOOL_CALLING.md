@@ -26,7 +26,7 @@ The model never embeds tools. **MCP and skills attach to the Grok session**, so 
 
 | Path | Role |
 |------|------|
-| [gemma-local-tools/SKILL.md](https://github.com/VincentMarquez/nexus-core/blob/main/skillpacks/gemma-local-tools/SKILL.md) | Full cheat sheet (tools + coding skills) |
+| [gemma-local-tools/SKILL.md](https://github.com/VincentMarquez/nexus-core/blob/main/skillpacks/gemma-local-tools/SKILL.md) | Operator-specific example for discovering and using enabled tools |
 | [gemma-local-tools/manifest.json](https://github.com/VincentMarquez/nexus-core/blob/main/skillpacks/gemma-local-tools/manifest.json) | Version / tags |
 
 Install for Grok CLI (user machine):
