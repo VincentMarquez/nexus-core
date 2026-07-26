@@ -126,28 +126,23 @@ def enable_agent_bridges(
 
     # Agent slots the bus expects — real CLIs when installed
     # Claude (Anthropic), gpt via Codex, Grok (xAI), Gemini
-    # Max-tier defaults (override via NEXUS_*_MODEL / *_EFFORT env — see docs/MAX_MODELS.md)
+    # Provider model IDs and optional tiers are operator-configured. When an
+    # env value is absent, let the installed CLI select its supported default.
     root = Path(getattr(rt, "root", None) or Path.cwd())
     grok_wrap = root / "bridge" / "bridges" / "stdin_to_grok.py"
-    claude_model = (os.environ.get("NEXUS_CLAUDE_MODEL") or "fable").strip()
-    claude_effort = (os.environ.get("NEXUS_CLAUDE_EFFORT") or "max").strip()
-    codex_model = (os.environ.get("NEXUS_CODEX_MODEL") or "gpt-5.6-sol").strip()
-    codex_effort = (os.environ.get("NEXUS_CODEX_REASONING") or "ultra").strip()
-    codex_tier = (os.environ.get("NEXUS_CODEX_SERVICE_TIER") or "fast").strip()
+    claude_model = (os.environ.get("NEXUS_CLAUDE_MODEL") or "").strip()
+    claude_effort = (os.environ.get("NEXUS_CLAUDE_EFFORT") or "").strip()
+    codex_model = (os.environ.get("NEXUS_CODEX_MODEL") or "").strip()
+    codex_effort = (os.environ.get("NEXUS_CODEX_REASONING") or "").strip()
+    codex_tier = (os.environ.get("NEXUS_CODEX_SERVICE_TIER") or "").strip()
     gemini_model = (os.environ.get("NEXUS_GEMINI_MODEL") or "").strip()
-    # Grok model for bus is set inside stdin_to_grok.py via NEXUS_GROK_MODEL (default grok-4.5)
-    os.environ.setdefault("NEXUS_GROK_MODEL", "grok-4.5")
-    os.environ.setdefault("NEXUS_GROK_REASONING_EFFORT", "high")
 
     # Note: do NOT use --bare — it drops claude.ai login ("Not logged in")
-    claude_cmd = [
-        "claude",
-        "--print",
-        "--model",
-        claude_model,
-        "--effort",
-        claude_effort,
-    ]
+    claude_cmd = ["claude", "--print"]
+    if claude_model:
+        claude_cmd.extend(["--model", claude_model])
+    if claude_effort:
+        claude_cmd.extend(["--effort", claude_effort])
     # Codex: workspace-write so agents can edit/test; prompt passed as arg (see cli-bridge)
     codex_cmd = [
         "codex",
@@ -155,18 +150,23 @@ def enable_agent_bridges(
         "--skip-git-repo-check",
         "-s",
         "workspace-write",
-        "-c",
-        f'model="{codex_model}"',
-        "-c",
-        f'model_reasoning_effort="{codex_effort}"',
-        "-c",
-        f'service_tier="{codex_tier}"',
     ]
+    if codex_model:
+        codex_cmd.extend(["-c", f'model="{codex_model}"'])
+    if codex_effort:
+        codex_cmd.extend(["-c", f'model_reasoning_effort="{codex_effort}"'])
+    if codex_tier:
+        codex_cmd.extend(["-c", f'service_tier="{codex_tier}"'])
     # Prefer arg-mode for Codex (stdin is flaky with some exec versions)
     os.environ.setdefault("NEXUS_CLI_PROMPT_MODE", "auto")
     gemini_cmd = ["gemini"]
     if gemini_model:
         gemini_cmd.extend(["-m", gemini_model])
+
+    grok_fallback_cmd = ["grok", "-p"]
+    grok_model = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
+    if grok_model:
+        grok_fallback_cmd.extend(["-m", grok_model])
 
     cli_specs = [
         ("claude", "claude", claude_cmd),
@@ -180,7 +180,7 @@ def enable_agent_bridges(
                 str(grok_wrap),
             ]
             if grok_wrap.is_file()
-            else ["grok", "-p", "-m", os.environ.get("NEXUS_GROK_MODEL", "grok-4.5")],
+            else grok_fallback_cmd,
         ),
     ]
 

@@ -76,6 +76,20 @@ def test_activate_skill_refuses_outside_factory(tmp_path: Path):
         cf.activate_skill(tmp_path, fake)
 
 
+def test_soft_accept_skill_refuses_outside_factory(tmp_path: Path):
+    fake = tmp_path / "outside-candidate"
+    fake.mkdir()
+    (fake / "SKILL.md").write_text("# Skill\n\nComplete procedure.\n", encoding="utf-8")
+    (fake / "manifest.json").write_text('{"id":"outside"}\n', encoding="utf-8")
+    (fake / "STATUS.json").write_text(
+        '{"id":"outside","status":"proposed"}\n', encoding="utf-8"
+    )
+    result = cf.soft_accept_skill(fake, workdir=tmp_path)
+    assert result["ok"] is False
+    assert result["accept"] is False
+    assert result["reasons"] == ["candidate_outside_factory"]
+
+
 def test_write_tool_activate_requires_flag(tmp_path: Path):
     r = cf.propose_tool(
         tmp_path, tool_name="nexus_write_demo", purpose="w", privilege="write"

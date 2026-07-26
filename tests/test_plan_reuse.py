@@ -8,9 +8,9 @@ from nexus import plan_reuse as pr
 
 
 def test_plan_key_stable_and_score_band():
-    a = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=16.0, method="grok:grok-4.5")
-    b = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=16.4, method="grok:grok-4.5")
-    c = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=15.0, method="grok:grok-4.5")
+    a = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=16.0, method="grok:test-model")
+    b = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=16.4, method="grok:test-model")
+    c = pr.plan_key(repo="wshobson/agents", pattern="markdown-skill-sot-validator", score=15.0, method="grok:test-model")
     assert a == b  # same 1.0 band (16.x)
     assert a != c
     assert len(a) == 32

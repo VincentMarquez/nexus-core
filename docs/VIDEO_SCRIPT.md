@@ -24,7 +24,8 @@ Record with OBS, Loom, or phone-on-monitor. 1080p, large font terminal.
 ### Terminal prep
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 # big font, dark theme, clear history noise
 clear
 make install
@@ -66,6 +67,6 @@ make demo-judge
 ## Where to post
 
 1. YouTube → embed/link in README  
-2. Show HN (`docs/SHOW_HN.md`) with Video A  
+2. Show HN (`docs/share/SHOW_HN.md`) with Video A
 3. X/LinkedIn: 15s cut of crash→resume + link  
 4. Optional: Discord/Reddit help-style post (one link, no spam)  

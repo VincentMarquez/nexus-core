@@ -1,6 +1,6 @@
 # Module ownership map
 
-## Product — `~/nexus-core` (source of truth)
+## Product — `$NEXUS_PROJECT_ROOT` (source of truth)
 
 | Module | Path | Owns |
 |--------|------|------|
@@ -27,7 +27,7 @@
 
 ## Lab — remote control only
 
-**Root:** ``$NEXUS_LAB_ROOT` (lab workspace)`  
+**Root:** `$NEXUS_LAB_ROOT` (operator-defined lab workspace)
 (sits inside a large research monorepo — keep product logic out of it)
 
 | Module | Path | Owns |

@@ -19,7 +19,7 @@ It is for **you + other LLMs offline review**, then **step-by-step execution**.
 2. Read **[BASELINE.md](./BASELINE.md)** — clean starting point as of this plan.
 3. Open **[TRACKER.md](./TRACKER.md)** — single checklist of status.
 4. Open **[ROADMAP.md](./ROADMAP.md)** — phases and order.
-5. Before coding a step: open that step under **[steps/](./steps/)** and run **[HOW_TO_EXECUTE.md](./HOW_TO_EXECUTE.md)**.
+5. Before coding a step: open that step under **[steps/](./steps/README.md)** and run **[HOW_TO_EXECUTE.md](./HOW_TO_EXECUTE.md)**.
 6. Before accepting a big change: use **[OFFLINE_REVIEW.md](./OFFLINE_REVIEW.md)** with Claude / GPT / another model.
 
 ---
@@ -96,7 +96,7 @@ Optional later: panel quorum, multi_llm real registry, SWE-Pro held-out Accept, 
 | [DECISIONS.md](./DECISIONS.md) | Decision log (why we chose X) |
 | [references/LANDSCAPE.md](./references/LANDSCAPE.md) | AutoResearchClaw, DGM, SARSI, … |
 | [references/SARSI_NEXUS.md](./references/SARSI_NEXUS.md) | SARSI → Nexus map (inspiration, not rewrite) |
-| [steps/](./steps/) | One markdown file per step |
+| [steps/](./steps/README.md) | One markdown file per step |
 
 ---
 

@@ -1,14 +1,14 @@
 {
   "schema": "nexus.mine_eval_fixture/v1",
   "source": "Grok mine_eval digests + arXiv improve notes (sanitized offline fixtures)",
-  "method": "grok:grok-4.5",
+  "method": "grok:test-model",
   "grades": [
     {
       "repo": "wshobson/agents",
       "score": 16.0,
       "idea": 8.0,
       "skill": 8.0,
-      "method": "grok:grok-4.5",
+      "method": "grok:test-model",
       "path": ".nexus_workspaces/mine_eval/wshobson__agents",
       "pattern": "Markdown source-of-truth for agents/skills/commands + harness generators",
       "summary": "Multi-harness agentic plugin marketplace with single Markdown SoT, validation, and smoke tests.",
@@ -30,7 +30,7 @@
       "score": 15.0,
       "idea": 7.0,
       "skill": 8.0,
-      "method": "grok:grok-4.5",
+      "method": "grok:test-model",
       "path": ".nexus_workspaces/mine_eval/codingagentsystem__cas",
       "pattern": "Supervisor/workers in git worktrees + MCP/SQLite FTS persistent memory",
       "summary": "Rust multi-crate multi-agent coding factory with worktree isolation and MCP SQLite/FTS context.",

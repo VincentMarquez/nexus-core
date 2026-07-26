@@ -41,7 +41,7 @@ Specialists (RAG, PPO, LangGraph, QFD, …) only added domain behavior **on top 
 | Source of truth | `lab workspace/AGENT_DNA.md` |
 | Injector | `.cleanup-archive-…/scripts/nexus_dna_patch.py` |
 | Boot patch | `lab workspace/patch_dna_into_runpy.py` |
-| Master index | `~/nexus_index.json` (D*=1) |
+| Master index | `$NEXUS_INDEX_PATH` (operator-defined, D*=1) |
 
 ### What every agent *had* to have
 
@@ -53,7 +53,7 @@ From `AGENT_DNA.md`:
 
 Mandatory behavior:
 
-1. Read `~/nexus_index.json` first  
+1. Read `$NEXUS_INDEX_PATH` first
 2. Follow index cascade (system → research graph → branch → file)  
 3. Never navigate blind  
 4. Write outputs where cascade can reindex  

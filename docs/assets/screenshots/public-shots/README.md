@@ -14,4 +14,4 @@ Share-safe stills for the project page and posts. Paths in the images are projec
 | F-architecture.png | Dual-path architecture |
 | A–R*.png | Additional stills for carousels |
 
-See also [docs/share/CAROUSEL.md](../../share/CAROUSEL.md).
+See also [the carousel plan](../../../share/CAROUSEL.md).

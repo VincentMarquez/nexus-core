@@ -7,14 +7,17 @@
 #   ./scripts/alive_both.sh lab       # remind how to start research run.py
 #
 set -euo pipefail
-PRODUCT="${NEXUS_PRODUCT_ROOT:-$HOME/nexus-core}"
-LAB="${NEXUS_LAB_ROOT:-${NEXUS_LAB_ROOT:-~/lab}}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PRODUCT="${NEXUS_PRODUCT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+LAB="${NEXUS_LAB_ROOT:-}"
 # shellcheck disable=SC1091
 source "$PRODUCT/.venv/bin/activate" 2>/dev/null || true
 export PATH="$PRODUCT/.venv/bin:$HOME/.local/bin:$PATH"
 export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PRODUCT}"
 export OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
-export OLLAMA_MODEL="${OLLAMA_MODEL:-gemma4:26b}"
+if [[ -n "${OLLAMA_MODEL:-}" ]]; then
+  export OLLAMA_MODEL
+fi
 
 cmd="${1:-help}"
 
@@ -43,6 +46,10 @@ case "$cmd" in
     exec nexus alive watch --interval "${2:-3600}"
     ;;
   lab)
+    if [[ -z "$LAB" ]]; then
+      echo "Set NEXUS_LAB_ROOT to the research lab checkout before using '$0 lab'."
+      exit 1
+    fi
     echo "Start lab in another terminal:"
     echo "  cd $LAB && python3 run.py"
     echo
@@ -59,9 +66,9 @@ Usage: $0 setup|once|watch|lab
   lab    — print how to run research run.py alongside
 
 Env:
-  NEXUS_PRODUCT_ROOT  (default ~/nexus-core)
-  NEXUS_LAB_ROOT      (default `$NEXUS_LAB_ROOT`)
-  OLLAMA_MODEL        (default gemma4:26b)
+  NEXUS_PRODUCT_ROOT  (default: repository containing this script)
+  NEXUS_LAB_ROOT      (required for the lab command)
+  OLLAMA_MODEL        (optional; otherwise use the runtime/provider default)
 EOF
     ;;
 esac

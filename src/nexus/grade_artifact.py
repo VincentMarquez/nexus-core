@@ -29,7 +29,7 @@ from typing import Any, Optional
 from .persist import atomic_write_json
 
 SCHEMA_VERSION = "nexus.grade/v1"
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 DEFAULT_SCORE_THRESHOLD = 10.0
 
 # Mine-eval score bounds (Grok idea/skill 0–10, composite 0–20).

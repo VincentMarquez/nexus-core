@@ -283,12 +283,11 @@ class BusClient:
 
         # Match lab Grok path: CLI OIDC, no XAI key mix
         env = {k: v for k, v in os.environ.items() if k != "XAI_API_KEY"}
+        model = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
         cmd = [
             "grok",
             "-p",
             prompt,
-            "-m",
-            "grok-4.5",
             "--output-format",
             "plain",
             "--disable-web-search",
@@ -296,6 +295,8 @@ class BusClient:
             "--max-turns",
             "8",
         ]
+        if model:
+            cmd[3:3] = ["-m", model]
         r = subprocess.run(
             cmd,
             capture_output=True,

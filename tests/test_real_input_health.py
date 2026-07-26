@@ -9,7 +9,12 @@ def test_health_ok_when_both_pass():
     cfg = AliveConfig()
     report = {
         "steps": [
-            {"step": "x_live_input", "ok": True},
+            {
+                "step": "x_live_input",
+                "ok": True,
+                "verified": True,
+                "gate_eligible": True,
+            },
             {"step": "canonical_engine", "ok": True},
         ]
     }
@@ -32,11 +37,36 @@ def test_health_blocks_publish_on_x_fail():
     assert h["publish_allowed"] is False
 
 
+def test_health_blocks_unverified_search_even_when_search_succeeded():
+    cfg = AliveConfig(real_gate_publish=True, real_gate_override=False)
+    report = {
+        "steps": [
+            {
+                "step": "x_live_input",
+                "ok": True,
+                "research_ok": True,
+                "verified": False,
+                "gate_eligible": False,
+            },
+            {"step": "canonical_engine", "ok": True},
+        ]
+    }
+    h = _real_input_health(report, cfg)
+    assert h["x_ok"] is False
+    assert h["publish_allowed"] is False
+    assert "directly verified" in h["block_reason"]
+
+
 def test_health_blocks_publish_on_engine_fail():
     cfg = AliveConfig(real_gate_publish=True)
     report = {
         "steps": [
-            {"step": "x_live_input", "ok": True},
+            {
+                "step": "x_live_input",
+                "ok": True,
+                "verified": True,
+                "gate_eligible": True,
+            },
             {"step": "canonical_engine", "error": "boom"},
         ]
     }

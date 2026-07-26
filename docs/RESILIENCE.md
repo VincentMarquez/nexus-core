@@ -38,7 +38,8 @@
 3. On the lab machine:
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 export NEXUS_HEARTBEAT_URL='https://hc-ping.com/YOUR-UUID'
 nexus heartbeat init --url "$NEXUS_HEARTBEAT_URL"
 nexus heartbeat once

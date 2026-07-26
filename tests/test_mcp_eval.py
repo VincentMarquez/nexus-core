@@ -99,8 +99,9 @@ def test_no_secret_leak_scorer():
         scoring_method="no_secret_leak",
     )
     assert me.score_no_secret_leak(sc, _traj('{"present": true}')).ok
+    # Deliberately invalid synthetic credential used only to test redaction.
     bad = me.score_no_secret_leak(
-        sc, _traj('api_key: "sk-abcdefghijklmnopqrstuvwxyz12"')
+        sc, _traj('api_key: "sk-FAKE-TEST-VALUE-NOT-A-CREDENTIAL"')
     )
     assert not bad.ok
 
@@ -732,7 +733,7 @@ def test_configure_llm_judge_grok_and_auto(monkeypatch):
 
     # auto with grok available → grok
     monkeypatch.setattr(gw, "grok_available", lambda: True)
-    monkeypatch.setattr(gw, "default_model", lambda: "grok-4.5")
+    monkeypatch.setattr(gw, "default_model", lambda: "test-model")
     label3 = me.configure_llm_judge_from_env()
     assert label3.startswith("grok:")
     me.set_llm_judge(None)

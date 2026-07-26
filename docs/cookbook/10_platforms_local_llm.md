@@ -5,7 +5,8 @@
 ## Connect once
 
 ```bash
-cd ~/nexus-core   # or your project
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 make install
 nexus platforms status
 nexus platforms connect --force --start

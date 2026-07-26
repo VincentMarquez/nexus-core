@@ -38,7 +38,8 @@ Lab agents TOOL_CALL the **same names** (product MCP first).
 
 ```bash
 # product CLI
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 .venv/bin/nexus alive once --dry-run
 .venv/bin/nexus alive once              # REAL
 .venv/bin/nexus alive status

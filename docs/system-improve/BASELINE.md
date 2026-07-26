@@ -1,8 +1,8 @@
 # Baseline — clean starting point
 
 **Plan birth:** 2026-07-17  
-**Repo:** `~/nexus-core` (product core)  
-**Lab bus (ops):** `security-lab/bridge` on `:3099` (not this folder)
+**Repo:** `$NEXUS_PROJECT_ROOT` (product core)
+**Lab bus (ops):** `$NEXUS_LAB_ROOT/bridge` on `:3099` in the recorded setup (not this folder)
 
 This document freezes “where we are” so later deep dives do not rewrite history in chat.
 
@@ -10,14 +10,14 @@ This document freezes “where we are” so later deep dives do not rewrite hist
 
 ## What the product is (operator one-liner)
 
-Research the world (GitHub ≥5K★, arXiv, live X) → engine+judge → idea portfolio → Grok hard-apply → multi-LLM critique panel → tests → optional publish. Lab UI is remote control. North star: coding excellence (SWE-Pro).
+Research the world (GitHub ≥5K★, arXiv, and directly verified X API evidence when available) → engine+judge → idea portfolio → Grok hard-apply → multi-LLM critique panel → tests → optional publish. Model/web-search X discoveries remain local, unverified hypotheses and cannot open the publish gate. Lab UI is remote control. North star: coding excellence (SWE-Pro).
 
 ## Architecture ownership (do not confuse)
 
 | Layer | Location | Role |
 |-------|----------|------|
-| Product | `~/nexus-core` | Code that self-improves |
-| Lab bus | `security-lab/bridge` `:3099` | Seats / bridges |
+| Product | `$NEXUS_PROJECT_ROOT` | Code that self-improves |
+| Lab bus | `$NEXUS_LAB_ROOT/bridge` (`:3099` in the recorded setup) | Seats / bridges |
 | Product bus stub | `nexus-core/bridge/` | Not the live process by default |
 | MCP | `:8765` `nexus.mcp_server` | Tools surface (restart after big code changes) |
 | Cycle artifacts | `docs/LATEST_*`, `.nexus_state/` | Generated; not the plan |

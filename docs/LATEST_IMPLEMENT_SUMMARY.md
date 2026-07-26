@@ -1,4 +1,5 @@
 ▶ EXECUTIVE REVIEW — REAL SELF-IMPROVE
+Historical generated evidence from the recorded cycle; model IDs and test counts below are not current-branch guarantees.
 ts: 2026-07-17T19:15:37Z
 goal: Maximize official SWE-bench Pro resolve rate with multi-AI group review: Claude plan+review, Grok implement, Codex adversary, Gemini arXiv/web, local files. Score only via official Pro Docker harness. Aspiration toward h
 overall_health: 85.3%
@@ -90,4 +91,3 @@ overall_health: 85.3%
 - `.nexus_state/LAST_IMPLEMENT_SUMMARY.json` (metrics machine-readable)
 
 **Bottom line:** overall_health=85.3% · implemented 10/10 ideas · tests_final=True · pushed=False · day_budget=7.4%
-

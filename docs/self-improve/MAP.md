@@ -8,7 +8,7 @@
                                 │ remote control only
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  LAB  `$NEXUS_LAB_ROOT` (lab workspace)                      │
+│  LAB  $NEXUS_LAB_ROOT (operator-defined workspace)                  │
 │   bridge/server.js          chat intercepts → product               │
 │   bridge/product_control.js  spawns nexus alive / waits summary     │
 │   src/ProductSelfImprove.jsx  DRY / REAL / mine buttons             │
@@ -18,7 +18,7 @@
                                 │ CLI + MCP :8765
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  PRODUCT  ~/nexus-core   ← GitHub: VincentMarquez/nexus-core        │
+│  PRODUCT  $NEXUS_PROJECT_ROOT ← GitHub: VincentMarquez/nexus-core   │
 │                                                                     │
 │  Clean import:  from nexus.self_improve import cycle_once, …        │
 │                                                                     │
@@ -53,7 +53,7 @@
 | Place | Track as | Rewrite often? |
 |-------|----------|----------------|
 | **Product source** `src/nexus/*` | GitHub commits | No — code of record |
-| **Lab UI/bus** `security-lab/*` | Lab monorepo (messy; keep thin) | Only intercepts/UI |
+| **Lab UI/bus** `$NEXUS_LAB_ROOT/*` | Lab monorepo (operator-defined; keep thin) | Only intercepts/UI |
 | **Runtime artifacts** `.nexus_state/`, `docs/LATEST_*` | Local disk | Yes — every cycle |
 
 ## Do not confuse

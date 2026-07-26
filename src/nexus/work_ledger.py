@@ -43,7 +43,7 @@ SCHEMA_VERSION = "nexus.work_ledger/v1"
 DB_NAME = "work.sqlite"
 LEDGER_REL = Path(".nexus_workspaces") / "work_ledger"
 
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 DEFAULT_SCORE_THRESHOLD = 15.0
 DEFAULT_PATTERN = "immutable work ledger"
 
@@ -1220,7 +1220,7 @@ def run_first_slice(
                     "path": path,
                 }
 
-            graded = protected_call(br, "grade:grok-4.5", _grade_call)
+            graded = protected_call(br, f"grade:{method}", _grade_call)
             grade_ev = led.record_grade(
                 run_id=rid,
                 repo=result.repo,
