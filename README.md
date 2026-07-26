@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <b>Durable, evidence-gated multi-agent execution for repository work.</b><br>
-  Coordinate local and cloud models through plan → challenge → implement → test → review.<br>
-  Every step is checkpointed, and completion requires explicit criteria and artifacts.
+  <b>Build your dream with a durable, evidence-driven AI team.</b><br>
+  NEXUS coordinates local and cloud agents to research, challenge, build, test, and review ambitious work inside one inspectable workspace.<br>
+  <b>Repository engineering · Deep research · NEXUS self-improvement · arXiv discovery · Mathematics · X research and social review · Business workflows</b>
 </p>
 
 <p align="center">
@@ -24,14 +24,35 @@
   <a href="#safety-boundaries"><b>Safety</b></a>
 </p>
 
-NEXUS is a small, inspectable orchestration engine for work that should survive a
-process crash and should not be marked complete merely because an agent said it
-finished. Its primary use case is software-repository work. Research and
-procurement are additional workflows shipped in the same package.
+NEXUS is compact at its core and expansive in what it can coordinate. It is an
+inspectable orchestration engine for ambitious work that should survive crashes,
+continue across model sessions, and never be considered complete merely because
+an agent says it is.
 
-It can run entirely with deterministic fixtures and mock agents for evaluation,
-or connect to separately installed local and cloud model clients. Model names and
-provider availability are configuration, not product requirements.
+Give NEXUS a goal and it assembles a coordinated team around it:
+
+- Build, repair, and validate software repositories
+- Search, retrieve, and analyze arXiv research
+- Investigate mathematical and technical ideas
+- Review public posts, discussions, and research signals from X
+- Compare findings across local and cloud models
+- Improve NEXUS through its own controlled research and implementation loop
+- Support business, procurement, and decision-analysis workflows
+
+Work moves through a structured pipeline:
+
+**plan → challenge → implement → test → review**
+
+Each step is checkpointed. Criteria, artifacts, test results, and reviewer
+judgments are recorded so work can be resumed, inspected, challenged, and
+independently verified.
+
+NEXUS can run entirely with deterministic fixtures and mock agents for
+reproducible evaluation, or connect to separately installed local and cloud
+model clients. Model names, providers, hardware, and endpoints are
+configuration—not product requirements.
+
+**One workspace. Many models. A real path from idea to evidence.**
 
 ## Quick start
 
@@ -108,11 +129,7 @@ live model quality, run the real self-improvement loop, or exercise the
 capability factory. Those require separate configuration and evidence.
 
 <p align="center">
-  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS crash recovery, judging, and operator evidence demo" width="900">
-</p>
-
-<p align="center">
-  <a href="docs/assets/nexus-demo-reel.mp4"><b>Watch or download the demo video (MP4)</b></a>
+  <img src="docs/assets/demo.gif" alt="NEXUS crash → resume demo" width="100%">
 </p>
 
 More detail: [Demo guide](docs/DEMO.md) ·
