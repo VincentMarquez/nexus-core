@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any, Optional, Sequence
 
 SCHEMA = "nexus.mine_eval_slice/v1"
-DEFAULT_METHOD = "grok:grok-4.5"
+DEFAULT_METHOD = "grok:provider-default"
 DEFAULT_MIN_SCORE = 14.0
 DB_NAME = "grades.sqlite"
 SLICE_REL = Path(".nexus_workspaces") / "mine_eval" / "slice"
@@ -176,7 +176,7 @@ def migrate(workdir: Optional[Path | str] = None, *, force: bool = False) -> dic
               score REAL NOT NULL,
               idea REAL NOT NULL,
               skill REAL NOT NULL,
-              method TEXT NOT NULL DEFAULT 'grok:grok-4.5',
+              method TEXT NOT NULL DEFAULT 'grok:provider-default',
               causal_note TEXT NOT NULL DEFAULT '',
               created_at REAL NOT NULL,
               artifact_path TEXT NOT NULL DEFAULT '',

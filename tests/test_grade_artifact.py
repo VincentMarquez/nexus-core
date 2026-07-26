@@ -42,7 +42,7 @@ def test_grade_roundtrip(tmp_path: Path):
         score=15.0,
         idea=7.0,
         skill=8.0,
-        method="grok:grok-4.5",
+        method="grok:test-model",
         path=str(tmp_path / "mine" / "mc"),
         pattern="ops control plane",
     )
@@ -53,7 +53,7 @@ def test_grade_roundtrip(tmp_path: Path):
     assert loaded["score"] == 15.0
     assert loaded["idea"] == 7.0
     assert loaded["skill"] == 8.0
-    assert loaded["method"] == "grok:grok-4.5"
+    assert loaded["method"] == "grok:test-model"
     assert loaded["path"]
     assert loaded["schema"] == ga.SCHEMA_VERSION
 

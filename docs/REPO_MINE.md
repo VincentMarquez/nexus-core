@@ -37,7 +37,7 @@ GitHub Search
 
 ```bash
 # Prefer Grok for grade + hard work; keep Ollama for light turns
-export NEXUS_GROK_MODEL=grok-4.5   # optional pin
+export NEXUS_GROK_MODEL="<supported-grok-model>"   # optional pin
 nexus github mine evaluate -l 5 --grader auto
 nexus github mine improve-ours --apply --worker grok
 ```

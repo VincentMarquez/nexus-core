@@ -1,24 +1,26 @@
-# Multi-platform agents + local LLM tool parity
+# Multi-platform agents + local LLM tools
 
-NEXUS is the **hub**. Grok CLI (now), Cursor, Claude, Codex, Gemini, and **local LLMs** are **spokes**. Every spoke should use the **same tools** and hand off work through the same workspace.
+NEXUS is the **hub**. Grok CLI, Cursor, Claude, Codex, Gemini, and **local LLMs** are **spokes**. Compatible clients can register the same host tools and hand off work through the same workspace. Actual tool use depends on client support and whether the selected model reliably emits valid tool calls.
 
-## Local LLMs on this machine (Spark / GB10)
+## Optional recorded setup: Spark / GB10
+
+This section records one operator deployment. Model IDs, server commands, load times, and memory use are examples, not `nexus-core` requirements.
 
 | Priority | Grok model id | Backend | When to use |
 |----------|---------------|---------|-------------|
-| **Primary** | **`gemma4`** | **vLLM NVFP4** `http://127.0.0.1:8000/v1` · served name `gemma4-nvfp4-interactive2` | Interactive Grok + **full workspace MCP** (default in `~/.grok/config.toml`) |
+| **Primary** | **`gemma4`** | **vLLM NVFP4** `http://127.0.0.1:8000/v1` · recorded served name `gemma4-nvfp4-interactive2` | Interactive Grok + registered workspace MCP tools in the recorded setup |
 | Secondary | `nexus-local` | Ollama `gemma4:26b` `:11434` | Light turns / bus agent when NVFP4 is stopped |
 | Speed option | (Ollama) `e2b-fast` | ~100 tok/s Q4 | Fast drafts only — not the NVFP4 26B quality path |
 
 **Start primary local (NVFP4):**
 
 ```bash
-cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up   # ~2–3 min cold load; ~80–90 GiB unified mem
-# Grok TUI: default model is already gemma4 — MCP tools attach to the session
-# Ask: "Use send_to_workspace / read_workspace_chat to talk to the Nexus workspace"
+export NEXUS_LOCAL_MODEL_ROOT=/path/to/your/local-model-runtime
+cd "$NEXUS_LOCAL_MODEL_ROOT"
+# Start its OpenAI-compatible server using that runtime's documented command.
 ```
 
-Do **not** load heavy Ollama models at the same time as NVFP4 (same unified memory). Unload with `keep_alive: 0` or stop the vLLM container when switching.
+In the recorded setup, the server cold-loaded in approximately 2–3 minutes and used approximately 80–90 GiB of unified memory. Measure your deployment before co-loading another large model.
 
 **Small-model tool calling:** install the cheat sheet so Gemma actually *uses* Grok’s tools:
 
@@ -26,7 +28,7 @@ Do **not** load heavy Ollama models at the same time as NVFP4 (same unified memo
 cp -a skillpacks/gemma-local-tools ~/.grok/skills/gemma-local-agent
 ```
 
-See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and [`skillpacks/gemma-local-tools/`](../skillpacks/gemma-local-tools/).
+See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and the [gemma-local-tools skill pack](https://github.com/VincentMarquez/nexus-core/tree/main/skillpacks/gemma-local-tools).
 
 ## Goal
 
@@ -36,7 +38,7 @@ See [LOCAL_LLM_TOOL_CALLING.md](LOCAL_LLM_TOOL_CALLING.md) and [`skillpacks/gemm
 | Run a **light Ollama** model in Grok | `nexus platforms connect` registers `[model.nexus-local]` + same MCP |
 | Auto-connect Grok / Cursor / Claude | `nexus platforms connect` |
 | Agents from other products join the same job | Distinct `agent` ids + `send_to_workspace` / bus bridges |
-| Local model uses **all** tools | MCP host (Grok/Cursor) executes tools; model only chooses them — **works for `gemma4` (NVFP4) and `nexus-local`** |
+| Local model uses registered tools | MCP host (Grok/Cursor) executes tools; a compatible model chooses them and emits valid requests |
 
 ## One-time setup
 
@@ -100,12 +102,14 @@ Agent ids (use consistently):
 |--|--------------------------|--------------|----------------------------|
 | Role | **Default interactive + workspace MCP** | Hard grading / when NVFP down | Light bus turns, drafts |
 | Backend | vLLM `nvfp4-interactive2` `:8000` | xAI | Ollama `:11434` |
-| Memory | ~80–90 GiB unified | network | small; don't dual-load with NVFP |
+| Memory | Approximately 80–90 GiB in the recorded run | Network-backed | Deployment-specific |
 
 ```bash
 # Primary path — NVFP4 Gemma4 + workspace tools
-cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up
-# ~/.grok/config.toml already: default = "gemma4", mcp_servers.nexus-workspace enabled
+export NEXUS_LOCAL_MODEL_ROOT=/path/to/your/local-model-runtime
+cd "$NEXUS_LOCAL_MODEL_ROOT"
+# Start the server using that runtime's documented command.
+# Then configure your Grok client with a supported local model identifier.
 grok
 # /model gemma4   if needed
 # Prompt: talk to workspace via send_to_workspace / read_workspace_chat
@@ -117,7 +121,7 @@ ollama serve
 # /model nexus-local
 ```
 
-**MCP tools attach to the Grok session**, not to a single vendor model — so **`gemma4` (NVFP4) gets the same Nexus workspace tools as cloud Grok.** `platforms connect` must not replace your NVFP4 `[model.gemma4]` block.
+**MCP tools attach to the Grok session**, not to a single vendor model. A selected local model can use those registered tools when the client supports tool calls and the model emits valid requests. `platforms connect` does not replace an existing `[model.gemma4]` block.
 
 ## Cursor / others later
 

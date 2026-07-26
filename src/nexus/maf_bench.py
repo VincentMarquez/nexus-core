@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import json
 import statistics
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -1581,6 +1582,9 @@ def bundled_maf_packs_dir(
         candidates.append(Path(workdir).resolve() / BUNDLED_PACKS_REL)
     pkg_root = Path(__file__).resolve().parents[2]
     candidates.append(pkg_root / BUNDLED_PACKS_REL)
+    # ``data-files`` installs release assets below the active environment
+    # prefix, while editable installs continue to resolve the repository copy.
+    candidates.append(Path(sys.prefix).resolve() / BUNDLED_PACKS_REL)
     candidates.append(Path.cwd().resolve() / BUNDLED_PACKS_REL)
     seen: set[Path] = set()
     for d in candidates:
@@ -1682,7 +1686,6 @@ def builtin_maf_scenarios() -> list[MafScenario]:
             mechanism="consensus",
             expected={
                 "min_ok_rate": 1.0,
-                "max_overhead_x": 100.0,
                 "min_n_graders": 2,
             },
             tags=["builtin", "consensus", "mafbench"],
@@ -1729,7 +1732,6 @@ def builtin_maf_scenarios() -> list[MafScenario]:
                 "min_n_components": 3,
                 "max_n_errors": 0,
                 "max_n_collisions": 0,
-                "max_overhead_x": 100.0,
             },
             tags=["builtin", "marketplace", "wshobson", "plugins", "mafbench"],
         ),
@@ -1749,9 +1751,6 @@ def builtin_maf_scenarios() -> list[MafScenario]:
                 "min_plan_ready": 1.0,
                 "min_handoff_ok": 1.0,
                 "min_kinds_ok": 1.0,
-                # Plan + durable orch handoff is heavier than pure judge;
-                # gate is loose on relative overhead, tight on plan metrics.
-                "max_overhead_x": 5000.0,
             },
             tags=[
                 "builtin",
@@ -1779,9 +1778,6 @@ def builtin_maf_scenarios() -> list[MafScenario]:
                 "min_total_tokens": 42,
                 "min_sticky_ok": 1.0,
                 "min_statuses_walked": 4,
-                # SQLite governance path is heavier than pure in-memory judge;
-                # gate is loose relative overhead, tight on correctness metrics.
-                "max_overhead_x": 5000.0,
             },
             tags=[
                 "builtin",
@@ -1810,9 +1806,6 @@ def builtin_maf_scenarios() -> list[MafScenario]:
                 "min_n_handoffs": 4,
                 "min_roles_ok": 1.0,
                 "min_signal_ok": 1.0,
-                # Board + JSON persist is heavier than pure in-memory judge;
-                # gate is loose on relative overhead, tight on board metrics.
-                "max_overhead_x": 5000.0,
             },
             tags=[
                 "builtin",

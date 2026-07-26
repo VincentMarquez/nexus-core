@@ -6,7 +6,7 @@
 - [x] `make demo` / `make demo-judge`  
 - [x] Demo GIF + SVG  
 - [x] CI  
-- [x] Release v0.2.0  
+- [ ] Release the version declared in `pyproject.toml` after `make release-check` and `mkdocs build --strict` pass
 - [x] CONTRIBUTING, CoC, SECURITY  
 - [x] Show HN draft  
 - [x] Growth research notes  
@@ -22,7 +22,7 @@
 
 ### Day 1 — Launch
 
-- [ ] Post **Show HN** from `SHOW_HN.md` when you can reply for 2+ hours  
+- [ ] Post **Show HN** from `share/SHOW_HN.md` when you can reply for 2+ hours
 - [ ] Post on X + LinkedIn with GIF/video + one sentence problem/solution  
 - [ ] Optional: one LocalLLaMA / agents Discord message (help-first)  
 
@@ -30,7 +30,7 @@
 
 - [ ] Reply to every issue and HN comment  
 - [x] Community bot + inbox: `nexus github inbox` / Actions auto first-reply (see `docs/GITHUB_COMMUNITY.md`)  
-- [ ] Tag any follow-up fix as v0.2.1  
+- [ ] Tag follow-up fixes using the next semantic version
 - [ ] Share one “lesson learned” thread (resume/judge story)  
 
 ### Week 2–4

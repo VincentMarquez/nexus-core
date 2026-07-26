@@ -27,7 +27,7 @@ def test_validate_grade_requires_claims_when_asked():
         "score": 12.0,
         "idea": 6.0,
         "skill": 6.0,
-        "method": "grok:grok-4.5",
+        "method": "grok:test-model",
         "path": ".nexus_workspaces/mine_eval/a__b",
     }
     # backward compatible without require_claims

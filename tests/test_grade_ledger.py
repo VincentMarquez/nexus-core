@@ -285,4 +285,4 @@ def test_method_default_grok(tmp_path: Path):
             idea=5.0,
             skill=5.0,
         )
-        assert row["method"] == "grok:grok-4.5"
+        assert row["method"] == DEFAULT_METHOD

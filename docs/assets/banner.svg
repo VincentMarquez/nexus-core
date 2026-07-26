@@ -96,6 +96,6 @@
 
   <!-- footer strip -->
   <rect y="388" width="1280" height="32" fill="#020617" opacity="0.85"/>
-  <text x="64" y="409" font-family="ui-monospace, monospace" font-size="12" fill="#64748b">make install &amp;&amp; make start &amp;&amp; make demo</text>
+    <text x="64" y="409" font-family="ui-monospace, monospace" font-size="12" fill="#64748b">make install &amp;&amp; make demo-all-quick</text>
   <text x="1216" y="409" text-anchor="end" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#475569">MIT · Python 3.10+</text>
 </svg>

@@ -11,7 +11,8 @@ Copy-paste recipes (also under `cookbook/` in the repo):
 7. [Procurement agents](cookbook/07_procurement.md)
 8. [arXiv research](cookbook/08_arxiv_research.md)
 9. [GitHub community auto-reply](cookbook/09_github_community.md)
-
-Clone the repo to run them locally with `make` / `nexus` commands.
 10. [Platforms + local LLM tools](cookbook/10_platforms_local_llm.md)
 11. [Heartbeat + resilience](cookbook/11_heartbeat_resilience.md)
+12. [Task operator board](cookbook/12_task_operator.md)
+
+Clone the repo to run them locally with `make` / `nexus` commands.

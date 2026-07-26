@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 import shutil
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -664,6 +665,42 @@ def soft_accept_skill(
     d = Path(cand_dir)
     if not d.is_absolute():
         d = (_root(workdir) / d).resolve()
+    else:
+        d = d.resolve()
+
+    if workdir is not None:
+        allowed = (
+            _root(workdir) / FACTORY_DIR / "candidates" / "skills"
+        ).resolve()
+        try:
+            d.relative_to(allowed)
+        except ValueError:
+            return {
+                "ok": False,
+                "accept": False,
+                "reasons": ["candidate_outside_factory"],
+                "status": "rejected",
+            }
+    else:
+        # Absolute paths returned by propose_skill() are commonly accepted
+        # without repeating workdir. Still require the factory jail shape.
+        try:
+            jailed = (
+                d.parent.name == "skills"
+                and d.parent.parent.name == "candidates"
+                and d.parent.parent.parent.name == "capability_factory"
+                and d.parent.parent.parent.parent.name == ".nexus_state"
+            )
+        except IndexError:
+            jailed = False
+        if not jailed:
+            return {
+                "ok": False,
+                "accept": False,
+                "reasons": ["candidate_outside_factory"],
+                "status": "rejected",
+            }
+
     v = validate_skill_candidate(d)
     reasons = []
     accept = bool(v.get("ok"))
@@ -691,7 +728,7 @@ def soft_accept_skill(
 
         try:
             r = subprocess.run(
-                ["python3", "-m", "pytest", "-q", str(testf)],
+                [sys.executable, "-m", "pytest", "-q", str(testf)],
                 cwd=str(d),
                 capture_output=True,
                 text=True,

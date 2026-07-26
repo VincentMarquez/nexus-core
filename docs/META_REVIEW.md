@@ -4,6 +4,8 @@
 **Repo:** https://github.com/VincentMarquez/nexus-core  
 **Verdict:** **Ready to launch publicly.** Distribution (X / HN / video) is the bottleneck, not code.
 
+> Historical review: the results and release numbers below describe the July 14 checkout, not the current branch.
+
 ## Automated gates
 
 | Check | Result |
@@ -12,7 +14,7 @@
 | `evals/smoke.py` | 4/4 passed (complete, kill-resume, autonomy, human gate) |
 | `make demo` | crash @3 → resume → 10/10 |
 | CI workflow | present (`.github/workflows/ci.yml`) |
-| Releases | v0.2.0, v0.2.1 |
+| Historical releases at review time | v0.2.0, v0.2.1 |
 | License | MIT |
 | Community files | README, CONTRIBUTING, CoC, SECURITY, CHANGELOG |
 | Discussions | enabled — launch post [#4](https://github.com/VincentMarquez/nexus-core/discussions/4) |
@@ -40,7 +42,7 @@
 ## Recommendation
 
 1. **Ship Video A** (60s) from `VIDEO_SCRIPT.md`  
-2. **Post X** using `SOCIAL_POSTS.md` (must be you — see `X_RELEASE.md`)  
+2. **Post X** using `share/SOCIAL.md` (must be you — see `X_RELEASE.md`)
 3. **Show HN** same day you’re free to reply  
 4. Stay online 2–4 hours  
 

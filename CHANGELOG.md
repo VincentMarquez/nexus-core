@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.10.0 — 2026-07-26
+
+### Added
+- Governed self-improvement spine with scope contracts, critique synthesis, acceptance evidence, and fail-closed publish checks
+- Capability factory lifecycle for proposing, filling, soft-accepting, and activating reusable skills and tools
+- Public demo, share kit, and documented orchestration façade for durable multi-agent work
+
+### Changed
+- Scrubbed machine-local paths and separated operator-specific model/hardware examples from supported product defaults
+- Clarified that recorded benchmark, model, runtime, and test results are historical evidence rather than current-branch guarantees
+- Updated documentation links, release metadata, and portability guidance
+
+### Compatibility
+- Provider model identifiers remain operator-configured and may need updating for the installed CLI or provider
+- `run_task` and `get_task_status` are implemented; `submit_workflow` and `trigger_self_improve` remain design-stage interfaces
+
 ## 0.9.1 — 2026-07-15
 
 ### Added

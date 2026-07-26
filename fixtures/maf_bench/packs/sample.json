@@ -1,0 +1,90 @@
+{
+  "schema": "nexus.maf_scenario_pack/v1",
+  "name": "bundled-offline-smoke",
+  "description": "Offline release smoke for the public MAFBench proxy surfaces.",
+  "scenarios": [
+    {
+      "id": "sample.baseline.ok",
+      "type": "baseline",
+      "domain": "baseline",
+      "text": "Single-judge baseline completes offline.",
+      "mechanism": "single_judge",
+      "expected": {
+        "min_ok_rate": 1.0
+      }
+    },
+    {
+      "id": "sample.domain_mcp.ok",
+      "type": "domain_mcp",
+      "domain": "domain_mcp",
+      "text": "The offline multi-domain MCP hub passes its smoke scenarios.",
+      "mechanism": "domain_mcp",
+      "expected": {
+        "min_ok_rate": 1.0,
+        "min_pass_rate": 1.0,
+        "min_n_scenarios": 1,
+        "min_n_servers": 4,
+        "min_servers_ok_rate": 1.0
+      }
+    },
+    {
+      "id": "sample.marketplace.ok",
+      "type": "marketplace",
+      "domain": "marketplace",
+      "text": "The isolated Markdown plugin marketplace validates offline.",
+      "mechanism": "marketplace",
+      "expected": {
+        "min_ok_rate": 1.0,
+        "min_n_plugins": 1,
+        "min_n_components": 3,
+        "max_n_errors": 0,
+        "max_n_collisions": 0
+      }
+    },
+    {
+      "id": "sample.market_plan.ok",
+      "type": "market_plan",
+      "domain": "market_plan",
+      "text": "Marketplace planning produces a durable orchestration handoff.",
+      "mechanism": "market_plan",
+      "expected": {
+        "min_ok_rate": 1.0,
+        "min_n_tools": 3,
+        "min_n_steps": 1,
+        "min_plan_ready": 1.0,
+        "min_handoff_ok": 1.0,
+        "min_kinds_ok": 1.0
+      }
+    },
+    {
+      "id": "sample.control_plane.ok",
+      "type": "control_plane",
+      "domain": "control_plane",
+      "text": "The isolated SQLite control plane preserves governance state.",
+      "mechanism": "control_plane",
+      "expected": {
+        "min_ok_rate": 1.0,
+        "min_n_spend": 1,
+        "min_total_tokens": 42,
+        "min_sticky_ok": 1.0,
+        "min_statuses_walked": 4
+      }
+    },
+    {
+      "id": "sample.delivery_board.ok",
+      "type": "delivery_board",
+      "domain": "delivery_board",
+      "text": "The isolated delivery board records lanes, handoffs, traces, and evidence.",
+      "mechanism": "delivery_board",
+      "expected": {
+        "min_ok_rate": 1.0,
+        "min_lanes_walked": 5,
+        "min_n_traces": 5,
+        "min_n_evidence": 5,
+        "min_n_handoffs": 4,
+        "min_roles_ok": 1.0,
+        "min_signal_ok": 1.0
+      }
+    }
+  ]
+}

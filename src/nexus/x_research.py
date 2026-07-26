@@ -1,12 +1,13 @@
 """Live X (Twitter) research input for self-improve — mandatory on REAL.
 
 Same shape as arXiv/GitHub research:
-  search → ledger (dedupe) → LATEST_X_REVIEW.md → dual_review / engine brief
+  search → local ledger (dedupe) → local review → research gate
 
-Backends (first success wins):
-  1. **Grok CLI** with web/X research (default — preferred for this product)
-  2. Official X API v2 only if ``NEXUS_X_PREFER_API=1`` + bearer token
-  3. Explicit failure marker (still records the mandatory phase)
+Trust boundary:
+  1. Official X API v2 responses are directly verified and may satisfy the gate.
+  2. Grok/web-search discoveries are unverified, remain under ``.nexus_state``,
+     and cannot satisfy the research or publish gate.
+  3. Total backend failure still records a local failure marker.
 
   from nexus.x_research import step_x_review
 """
@@ -27,6 +28,7 @@ from typing import Any, Optional, Sequence
 
 FIELDS = (
     "post_id",
+    "claimed_post_id",
     "author",
     "text",
     "created_at",
@@ -37,8 +39,14 @@ FIELDS = (
     "likes",
     "reposts",
     "source",
+    "verification",
+    "gate_eligible",
     "times_seen",
 )
+
+VERIFIED_BACKEND = "x_api_v2"
+VERIFIED_STATUS = "verified_x_api"
+UNVERIFIED_STATUS = "unverified_model_search"
 
 
 def _root(workdir: Optional[Path | str] = None) -> Path:
@@ -46,17 +54,24 @@ def _root(workdir: Optional[Path | str] = None) -> Path:
 
 
 def docs_csv_path(workdir: Optional[Path | str] = None) -> Path:
+    """Return the retired, header-only public-ledger path for compatibility.
+
+    Runtime evidence is never written here. Historical, unverified rows were
+    removed from the checked-in file.
+    """
     return _root(workdir) / "docs" / "X_LEDGER.csv"
 
 
 def state_csv_path(workdir: Optional[Path | str] = None) -> Path:
-    d = _root(workdir) / ".nexus_state"
+    d = _root(workdir) / ".nexus_state" / "x_research"
     d.mkdir(parents=True, exist_ok=True)
     return d / "x_ledger.csv"
 
 
 def latest_review_path(workdir: Optional[Path | str] = None) -> Path:
-    return _root(workdir) / "docs" / "LATEST_X_REVIEW.md"
+    d = _root(workdir) / ".nexus_state" / "x_research"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "LATEST_X_REVIEW.md"
 
 
 def _bearer() -> str:
@@ -81,11 +96,25 @@ def _canon_id(pid: str) -> str:
 
 def _stable_id_from_text(text: str, author: str = "") -> str:
     h = hashlib.sha256(f"{author}\n{text}".encode("utf-8", errors="replace")).hexdigest()
-    return "x" + h[:16]
+    return "local-" + h[:16]
+
+
+def _verified_x_post(post: dict[str, Any]) -> bool:
+    """Return true only for a structurally valid post from the official API."""
+    if str(post.get("source") or "") != VERIFIED_BACKEND:
+        return False
+    pid = _canon_id(str(post.get("post_id") or ""))
+    url = str(post.get("url") or "").strip()
+    if not pid.isdigit() or not url:
+        return False
+    match = re.fullmatch(r"https://(?:www\.)?x\.com/(?:[^/\s]+|i)/status/(\d+)", url)
+    return bool(match and match.group(1) == pid)
 
 
 def load_rows(workdir: Optional[Path | str] = None) -> list[dict[str, str]]:
-    for path in (docs_csv_path(workdir), state_csv_path(workdir)):
+    # Public documentation is not a runtime evidence source. In particular, do
+    # not re-ingest the retired July 17 model-generated ledger.
+    for path in (state_csv_path(workdir),):
         if not path.is_file():
             continue
         try:
@@ -106,11 +135,19 @@ def seen_ids(workdir: Optional[Path | str] = None) -> set[str]:
     return {_canon_id(r["post_id"]) for r in load_rows(workdir)}
 
 
-def save_rows(rows: Sequence[dict[str, str]], workdir: Optional[Path | str] = None) -> list[Path]:
+def save_rows(
+    rows: Sequence[dict[str, str]],
+    workdir: Optional[Path | str] = None,
+) -> list[Path]:
     root = _root(workdir)
-    ordered = sorted(rows, key=lambda r: (r.get("first_seen") or "", r.get("post_id") or ""))
+    ordered = sorted(
+        rows,
+        key=lambda r: (r.get("first_seen") or "", r.get("post_id") or ""),
+    )
     written: list[Path] = []
-    for path in (docs_csv_path(root), state_csv_path(root)):
+    # Runtime evidence is machine-local. A research run must never modify
+    # checked-in release documentation.
+    for path in (state_csv_path(root),):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8", newline="") as f:
             w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
@@ -127,7 +164,11 @@ def record_posts(
     query: str,
     workdir: Optional[Path | str] = None,
 ) -> dict[str, Any]:
-    """Merge posts into ledger; return counts."""
+    """Merge posts into the local ledger; return counts.
+
+    Unverified model/web-search discoveries receive a ``local-*`` record id so
+    a model-supplied number cannot later be mistaken for a verified X post id.
+    """
     root = _root(workdir)
     rows = load_rows(root)
     by_id = {_canon_id(r["post_id"]): r for r in rows}
@@ -135,10 +176,14 @@ def record_posts(
     added = 0
     updated = 0
     for p in posts:
-        pid = _canon_id(str(p.get("post_id") or p.get("id") or ""))
+        claimed_pid = _canon_id(
+            str(p.get("claimed_post_id") or p.get("post_id") or p.get("id") or "")
+        )
         text = str(p.get("text") or "").strip()
-        if not pid and text:
-            pid = _stable_id_from_text(text, str(p.get("author") or ""))
+        verified = _verified_x_post(p)
+        pid = claimed_pid if verified else _stable_id_from_text(
+            text, str(p.get("author") or "")
+        )
         if not pid:
             continue
         if pid in by_id:
@@ -151,6 +196,7 @@ def record_posts(
         else:
             by_id[pid] = {
                 "post_id": pid,
+                "claimed_post_id": "" if verified else claimed_pid[:100],
                 "author": str(p.get("author") or p.get("username") or "")[:80],
                 "text": text[:2000],
                 "created_at": str(p.get("created_at") or "")[:40],
@@ -161,6 +207,8 @@ def record_posts(
                 "likes": str(p.get("likes") or p.get("like_count") or ""),
                 "reposts": str(p.get("reposts") or p.get("repost_count") or ""),
                 "source": str(p.get("source") or "x")[:40],
+                "verification": VERIFIED_STATUS if verified else UNVERIFIED_STATUS,
+                "gate_eligible": "true" if verified else "false",
                 "times_seen": "1",
             }
             added += 1
@@ -180,7 +228,9 @@ def search_x_api(
     """X API v2 recent search (requires bearer token)."""
     token = (bearer or _bearer()).strip()
     if not token:
-        raise RuntimeError("no X bearer token (set X_BEARER_TOKEN or TWITTER_BEARER_TOKEN)")
+        raise RuntimeError(
+            "no X bearer token (set X_BEARER_TOKEN or TWITTER_BEARER_TOKEN)"
+        )
     max_results = max(10, min(int(max_results), 100))
     q = (query or "").strip()
     if not q:
@@ -220,7 +270,11 @@ def search_x_api(
                 "author": author,
                 "text": t.get("text") or "",
                 "created_at": t.get("created_at") or "",
-                "url": f"https://x.com/{author}/status/{tid}" if author and tid else f"https://x.com/i/status/{tid}",
+                "url": (
+                    f"https://x.com/{author}/status/{tid}"
+                    if author and tid
+                    else f"https://x.com/i/status/{tid}"
+                ),
                 "likes": metrics.get("like_count"),
                 "reposts": metrics.get("retweet_count"),
                 "source": "x_api_v2",
@@ -235,7 +289,7 @@ def search_via_grok(
     max_results: int = 15,
     timeout_s: float = 180.0,
 ) -> list[dict[str, Any]]:
-    """Use Grok CLI (web enabled) to gather recent X/public discussion as structured posts."""
+    """Gather model-mediated discoveries for local, unverified research only."""
     from . import grok_worker as gw
 
     if not gw.grok_available():
@@ -252,18 +306,20 @@ def search_via_grok(
         "You are a research scout for a software self-improve system.\n"
         f"Find **live, recent X (Twitter)** posts and public discussion about:\n"
         f"  {query}\n\n"
-        "Prefer posts from builders, researchers, agent/SWE-bench practitioners, open-source maintainers.\n"
+        "Prefer posts from builders, researchers, agent/SWE-bench practitioners, "
+        "open-source maintainers.\n"
         "Use web/X search tools if available. Return ONLY JSON matching the schema with up to "
         f"{max_results} posts.\n"
-        "Each post needs text; include author handle, url (x.com/...), post_id if known, engagement if known.\n"
-        "If you cannot access X live, return the best recent public posts you can find about the topic "
-        "and set post_id to empty (we will hash-id them).\n"
+        "Each post needs text; include author handle, URL, post_id, and engagement only when "
+        "they appear directly in tool output. Never infer or construct an ID or URL.\n"
+        "If you cannot access X live, return the best recent public posts you can "
+        "find about the topic and leave post_id and URL empty. All results will "
+        "be treated as unverified.\n"
     )
     # Enable web search for this research call (default grok_prompt disables it).
     model = gw.default_model()
     effort = gw.default_effort()
     import subprocess
-    import shutil
 
     cmd = [
         "grok",
@@ -295,7 +351,13 @@ def search_via_grok(
     text = (p.stdout or "").strip() or (p.stderr or "").strip()
     from . import usage as usage_mod
 
-    usage_mod.record_text(prompt, text, source=f"grok:{model}", label="x_research", enforce=False)
+    usage_mod.record_text(
+        prompt,
+        text,
+        source=f"grok:{model}",
+        label="x_research",
+        enforce=False,
+    )
     obj = gw._parse_json_obj(text) or {}  # noqa: SLF001
     if "structuredOutput" in obj and isinstance(obj["structuredOutput"], dict):
         obj = obj["structuredOutput"]
@@ -318,24 +380,24 @@ def search_via_grok(
         if not text_p:
             continue
         author = str(raw.get("author") or "").lstrip("@")
-        pid = str(raw.get("post_id") or raw.get("id") or "").strip()
+        claimed_pid = str(raw.get("post_id") or raw.get("id") or "").strip()
         url = str(raw.get("url") or "").strip()
-        if not pid and url and "/status/" in url:
-            pid = url.rstrip("/").rsplit("/", 1)[-1]
-        if not pid:
-            pid = _stable_id_from_text(text_p, author)
-        if not url and author and pid.isdigit():
-            url = f"https://x.com/{author}/status/{pid}"
+        if not claimed_pid and url and "/status/" in url:
+            claimed_pid = url.rstrip("/").rsplit("/", 1)[-1]
+        record_id = _stable_id_from_text(text_p, author)
         out.append(
             {
-                "post_id": pid,
+                "post_id": record_id,
+                "claimed_post_id": claimed_pid,
                 "author": author,
                 "text": text_p,
                 "created_at": str(raw.get("created_at") or ""),
                 "url": url,
                 "likes": raw.get("likes"),
                 "reposts": raw.get("reposts"),
-                "source": "grok_x_research",
+                "source": "grok_x_research_unverified",
+                "verification": UNVERIFIED_STATUS,
+                "gate_eligible": False,
             }
         )
     if not out:
@@ -351,24 +413,25 @@ def fetch_posts(
 ) -> tuple[list[dict[str, Any]], str]:
     """Fetch posts; return (posts, backend_name).
 
-    **Default: Grok tools first** (live X/web research via CLI).  
-    Official X API is optional backup only when:
-      - ``prefer_api=True``, or
-      - env ``NEXUS_X_PREFER_API=1`` and a bearer token is set.
+    The official API is preferred whenever credentials are available because
+    only that backend may satisfy the release gate. Grok is a local-only,
+    unverified fallback.
     """
     errors: list[str] = []
     if prefer_api is None:
-        prefer_api = (os.environ.get("NEXUS_X_PREFER_API") or "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "api",
-        )
+        configured_api = (
+            os.environ.get("NEXUS_X_PREFER_API") or ""
+        ).strip().lower() in ("1", "true", "yes", "api")
+        prefer_api = bool(_bearer()) or configured_api
 
-    # 1) Preferred: Grok (student's tutor reads live X/world)
+    # Without API credentials an operator may still gather hypotheses, but they
+    # are explicitly unverified and cannot open the gate.
     if not prefer_api:
         try:
-            return search_via_grok(query, max_results=max_results), "grok_x_research"
+            return (
+                search_via_grok(query, max_results=max_results),
+                "grok_x_research_unverified",
+            )
         except Exception as e:
             errors.append(f"grok: {e}")
         # optional API fallback if token present
@@ -386,7 +449,10 @@ def fetch_posts(
         except Exception as e:
             errors.append(f"x_api: {e}")
     try:
-        return search_via_grok(query, max_results=max_results), "grok_x_research"
+        return (
+            search_via_grok(query, max_results=max_results),
+            "grok_x_research_unverified",
+        )
     except Exception as e:
         errors.append(f"grok: {e}")
     raise RuntimeError("; ".join(errors) or "no X backend available")
@@ -401,27 +467,46 @@ def write_latest_review(
     ledger: dict[str, Any],
     themes: str = "",
 ) -> Path:
-    docs = root / "docs"
-    docs.mkdir(parents=True, exist_ok=True)
     state = root / ".nexus_state" / "x_research"
     state.mkdir(parents=True, exist_ok=True)
+    verified_posts = [p for p in posts if _verified_x_post(p)]
+    quarantined_posts = [p for p in posts if not _verified_x_post(p)]
+    gate_eligible = bool(verified_posts)
+    if themes.strip():
+        theme_text = themes.strip()
+    elif verified_posts:
+        theme_text = "(no synthesized theme summary)"
+    else:
+        theme_text = "(none — no directly verified evidence)"
     lines = [
-        "# Live X research — self-improve input (mandatory on REAL)",
+        "# Local X research report",
         "",
         f"ts: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
         f"backend: `{backend}`",
         f"queries: {queries}",
         f"posts_this_run: {len(posts)}",
-        f"ledger: +{ledger.get('added', 0)} new, {ledger.get('updated', 0)} updated, total={ledger.get('total', 0)}",
+        f"verified_posts: {len(verified_posts)}",
+        f"quarantined_posts: {len(quarantined_posts)}",
+        f"gate_eligible: {gate_eligible}",
+        (
+            f"ledger: +{ledger.get('added', 0)} new, "
+            f"{ledger.get('updated', 0)} updated, "
+            f"total={ledger.get('total', 0)}"
+        ),
         "",
         "## Themes / takeaways",
         "",
-        themes.strip() or "(ranked from post texts — builders & SWE-agent discourse)",
+        theme_text,
         "",
-        "## Posts",
+        "## Directly verified posts",
         "",
     ]
-    for i, p in enumerate(posts[:30], 1):
+    if not verified_posts:
+        lines += [
+            "(none — unverified search output cannot satisfy the research or publish gate)",
+            "",
+        ]
+    for i, p in enumerate(verified_posts[:30], 1):
         author = p.get("author") or "?"
         url = p.get("url") or ""
         text = (p.get("text") or "").replace("\n", " ")
@@ -437,18 +522,32 @@ def write_latest_review(
         if eng:
             lines.append(f"   {' · '.join(eng)}")
         lines.append("")
+    if quarantined_posts:
+        lines += [
+            "## Quarantined discoveries",
+            "",
+            "These model/web-search discoveries are local hypotheses only. They are "
+            "not release evidence and cannot satisfy the research or publish gate.",
+            "",
+        ]
+        for i, p in enumerate(quarantined_posts[:30], 1):
+            author = p.get("author") or "?"
+            text = (p.get("text") or "").replace("\n", " ")
+            lines.append(
+                f"{i}. **@{author}** — local record `{p.get('post_id')}`: {text[:400]}"
+            )
+        lines.append("")
     lines += [
         "## How to use",
         "",
-        "- Feed into dual_review / engine research_brief as **live practitioner signal**.",
-        "- Prefer patterns that show up on both X and arXiv/GitHub.",
-        "- Do not treat viral posts as truth — treat as hypotheses to test in code.",
+        "- Feed only directly verified posts into release-gated evidence.",
+        "- Treat quarantined discoveries as hypotheses to verify independently.",
+        "- Runtime reports stay under ignored `.nexus_state/x_research/`.",
         "",
     ]
     text = "\n".join(lines)
-    dest = docs / "LATEST_X_REVIEW.md"
+    dest = latest_review_path(root)
     dest.write_text(text, encoding="utf-8")
-    (state / "LATEST_X_REVIEW.md").write_text(text, encoding="utf-8")
     (state / f"batch-{int(time.time())}.json").write_text(
         json.dumps(
             {"queries": queries, "backend": backend, "posts": posts, "ledger": ledger},
@@ -518,11 +617,15 @@ def step_x_review(
     errors: list[str] = []
     for q in [primary] + extras:
         try:
-            posts, backend = fetch_posts(q, max_results=max(10, max_results // max(1, len(extras) + 1)))
+            per_query = max(10, max_results // max(1, len(extras) + 1))
+            posts, backend = fetch_posts(q, max_results=per_query)
             backends.append(backend)
             for p in posts:
                 p = dict(p)
                 p["_query"] = q
+                # Trust is assigned from the backend selected by this module,
+                # never from model-provided fields inside the result.
+                p["_backend"] = backend
                 all_posts.append(p)
         except Exception as e:
             errors.append(f"{q}: {e}")
@@ -531,6 +634,22 @@ def step_x_review(
     seen: set[str] = set()
     uniq: list[dict[str, Any]] = []
     for p in all_posts:
+        backend = str(p.pop("_backend", "") or p.get("source") or "")
+        if backend == VERIFIED_BACKEND:
+            p["source"] = VERIFIED_BACKEND
+            p["verification"] = VERIFIED_STATUS
+            p["gate_eligible"] = True
+        else:
+            claimed_pid = _canon_id(
+                str(p.get("claimed_post_id") or p.get("post_id") or "")
+            )
+            p["claimed_post_id"] = claimed_pid
+            p["post_id"] = _stable_id_from_text(
+                str(p.get("text") or ""), str(p.get("author") or "")
+            )
+            p["source"] = backend or "unknown_unverified"
+            p["verification"] = UNVERIFIED_STATUS
+            p["gate_eligible"] = False
         pid = _canon_id(str(p.get("post_id") or ""))
         if not pid or pid in seen:
             continue
@@ -545,7 +664,10 @@ def step_x_review(
             posts=[],
             backend="none",
             ledger={"added": 0, "updated": 0, "total": len(load_rows(root))},
-            themes=f"**FAILED** mandatory X research.\n\nErrors:\n" + "\n".join(f"- {e}" for e in errors),
+            themes=(
+                "**FAILED** mandatory X research.\n\nErrors:\n"
+                + "\n".join(f"- {e}" for e in errors)
+            ),
         )
         return {
             "step": "x_review",
@@ -556,9 +678,15 @@ def step_x_review(
             "posts": 0,
             "queries": qs,
             "backend": "none",
+            "verified": False,
+            "gate_eligible": False,
         }
 
-    # record per-query into ledger
+    verified_posts = [p for p in uniq if _verified_x_post(p)]
+    quarantined_posts = [p for p in uniq if not _verified_x_post(p)]
+
+    # Record both classes in the ignored local ledger. Only verified_posts can
+    # affect the gate.
     ledger_total = {"added": 0, "updated": 0, "total": 0}
     by_q: dict[str, list] = {}
     for p in uniq:
@@ -570,8 +698,8 @@ def step_x_review(
         ledger_total["total"] = int(lr.get("total") or ledger_total["total"])
 
     themes = ""
-    if use_grok_themes:
-        themes = _themes_via_grok(uniq, goal=goal)
+    if use_grok_themes and verified_posts:
+        themes = _themes_via_grok(verified_posts, goal=goal)
 
     backend = "+".join(sorted(set(backends))) or "unknown"
     dest = write_latest_review(
@@ -595,16 +723,29 @@ def step_x_review(
     except Exception:
         pass
 
+    gate_eligible = bool(verified_posts)
     return {
         "step": "x_review",
-        "ok": True,
+        "ok": gate_eligible,
+        "research_ok": True,
         "required_on_real": True,
         "path": str(dest),
-        "posts": len(uniq),
+        "posts": len(verified_posts),
+        "observed_posts": len(uniq),
+        "quarantined_posts": len(quarantined_posts),
         "queries": qs,
         "primary_query": primary,
         "backend": backend,
         "ledger": ledger_total,
+        "verified": gate_eligible,
+        "gate_eligible": gate_eligible,
         "errors": errors or None,
-        "note": "mandatory live X input — practitioner signal for portfolio/engine",
+        "error": None
+        if gate_eligible
+        else "only unverified model/web-search discoveries were available",
+        "note": (
+            "directly verified X API evidence"
+            if gate_eligible
+            else "unverified discoveries quarantined locally; gate remains closed"
+        ),
     }

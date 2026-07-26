@@ -26,7 +26,8 @@
 Minimum:
 
 ```bash
-cd ~/nexus-core
+export NEXUS_PROJECT_ROOT="${NEXUS_PROJECT_ROOT:-$PWD}"
+cd "$NEXUS_PROJECT_ROOT"
 .venv/bin/python -m pytest -q <tests named in step>
 .venv/bin/python -c "from nexus import alive, idea_portfolio, publish, critique_panel; print('import ok')"
 ```

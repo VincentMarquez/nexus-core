@@ -16,7 +16,8 @@ def test_blocks_curl_pipe():
 
 
 def test_blocks_secret_like():
-    ok, _ = security_gate("here is key ghp_abcdefghijklmnopqrstuv")
+    # Deliberately invalid synthetic credential used only to test blocking.
+    ok, _ = security_gate("here is key ghp_FAKE_TEST_VALUE_NOT_A_CREDENTIAL")
     assert ok is False
 
 

@@ -56,6 +56,7 @@ nav:
       - GitHub community auto-reply: cookbook/09_github_community.md
       - Platforms + local LLM: cookbook/10_platforms_local_llm.md
       - Heartbeat + resilience: cookbook/11_heartbeat_resilience.md
+      - Task operator board: cookbook/12_task_operator.md
       - GitHub community (full): GITHUB_COMMUNITY.md
       - PyPI publish: PYPI.md
   - Architecture:
@@ -81,8 +82,8 @@ nav:
       - Bridges: BRIDGES_AND_BUS.md
       - GLM-5.2: GLM52.md
   - Launch:
-      - Show HN: SHOW_HN.md
-      - Social posts: SOCIAL_POSTS.md
+      - Show HN: share/SHOW_HN.md
+      - Social posts: share/SOCIAL.md
       - Growth research: GROWTH.md
       - Video script: VIDEO_SCRIPT.md
       - Launch checklist: LAUNCH_CHECKLIST.md

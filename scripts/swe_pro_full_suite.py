@@ -42,7 +42,7 @@ PATCHES_JSON = OUT / "agent_patches_full.json"
 LOG = OUT / "logs" / "full_suite.log"
 SCOREBOARD = OUT / "SCOREBOARD.json"
 
-DEFAULT_MODEL = os.environ.get("NEXUS_GROK_MODEL", "grok-4.5")
+DEFAULT_MODEL = (os.environ.get("NEXUS_GROK_MODEL") or "").strip()
 DEFAULT_EFFORT = os.environ.get("NEXUS_GROK_REASONING_EFFORT", "high")
 LOCK = threading.Lock()
 
@@ -109,8 +109,6 @@ def run_grok_subscription(
         "grok",
         "-p",
         prompt,
-        "-m",
-        model,
         "--cwd",
         str(cwd),
         "--max-turns",
@@ -123,6 +121,8 @@ def run_grok_subscription(
         eff,
         "--disable-web-search",
     ]
+    if model:
+        cmd[3:3] = ["-m", model]
     env = subscription_env()
     try:
         p = subprocess.run(
@@ -295,7 +295,7 @@ def save_patch(instance_id: str, patch: str, meta: dict[str, Any]) -> None:
                 "instance_id": instance_id,
                 "patch": patch,
                 "prefix": "nexus-grok-sub",
-                "model_name_or_path": meta.get("model", DEFAULT_MODEL),
+                "model_name_or_path": meta.get("model") or DEFAULT_MODEL or "provider-default",
                 "auth": "grok_subscription",
                 **{k: meta[k] for k in ("rc", "seconds", "patch_bytes") if k in meta},
             }
@@ -308,7 +308,7 @@ def save_patch(instance_id: str, patch: str, meta: dict[str, Any]) -> None:
                 {
                     "instance_id": instance_id,
                     "model_patch": patch,
-                    "model_name_or_path": meta.get("model", DEFAULT_MODEL),
+                    "model_name_or_path": meta.get("model") or DEFAULT_MODEL or "provider-default",
                 },
                 indent=2,
             )
@@ -362,7 +362,7 @@ def solve_one(
                 if patch.strip():
                     break
         meta = {
-            "model": model,
+            "model": model or "provider-default",
             "rc": rc,
             "seconds": round(time.time() - t0, 1),
             "patch_bytes": len(patch),
@@ -443,7 +443,7 @@ def write_scoreboard_partial() -> None:
     sb = {
         "benchmark": "ScaleAI/SWE-bench_Pro full suite (n=731)",
         "agent": "grok-cli-subscription",
-        "model": DEFAULT_MODEL,
+        "model": DEFAULT_MODEL or "provider-default",
         "auth": "grok.com subscription (no XAI_API_KEY)",
         "patches_total": len(patches),
         "patches_nonempty": nonempty,
@@ -471,7 +471,7 @@ def write_scoreboard_partial() -> None:
 |--------|-------|
 | Instances | 731 |
 | Agent | Grok CLI **subscription** (no API key) |
-| Model | `{DEFAULT_MODEL}` |
+| Model | `{DEFAULT_MODEL or "provider-default"}` |
 | Patches nonempty | {nonempty}/{len(patches)} |
 | Official eval | {json.dumps(sb.get('eval'))} |
 

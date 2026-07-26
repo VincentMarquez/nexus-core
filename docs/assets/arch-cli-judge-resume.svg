@@ -144,7 +144,7 @@
   <rect x="40" y="620" width="1040" height="150" rx="16" fill="#020617" stroke="#334155"/>
   <text x="60" y="655" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#e2e8f0">See it on your machine</text>
   <rect x="60" y="675" width="480" height="70" rx="10" fill="#0f172a" stroke="#22d3ee"/>
-  <text x="80" y="705" font-family="ui-monospace, monospace" font-size="14" fill="#22d3ee">$ make install &amp;&amp; make start</text>
+  <text x="80" y="705" font-family="ui-monospace, monospace" font-size="14" fill="#22d3ee">$ make install &amp;&amp; make demo</text>
   <text x="80" y="728" font-family="ui-monospace, monospace" font-size="14" fill="#67e8f9">$ make demo          # crash → resume</text>
 
   <rect x="560" y="675" width="500" height="70" rx="10" fill="#0f172a" stroke="#a78bfa"/>

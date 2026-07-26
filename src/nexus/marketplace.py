@@ -29,6 +29,7 @@ Patterns (shape only, not vendored trees):
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from collections import defaultdict
@@ -1355,14 +1356,16 @@ _CLAUDE_ONLY_SKILL_FIELDS = frozenset(
     }
 )
 
-# Bare model aliases → harness-native ids (pattern only; not a full provider matrix).
+# Bare model aliases → portable harness choices. Provider-specific model IDs
+# are intentionally supplied through NEXUS_*_MODEL instead of being frozen in
+# the release.
 _MODEL_MAP: dict[str, dict[str, str]] = {
     "codex": {
-        "opus": "gpt-5.5",
-        "sonnet": "gpt-5.5",
-        "haiku": "gpt-5-mini",
-        "fable": "gpt-5.5",
-        "inherit": "gpt-5.5",
+        "opus": "inherit",
+        "sonnet": "inherit",
+        "haiku": "inherit",
+        "fable": "inherit",
+        "inherit": "inherit",
     },
     "cursor": {
         "opus": "inherit",
@@ -1371,10 +1374,10 @@ _MODEL_MAP: dict[str, dict[str, str]] = {
         "fable": "inherit",
     },
     "gemini": {
-        "opus": "gemini-2.5-pro",
-        "sonnet": "gemini-2.5-flash",
-        "haiku": "gemini-2.5-flash",
-        "fable": "gemini-2.5-pro",
+        "opus": "inherit",
+        "sonnet": "inherit",
+        "haiku": "inherit",
+        "fable": "inherit",
     },
     "opencode": {
         "opus": "anthropic/claude-opus",
@@ -1455,11 +1458,19 @@ def map_model_for_harness(model: str, harness: str) -> str:
     raw = str(model or "").strip()
     if not raw:
         return raw
-    table = _MODEL_MAP.get(str(harness).strip().lower()) or {}
+    harness_id = str(harness).strip().lower()
+    table = _MODEL_MAP.get(harness_id) or {}
     key = raw.lower().split("/")[-1]  # strip provider prefix for lookup
     # also strip claude- prefix
     if key.startswith("claude-"):
         key = key[len("claude-") :]
+    env_name = {
+        "codex": "NEXUS_CODEX_MODEL",
+        "gemini": "NEXUS_GEMINI_MODEL",
+    }.get(harness_id)
+    configured = (os.environ.get(env_name) or "").strip() if env_name else ""
+    if configured and key in table:
+        return configured
     return table.get(key, table.get(raw.lower(), raw))
 
 

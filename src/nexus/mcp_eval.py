@@ -1141,7 +1141,8 @@ def configure_llm_judge_from_env() -> Optional[str]:
 
             label_model = grok_model or gw.default_model()
         except Exception:
-            label_model = grok_model or "grok-4.5"
+            label_model = grok_model or "provider-default"
+        label_model = label_model or "provider-default"
         return f"grok:{label_model}"
 
     def _register_ollama() -> str:

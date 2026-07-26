@@ -79,7 +79,7 @@ Lists and “awesome” resources sometimes hit 10k via **collaborative value** 
 | Full eval gate | `make smoke` |
 | Bus + dashboard | `make bus` → `/dashboard` |
 | Local LLM | `examples/ollama_local.md` |
-| Launch post draft | `docs/SHOW_HN.md` |
+| Launch post draft | `docs/share/SHOW_HN.md` |
 
 ---
 
@@ -94,10 +94,10 @@ Lists and “awesome” resources sometimes hit 10k via **collaborative value** 
 - [ ] Pin repo on GitHub profile  
 
 ### Days 8–21 — Launch window
-- [ ] Post **Show HN** using `docs/SHOW_HN.md` (weekday morning US time often better)  
+- [ ] Post **Show HN** using `docs/share/SHOW_HN.md` (weekday morning US time often better)
 - [ ] Share on X/LinkedIn with demo clip  
 - [ ] One value post each: r/LocalLLaMA, relevant Discord (help-first, link once)  
-- [ ] Tag `v0.2.0` GitHub Release with notes from CHANGELOG  
+- [ ] Tag the version declared in `pyproject.toml` after the release checks pass, using notes from `CHANGELOG.md`
 
 ### Days 22–60 — Compounding
 - [ ] Blog: “Why agent jobs die at step 5” → link repo  

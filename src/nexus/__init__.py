@@ -1,5 +1,7 @@
 """NEXUS Core — durable multi-agent orchestration for software + research + procurement."""
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .config import Settings
 from .engine import DurableEngine, Task, TaskStatus
 from .cascade import CascadeIndex
@@ -13,7 +15,11 @@ from . import arxiv_client
 from . import durability
 from . import procurement
 
-__version__ = "0.6.0"
+try:
+    __version__ = version("nexus-multi-agent")
+except PackageNotFoundError:
+    # Source-tree fallback when the package has not been installed yet.
+    __version__ = "0.10.0"
 __all__ = [
     "Settings",
     "DurableEngine",

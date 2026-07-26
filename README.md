@@ -58,7 +58,7 @@
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
 cd nexus-core
-make install && make start && make demo-all-quick
+make install && make demo-all-quick
 ```
 
 API keys are optional. Without them, mocks and local Ollama (if installed) still exercise the bus. Self-improve push remains fail-closed unless gates pass.
@@ -67,13 +67,15 @@ API keys are optional. Without them, mocks and local Ollama (if installed) still
   <img src="docs/assets/arch-governed-self-improve-capability-factory.png" alt="Governed self-improvement Phase A spine plus Phase B capability factory" width="100%">
 </p>
 
-| Documented self-improve cycle | |
-|-------------------------------|--|
-| Wall clock | **~2h 54m** unattended |
-| Ideas landed | **10/10** (arXiv + GitHub + cross-pattern) |
+> Historical run metrics describe one recorded self-improvement cycle; they are not a claim about the current branch.
+
+| Recorded self-improve cycle | |
+|-----------------------------|--|
+| Wall clock | **~2h 54m** unattended in that operator run |
+| Ideas landed | **10/10** (arXiv + GitHub + cross-pattern) in that run |
 | Multi-LLM panel | Claude · GPT · Antigravity → Grok synthesis |
 | Skill factory | e.g. `engine-fail-aware-brief` from lesson `engine_failed_open` |
-| Final tests | **green** |
+| Recorded run result | **1225 passed, 1 skipped at the time of the July 17 run; rerun the current release checks before relying on this result** |
 | Publish | **gated** when the engine judge fails (by design) |
 
 Refresh the status badge after a cycle: `python3 scripts/last_real_badge.py --runtime "~XhYm"`.
@@ -113,7 +115,7 @@ Hard problems need **more than one voice**. NEXUS is built so models **talk thro
 | Role in the panel | Typical model | What it does on hard problems |
 |-------------------|---------------|-------------------------------|
 | **Planner** | Claude / GPT | Frames approach, risks, steps |
-| **Adversary / hard grader** | **Grok 4.5 CLI** | Grades mined repos; hard improve apply |
+| **Adversary / hard grader** | **Configured Grok CLI model** | Grades mined repos; hard improve apply |
 | **Implementer** | Codex / Claude / GLM / **Grok** | Writes patches and artifacts |
 | **Tester** | Local / fast model | Runs checks, returns evidence |
 | **Reviewer** | Cross-vendor if possible | Verdict on quality |
@@ -166,7 +168,7 @@ python examples/run_with_bus.py --map planner=claude,implementer=gpt,tester=loca
 | **Capability factory** | Lessons → propose skill/tool → fill → soft accept → activate | Mints reusable skills/tools; MCP + multi_llm `--real` call them |
 | **Multi-LLM critique panel** | Claude / GPT / Antigravity → Grok ACCEPT/SKIP/DEFER | Real debate on each portfolio slice, not monologue review |
 | **Safe publish** | Allowlisted paths only; **pytest green** + S08 input health; never force-push | Self-improve can land on GitHub without wrecking main |
-| **Grok hard / local light** | Grok 4.5 grades + hard apply; Ollama for light bus work | Spend cloud where it counts |
+| **Grok hard / local light** | Configured Grok model grades + hard apply; Ollama for light bus work | Spend cloud where it counts |
 | **arXiv ledger** | [`docs/ARXIV_LEDGER.csv`](docs/ARXIV_LEDGER.csv) (Excel-friendly) | Don’t reprocess the same paper twice |
 | **Skill packs** | [`skillpacks/`](skillpacks/README.md) — Markdown source + manifest | Portable patterns for Grok / Cursor / Claude / local |
 | **Event bus + dashboard** | Live multi-agent status | Not a black box |
@@ -376,17 +378,17 @@ nexus github scout "multi agent durable" --workdir . --connect --prove
 nexus github connect langchain-ai/langgraph --workdir . --prove   # one repo
 
 # Discover + grade + USE other repos (not follow/star) → improve OURS
-# Grading: Grok 4.5 (hard) → local Ollama (light) → heuristic
+# Grading: configured Grok model (hard) → local Ollama (light) → heuristic
 nexus github mine run -q "multi agent durable" -n 10 --min-score 12 \
   --grader auto --improve
-nexus github mine evaluate -l 10 --grader grok      # force Grok 4.5 scores
+nexus github mine evaluate -l 10 --grader grok      # force configured Grok scores
 nexus github mine improve-ours                      # write IMPROVE_OURS.md plan
 nexus github mine improve-ours --apply --worker grok  # Grok hard-apply (opt-in)
 # SQLite: .nexus_state/repo_mine.sqlite  ·  clones: .nexus_workspaces/scout_repos/
 
 # Full self-improve cycle: mine + arXiv + Grok reason + apply
 # Pushes only if pytest/smoke green; allowlisted paths only; never force-push
-export NEXUS_GROK_MODEL=grok-4.5
+export NEXUS_GROK_MODEL="<supported-grok-model>"
 PYTHONPATH=src python3 scripts/full_self_improve_cycle.py           # once
 PYTHONPATH=src python3 scripts/full_self_improve_cycle.py --watch --interval 60
 # stop watch:  touch .nexus_state/STOP_FULL_CYCLE
@@ -459,25 +461,23 @@ you / contributor replies on issue or PR
 
 ### Multi-platform agents + local LLM tools
 
-**Any local LLM** (Ollama / OpenAI-compatible / **vLLM**) and **cloud agents** should share the same tools and hand off through NEXUS. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
+Local models can access the same registered host tools when the selected client supports MCP/tool calls and the model reliably emits valid tool requests. **Grok CLI is wired first**; Cursor / Claude Desktop configs are auto-written the same way.
 
-#### Spark / GB10 — NVFP4 Gemma4 as primary local agent
+#### Optional operator example: Spark / GB10 + NVFP4 Gemma4
 
-On DGX Spark (unified memory), the **primary interactive local engine** is **Gemma 4 26B NVFP4** via vLLM — not Ollama. Grok’s default model points at it; **Workspace MCP tools attach to the Grok session**, so the same NVFP brain can call `send_to_workspace`, files, bus status, improve board, etc.
+The following is an optional, hardware-specific example from one DGX Spark deployment. Model names, memory use, serving commands, and Grok configuration are operator-defined and are not installed by `nexus-core`. In the recorded setup, the primary interactive local engine was Gemma 4 26B NVFP4 via vLLM, with Workspace MCP tools attached to the Grok session.
 
 | Role | Engine | Endpoint / notes |
 |------|--------|------------------|
-| **Primary local (interactive + tools)** | **Gemma 4 NVFP4 + MTP** (`gemma4-nvfp4-interactive2`) | `http://127.0.0.1:8000/v1` · Grok model id **`gemma4`** · ~80–90 GiB unified mem · do **not** dual-load heavy Ollama |
+| **Primary local (interactive + tools)** | **Gemma 4 NVFP4 + MTP** (recorded runtime id `gemma4-nvfp4-interactive2`) | `http://127.0.0.1:8000/v1` · recorded Grok model id **`gemma4`** · approximately 80–90 GiB in that run |
 | **Secondary local (light / bus)** | Ollama `gemma4:26b` / `e2b-fast` | `http://127.0.0.1:11434/v1` · Grok model id **`nexus-local`** · only when NVFP is stopped or for bus agent `local` |
-| **Hard cloud grading / apply** | Grok 4.5 CLI | Optional; still best for spendy mine/improve when you want cloud |
-| **Tools** | `nexus-workspace` MCP | Same tool surface for **cloud Grok, NVFP `gemma4`, or Ollama** inside Grok CLI |
+| **Hard cloud grading / apply** | Operator-selected Grok CLI model | Optional; useful for hard mine/improve work |
+| **Tools** | `nexus-workspace` MCP | Registered host tools are available when the client and selected model support reliable tool calling |
 
 ```bash
-# Start primary local brain (cold load ~2–3 min)
-cd ~/gemma4-vllm && ./manage.sh nvfp4-interactive2 up
-# Grok CLI: default = gemma4 (NVFP4); MCP nexus-workspace already in ~/.grok/config.toml
-grok
-# Prompt: use send_to_workspace / read_workspace_chat — tools run via MCP host, model is NVFP
+export NEXUS_LOCAL_MODEL_ROOT=/path/to/your/local-model-runtime
+cd "$NEXUS_LOCAL_MODEL_ROOT"
+# Start its OpenAI-compatible server using that runtime's documented command.
 ```
 
 ```text
@@ -489,22 +489,21 @@ grok
          ◄──── workspace chat handoff ─────────────────┘
 ```
 
-**Memory rule:** NVFP owns the GPU/RAM budget while up. Stop it before large Ollama loads:  
-`./manage.sh nvfp4-interactive2 stop`.
+**Memory rule:** measure the deployment and stop the local model server using its documented shutdown command before co-loading another large model.
 
 **Small-model tool cheat sheet:** weaker local models need explicit “when/how to call tools” instructions. Ship that as skill pack [`skillpacks/gemma-local-tools/`](skillpacks/gemma-local-tools/) — covers shell, Nexus MCP, GitHub, and coding skills (`implement`, `review`, `check-work`, …). Doc: [docs/LOCAL_LLM_TOOL_CALLING.md](docs/LOCAL_LLM_TOOL_CALLING.md).
 
 **SWE-bench Pro multi-AI:** Claude plan/review · **Grok implement** · **Codex/ChatGPT adversary** · Gemini arXiv/web · local files — human-style group review, **official Pro harness for the score**. Doc: [docs/SWE_BENCH_PRO_MULTI_AI.md](docs/SWE_BENCH_PRO_MULTI_AI.md) · `scripts/swe_pro_multi_ai.py`.
 
-**Orchestration façade (designed, not all shipped yet):** high-level `run_task` / `get_task_status` / `submit_workflow` / `trigger_self_improve` so the NVFP agent can **delegate multi-step work** without hand-chaining atomic MCP tools. Spec: [docs/design/nexus-orchestration-mcp-server.md](docs/design/nexus-orchestration-mcp-server.md) · platforms detail: [docs/PLATFORMS.md](docs/PLATFORMS.md).
+**Orchestration façade:** `run_task` and `get_task_status` are implemented. `submit_workflow` and `trigger_self_improve` remain design-stage interfaces; see the [specification](docs/design/nexus-orchestration-mcp-server.md) for planned behavior. Platforms detail: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 **Recommended split of labor**
 
 | Work | Engine | Notes |
 |------|--------|--------|
 | **Interactive agent + workspace MCP** | **NVFP4 Gemma4 (`gemma4`)** | Default on Spark; high-bandwidth local |
-| **Hard grading** (idea/skill on mined repos) | **Grok 4.5 CLI** (or NVFP when online) | `grader=auto\|grok` |
-| **Hard improve / apply** | **Grok 4.5 CLI** (or NVFP) | `worker=auto\|grok` — agentic edits + tests |
+| **Hard grading** (idea/skill on mined repos) | **Configured Grok CLI model** (or local model when online) | `grader=auto\|grok` |
+| **Hard improve / apply** | **Configured Grok CLI model** (or local model) | `worker=auto\|grok` — agentic edits + tests |
 | **Light bus turns / drafts** | **Ollama / nexus-local** | Cheap; only when NVFP is off or as bus `local` |
 | **Offline** | Heuristic keywords | `--heuristic-only` |
 
@@ -518,7 +517,7 @@ grok
 ```bash
 # One-time mesh (project root = your repo)
 nexus platforms connect --path .
-# Optional: export NEXUS_GROK_MODEL=grok-4.5 for cloud hard worker/grader
+# Optional: export NEXUS_GROK_MODEL="<supported-grok-model>"
 
 grok                          # /model gemma4  → NVFP; MCP nexus-workspace
 # /model nexus-local          # Ollama only if NVFP stopped
@@ -527,7 +526,7 @@ grok                          # /model gemma4  → NVFP; MCP nexus-workspace
 # Claude Desktop: merge connectors/examples/claude-desktop.nexus.json
 ```
 
-**Rule:** local models share the same **tools**. **(1)** Inside **Grok CLI** with `nexus-workspace` MCP, **NVFP `gemma4` and Ollama** both get project tools. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → same `mcp_server` tools). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
+**Rule:** local models can use the same registered host tools when their client supports MCP/tool calls and they emit valid requests. **(1)** Inside **Grok CLI** with `nexus-workspace` MCP, a compatible NVFP or Ollama model can use project tools. **(2)** On the **NEXUS bus**, Ollama runs `ollama_tools.py` (`TOOL_CALL` → the same `mcp_server` implementations). Agents hand off with ids `grok_cli` / `cursor` / `claude` / `local` via workspace chat.
 
 ```bash
 nexus platforms doctor          # mesh health
@@ -552,14 +551,14 @@ NEXUS can stay **alive**: search/research the ecosystem, **score repos with Grok
 | **① User goal** | `alive.json` — what to chase, `grader`/`worker`, apply?, self_approve? |
 | **② Token budget** | Daily/monthly/per-call caps; block or warn (`nexus usage`) |
 | **③ Sensors** | GitHub search, arXiv (ledger-aware), clones, issues/PRs, heartbeat |
-| **④ Scoring** | idea + skill for **reuse** — **Grok 4.5** → Ollama → heuristic — never follow/star |
+| **④ Scoring** | idea + skill for **reuse** — configured Grok model → Ollama → heuristic — never follow/star |
 | **⑤ Improve ours** | USE clones → plan → **Grok hard apply** (or bus) → tests |
 | **⑥ Publish** | `push_github` → commit allowlisted paths → `git push` **only if tests green** (no force) |
 | **⑦ Control** | `alive watch` / `scripts/full_self_improve_cycle.py --watch` — keep going until you stop |
 
 ```bash
 nexus usage set --daily 200000 --monthly 3000000   # throttle
-export NEXUS_GROK_MODEL=grok-4.5
+export NEXUS_GROK_MODEL="<supported-grok-model>"
 
 nexus alive init \
   --goal "improve multi-agent durability" \
@@ -659,7 +658,7 @@ Optional charts: `pip install matplotlib` (or `pip install "nexus-multi-agent[ch
 </p>
 
 ```bash
-make install && make start && make demo && make demo-judge && make smoke
+make install && make demo && make demo-judge && make smoke
 ```
 
 ---
