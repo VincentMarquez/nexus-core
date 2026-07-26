@@ -108,11 +108,7 @@ live model quality, run the real self-improvement loop, or exercise the
 capability factory. Those require separate configuration and evidence.
 
 <p align="center">
-  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS crash recovery, judging, and operator evidence demo" width="900">
-</p>
-
-<p align="center">
-  <a href="docs/assets/nexus-demo-reel.mp4"><b>Watch or download the demo video (MP4)</b></a>
+  <img src="docs/assets/demo.gif" alt="NEXUS crash → resume demo" width="100%">
 </p>
 
 More detail: [Demo guide](docs/DEMO.md) ·
