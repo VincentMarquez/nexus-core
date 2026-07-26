@@ -5,7 +5,7 @@
 #   ./scripts/demo_showcase.sh
 #   ./scripts/demo_showcase.sh --quick   # skip slower steps
 #
-# Proves: crash→resume, judge vs presence, smoke evals, platforms mesh,
+# Proves: crash→resume, judge vs presence, smoke evals, platform discovery,
 #         heartbeat/network probe, recovery diagnose.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -50,7 +50,7 @@ dim "What we prove (no cloud keys required):"
 dim "  1. Crash mid-task → resume → 10/10 complete"
 dim "  2. Judge rejects 'looks good' without evidence"
 dim "  3. Smoke evals (resume, autonomy, human gate)"
-dim "  4. Multi-platform mesh status"
+dim "  4. Platform discovery status"
 dim "  5. Heartbeat / network resilience probe"
 dim "  6. Unit tests green"
 echo
@@ -114,7 +114,7 @@ else
 fi
 
 # ── 4. platforms ───────────────────────────────────────────────────────────
-step "4) Multi-platform mesh (Grok / Cursor / Ollama / …)"
+step "4) Platform discovery (Grok / Cursor / Ollama / …)"
 if python -m nexus.cli platforms status >/tmp/nexus-demo-plat.txt 2>&1; then
   mark ok "platforms status"
   dim "$(grep -E 'grok|ollama|nexus|claude|codex' /tmp/nexus-demo-plat.txt | head -8 | sed 's/^/  /')"
@@ -183,16 +183,19 @@ cat <<'EOF'
   │  • Multi-agent pipeline survives crash (checkpoint+resume)  │
   │  • Rubric judge needs evidence — not “looks good”           │
   │  • Smoke gates: resume · autonomy off · human gate          │
-  │  • Platforms mesh ready for Grok CLI / local LLM tools      │
+  │  • Platform discovery reports available clients             │
   │  • Resilience probes ready for cloud dead-man heartbeat     │
   │                                                             │
   │  https://github.com/VincentMarquez/nexus-core               │
-  │  Docs: https://vincentmarquez.github.io/nexus-core/         │
+  │  Details: README.md → Deep dives                             │
   └─────────────────────────────────────────────────────────────┘
 
   Reproduce:
-    git clone https://github.com/VincentMarquez/nexus-core
-    cd nexus-core && make install && make demo-all
+    git clone https://github.com/VincentMarquez/nexus-core.git
+    cd nexus-core
+    make install
+    source .venv/bin/activate
+    make demo-all-quick
 
   Killer one-liner (crash→resume only):
     make demo

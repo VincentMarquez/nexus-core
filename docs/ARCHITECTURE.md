@@ -63,7 +63,10 @@ That separation is what makes LangGraph/SqliteSaver (or any checkpointer) a **wr
 | Reactive (default) | `autonomy=False` | Only user-submitted tasks run |
 | Autonomous | `autonomy=True` | Optional goal loops may create tasks |
 
-Default **OFF**. Unattended generators are the classic token sink.
+The base task engine is reactive by default. Advanced subsystems such as Alive,
+GitHub watch, and capability generation have their own apply, activation, and
+publishing settings; inspect those effective settings separately before an
+unattended run.
 
 ## Namespaces
 

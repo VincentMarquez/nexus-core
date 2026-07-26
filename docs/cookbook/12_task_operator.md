@@ -7,8 +7,8 @@ Inspect durable tasks like an ops console: list, replay, cost, evidence, and res
 ```bash
 git clone https://github.com/VincentMarquez/nexus-core.git
 cd nexus-core
-pip install -e ".[dev]"
-export PYTHONPATH=src
+make install
+source .venv/bin/activate
 ```
 
 ## Run a durable task
@@ -32,6 +32,9 @@ nexus task cost op-demo-1
 nexus task prov op-demo-1
 nexus task verify op-demo-1
 nexus task graph op-demo-1 --mermaid
+nexus task dag op-demo-1 --mermaid
+nexus task consensus op-demo-1
+nexus task context op-demo-1
 nexus task evidence op-demo-1 --out /tmp/evidence.json
 ```
 
@@ -58,7 +61,13 @@ python3 examples/demo_hitl_resume.py
 | Checkpoint JSON | Crash-safe task state |
 | `*.events.jsonl` | Append-only audit log |
 | `replay` / `explain` | Post-hoc audit without rerunning agents |
+| `cost` / `prov` / `verify` | Usage, provenance, and checkpoint/journal consistency |
+| `graph` / `dag` | Agent handoffs and policy dependency/action order |
+| `consensus` | Recorded multi-grader findings and trust weights |
+| `context` | Bounded goal, constraint, journal, memory, research, and repository context |
 | `evidence` | Portable pack for boards and CI |
 | `resume --approve` | Human gate without losing checkpoint state |
 
-See also [01 — Crash → resume](01_crash_resume.md).
+These inspection commands read recorded state; they do not rerun agents. See
+also [01 — Crash → resume](01_crash_resume.md) and
+[Task evidence packs](../evidence/README.md).

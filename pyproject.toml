@@ -35,8 +35,8 @@ nexus = "nexus.cli:main"
 nexus-eval = "nexus.grade_cli:main"
 
 [project.urls]
-Homepage = "https://vincentmarquez.github.io/nexus-core/"
-Documentation = "https://vincentmarquez.github.io/nexus-core/"
+Homepage = "https://github.com/VincentMarquez/nexus-core#readme"
+Documentation = "https://github.com/VincentMarquez/nexus-core/tree/main/docs"
 Repository = "https://github.com/VincentMarquez/nexus-core"
 Issues = "https://github.com/VincentMarquez/nexus-core/issues"
 Changelog = "https://github.com/VincentMarquez/nexus-core/blob/main/CHANGELOG.md"

@@ -1,5 +1,5 @@
 site_name: NEXUS Core
-site_description: Many LLMs talk and reason together — durable multi-agent start console
+site_description: Durable, evidence-gated multi-agent execution for repository work
 site_url: https://vincentmarquez.github.io/nexus-core/
 repo_url: https://github.com/VincentMarquez/nexus-core
 repo_name: VincentMarquez/nexus-core
@@ -58,6 +58,7 @@ nav:
       - Heartbeat + resilience: cookbook/11_heartbeat_resilience.md
       - Task operator board: cookbook/12_task_operator.md
       - GitHub community (full): GITHUB_COMMUNITY.md
+      - Security & trust: SECURITY.md
       - PyPI publish: PYPI.md
   - Architecture:
       - Overview: ARCHITECTURE.md

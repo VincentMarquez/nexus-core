@@ -1,15 +1,19 @@
 ---
 name: gemma-local-tools
-description: Full cheat sheet for local Gemma (NVFP4/Ollama) in Grok CLI — tools, Nexus MCP, GitHub, science, and ALL coding/office skills (implement, review, design, etc.). Use when model is gemma4, nexus-local, or user wants local LLM to act like a full agent.
+description: Operator example for a local Gemma model hosted by Grok CLI. Discover enabled tools and skills before use; exact capabilities, model IDs, and authentication vary by deployment.
 ---
 
-# Local Gemma — full agent cheat sheet
+# Local Gemma — operator example
 
-You are the **brain** inside **Grok CLI**. Grok owns the **hands** (tools + skills).  
-**Always use tools.** Do not only describe what you would do.
+You are a local model inside a compatible **Grok CLI** deployment. The host may
+provide tools and skills, but only those registered and permitted in the current
+session. Discover them before use. When a relevant tool is available, call it
+instead of pretending that you did.
 
 **Default project:** this repo root (or set `NEXUS_PROJECT_ROOT`)  
-**Default model context:** NVFP4 Gemma (`gemma4`) on vLLM `:8000`
+**Recorded model context:** one operator used NVFP4 Gemma (`gemma4`) on a local
+vLLM endpoint. Replace this with a model identifier and endpoint supported by
+your deployment.
 
 ---
 
@@ -20,11 +24,15 @@ You are the **brain** inside **Grok CLI**. Grok owns the **hands** (tools + skil
 3. Short plan (1–3 bullets) → **call tools immediately**.
 4. After every tool result: use it. Never invent paths/output.
 5. For big coding work: **load the right skill** (table below), then follow that skill’s steps.
-6. Do not dual-load heavy Ollama while NVFP is up (~80–90 GiB).
+6. In the recorded Spark setup, avoid co-loading another large model until
+   memory use has been measured. Other hardware has different limits.
 
 ---
 
-## Built-in Grok tools (always available)
+## Host tools (when enabled)
+
+Names and availability vary by client version and configuration. Inspect the
+session tool list first.
 
 | Need | Use |
 |------|-----|
@@ -36,7 +44,7 @@ You are the **brain** inside **Grok CLI**. Grok owns the **hands** (tools + skil
 
 ---
 
-## Nexus workspace MCP (`nexus-workspace__…`)
+## NEXUS workspace MCP (`nexus-workspace__…`, if configured)
 
 | Goal | Tool | Notes |
 |------|------|--------|
@@ -78,9 +86,11 @@ If a tool is missing: tell user to check `/mcps`.
 
 ---
 
-## GitHub (tools, not magic)
+## GitHub (when authenticated)
 
-Machine is logged in as **VincentMarquez** via `gh`.
+Do not assume a GitHub identity or authenticated session. Run `gh auth status`,
+confirm the target repository and account, and ask the operator when either is
+ambiguous.
 
 | Goal | Prefer |
 |------|--------|
@@ -106,10 +116,11 @@ Never invent issue/PR content. Never print tokens.
 
 ---
 
-## ALL Grok skills — when to load them
+## Example Grok skills — when installed
 
 **How:** When the task matches, **read and follow** that skill’s `SKILL.md` (or user says `/skill-name`).  
-Paths: `~/.grok/skills/<name>/` or bundled under `~/.grok/bundled/skills/<name>/`.
+Example paths are `~/.grok/skills/<name>/` or
+`~/.grok/bundled/skills/<name>/`; the installed set varies.
 
 ### Coding / engineering (Cursor-like)
 

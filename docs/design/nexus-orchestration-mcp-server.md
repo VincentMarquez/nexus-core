@@ -30,7 +30,7 @@ We will **extend the existing `nexus-workspace` MCP process** with a small set o
 
 | Layer | What exists | Path / symbol |
 |-------|-------------|---------------|
-| MCP server | Stdio JSON-RPC + optional HTTP (`nexus mcp --http --port 8765`) | `src/nexus/mcp_server.py` |
+| MCP server | Stdio JSON-RPC MCP; separate localhost JSON tools demo via `nexus mcp --http --host 127.0.0.1 --port 8765` | `src/nexus/mcp_server.py` |
 | Server identity | `SERVER_NAME="nexus-workspace"`, `SERVER_VERSION="0.8.0"`, `PROTOCOL_VERSION="2024-11-05"` | same |
 | Project jail | `NEXUS_PROJECT_ROOT` + `_safe_path()` | `mcp_server._root`, `_safe_path` |
 | Grok wiring (operator env) | `[mcp_servers.nexus-workspace]` → `.venv/bin/python -m nexus.mcp_server` | `~/.grok/config.toml` (host config, not in repo) |
@@ -72,7 +72,7 @@ In the recorded operator environment, Grok had `nexus-workspace` enabled on the 
 1. Expose orchestration facades with **stable, complete schemas per shippable PR** (not half-stub tools under a version bump).
 2. Map facades onto existing modules—**no parallel orchestration engines**.
 3. Async job model: client-facing `task_id` (= ops job id), status enum, cancel, log tail, TTL, spend attribution under project root.
-4. Keep stdio + HTTP transports; do not break existing 38 tools or default Grok config.
+4. Keep stdio MCP plus the separate localhost HTTP tools demo; do not break existing 38 tools or default Grok config.
 5. Graceful bus-down: local/offline paths always work; bus-backed steps report `blocked` / degraded mode.
 6. Safe by default: project jail, dry-run defaults for apply, usage/spend gates, no secret values via MCP (`vault_status` pattern). Optional runtime privilege ceiling when configured.
 7. Coexist with large local models: MCP process stays thin; workers are opt-in and budgeted; default `wait=false`.
@@ -239,7 +239,7 @@ Full `TOOLS` including every shipped facade (subject to `NEXUS_ORCH`).
 | Caller | Sees profile filter? |
 |--------|----------------------|
 | Grok/Claude stdio MCP (spawns server with env) | Yes |
-| HTTP MCP with env set | Yes |
+| Local HTTP tools demo with env set | Yes |
 | `bridge/bridges/ollama_tools.py` importing `TOOLS` / `call_tool` in-process | **No** — always full registry unless bridge is updated later |
 
 Document this distinction; profile is **host-spawn only** in v1. Optional follow-up: `ollama_tools` reads `NEXUS_MCP_PROFILE` and filters catalog text.
@@ -1145,7 +1145,7 @@ MVP acceptance: ops row reaches a terminal or blocked status for every submit; n
 | Silent kind→other | Med | Validate kinds before upsert_job |
 | Wrong state_dir | High | Mandatory Settings construction + cwd test |
 | wait=true freezes host under NVFP4 | Med | Default false; document; hard cap 300s |
-| ollama sees full tools | Low | Document host-spawn vs in-process |
+| Ollama bypasses the selected host profile | Low | Document host-spawn vs in-process and filter the bridge catalog in a follow-up |
 
 ---
 

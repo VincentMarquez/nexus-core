@@ -6,6 +6,13 @@ High-level idea:
 > score what it finds, use those repos to plan improvements to **your** code,  
 > and optionally self-approve when tests pass — while **you** throttle tokens.
 
+> **Advanced operation:** apply, activation, commit, and push paths can modify
+> the current checkout and remote directly. Use a clean, dedicated branch or
+> worktree, protect the default branch, inspect the effective configuration,
+> and review the diff. Repository mining/proof may also install and execute
+> code from cloned projects; use an isolated, credential-free environment for
+> untrusted inputs.
+
 ## ML architecture
 
 ![Alive / mine self-improve architecture](assets/arch-alive-self-improve.svg)
@@ -87,7 +94,7 @@ nexus alive once
 # 5) Keep living
 nexus alive watch --interval 3600
 # or cron:
-nexus schedule --mcp-http
+nexus schedule
 ```
 
 ## Token throttle
@@ -123,10 +130,16 @@ alive once
 
 | Flag | Effect |
 |------|--------|
-| `apply=false` (default) | Research + plans only |
+| `apply=false` (default) | Research, candidate state, and planning/evidence docs; no implementation apply |
 | `apply=true`, `self_approve=false` | Plans; you apply yourself |
 | `apply=true`, `self_approve=true` | If **tests pass**, run `improve-ours --apply` |
 | `push_github=true` | If **tests pass**, commit allowlisted files + `git push` (no force) |
+
+`apply`, `self_approve`, and `push_github` default to `false`. Capability-factory
+activation is controlled separately by `skill_factory_auto_activate`; the
+default is `false`, so generated candidates remain unactivated for review.
+`skill_factory_enable` defaults to `true` and may still write candidate,
+validation, and acceptance state under `.nexus_state/capability_factory/`.
 
 ```bash
 # Full autonomous product loop (lab can still run run.py separately)
@@ -154,7 +167,11 @@ cd "$NEXUS_PROJECT_ROOT" && source .venv/bin/activate
 nexus alive watch --interval 3600
 ```
 
-Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `tests/`, …), not `.nexus_state` or secrets.
+Self-approve does not force-push. Publishing captures `git status` at cycle
+start, clears the existing index before its own staging step, and stages only
+newly dirty allowlisted paths; publish fails closed when it cannot establish
+that cycle scope. Start from a clean dedicated branch anyway, inspect
+`git status` and the staged diff, and use least-privilege credentials.
 
 ## Config file
 
@@ -171,6 +188,8 @@ Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `
   "arxiv_count": 10,
   "apply": false,
   "self_approve": false,
+  "push_github": false,
+  "skill_factory_auto_activate": false,
   "use_ollama": true,
   "prove": true,
   "our_repo": "VincentMarquez/nexus-core",
@@ -182,11 +201,20 @@ Self-approve **never** force-pushes. It only adds safe paths (`src/`, `docs/`, `
 | Field | Role |
 |-------|------|
 | `fetch_count` | How many GitHub candidates to fetch per query |
-| `use_limit` | Max scored clones to keep for improve-ours (full cycle uses **10**) |
-| `arxiv_count` | Max new arXiv papers per research step (full cycle uses **10**; ledger skips seen ids) |
+| `use_limit` | Max scored clones to keep for improve-ours (full-cycle script defaults to **20**) |
+| `arxiv_count` | Max new arXiv papers per research step (full-cycle script defaults to **20**; ledger skips seen ids) |
 | `grader` / `worker` | Prefer `grok` for hard grade/apply; Ollama is light fallback |
+| `skill_factory_auto_activate` | Activate accepted generated skills automatically; set `false` for human review |
 
-Full 10+10 cycle: `PYTHONPATH=src NEXUS_GROK_MODEL="<supported-grok-model>" python3 scripts/full_self_improve_cycle.py`
+`scripts/full_self_improve_cycle.py` is a high-impact operator script rather
+than a normal quick start. Inspect its current repository/paper counts, token
+budget overrides, model settings, apply flags, and push target before running
+it. It enables apply, self-approval, and GitHub push for that invocation, but
+leaves `.nexus_state/alive.json` unchanged. Its token-budget increase is
+persisted separately.
+
+See [security and trust boundaries](SECURITY.md) and the
+[self-improve system map](self-improve/README.md).
 
 ## Operator: durable task board
 

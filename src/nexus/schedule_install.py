@@ -1,4 +1,4 @@
-"""Print crontab / launchd snippets so NEXUS + ChatGPT/Claude can run on a schedule.
+"""Print crontab snippets for local NEXUS jobs.
 
 Does not install system services without the user pasting lines (safe default).
 """
@@ -32,7 +32,7 @@ def install_bundle(
     lines = [
         "# NEXUS scheduled jobs — paste into: crontab -e",
         "# Self-improvement under budget: docs/ALIVE.md",
-        "# ChatGPT / Claude MCP: docs/SCHEDULE_AGENTS.md",
+        "# Remote-client patterns: docs/SCHEDULE_AGENTS.md",
         "",
     ]
     if heartbeat:
@@ -62,9 +62,8 @@ def install_bundle(
             f">>{root}/.nexus_state/mcp_http.log 2>&1"
         )
         lines.append(
-            "# Expose MCP to ChatGPT with a tunnel, e.g.:\n"
-            "#   cloudflared tunnel --url http://127.0.0.1:8765\n"
-            "# Then paste https://….trycloudflare.com into ChatGPT Connectors."
+            "# Local HTTP tools demo only: unauthenticated and not full remote MCP.\n"
+            "# Keep it on localhost; do not expose or tunnel this endpoint."
         )
     lines += [
         "",

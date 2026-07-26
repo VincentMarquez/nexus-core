@@ -19,12 +19,16 @@ skillpacks/
 | Pack | Purpose |
 |------|---------|
 | [`durable-operator/`](durable-operator/) | Operator audit + HITL resume |
-| [`gemma-local-tools/`](gemma-local-tools/) | **Small/local LLM cheat sheet** — how Gemma (or any small model) uses Grok’s full tool belt + coding skills |
+| [`gemma-local-tools/`](gemma-local-tools/) | **Operator example for small/local models** — how one Grok-hosted Gemma setup discovers and uses enabled tools and skills |
 | [`swe-pro-group-review/`](swe-pro-group-review/) | **SWE-bench Pro multi-AI group review** — Grok implements; Claude + Codex review; Gemini web/arXiv; local files |
 
-## Small models + full tools
+## Small models + enabled host tools
 
-Local models inside Grok CLI get the **same hands** (shell, files, MCP) as cloud Grok. They need a **cheat sheet** so they actually call tools:
+A local model inside a compatible host can select the tools that the client has
+registered and permitted. Actual availability depends on the client, MCP
+configuration, host permissions, and the model's ability to emit valid tool
+requests. The bundled Gemma pack is an operator-specific example, not a
+portable promise of tool parity:
 
 ```bash
 # Install for Grok CLI
