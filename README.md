@@ -54,6 +54,20 @@ configuration—not product requirements.
 
 **One workspace. Many models. A real path from idea to evidence.**
 
+## Watch the product demo
+
+The main demo reel (multi-LLM self-improve + capability factory). Full MP4 linked below.
+
+<p align="center">
+  <img src="docs/assets/nexus-demo-reel.gif" alt="NEXUS multi-LLM self-improve and skill factory demo" width="900">
+</p>
+
+<p align="center">
+  <a href="docs/assets/nexus-demo-reel.mp4"><b>Demo video (MP4)</b></a>
+  · <a href="docs/share/"><b>Share kit</b></a>
+  · <a href="docs/hype/"><b>Hype pack</b></a>
+</p>
+
 ## Quick start
 
 Requirements: Python 3.10+, Git, Make, and a POSIX shell.
@@ -128,13 +142,16 @@ Quick mode skips the optional GitHub-auth check and scoreboard. It does not test
 live model quality, run the real self-improvement loop, or exercise the
 capability factory. Those require separate configuration and evidence.
 
+Short crash → resume loop (from `make demo`):
+
 <p align="center">
   <img src="docs/assets/demo.gif" alt="NEXUS crash → resume demo" width="100%">
 </p>
 
 More detail: [Demo guide](docs/DEMO.md) ·
 [Judge vs presence](docs/cookbook/02_judge_vs_presence.md) ·
-[Evidence format](docs/evidence/README.md)
+[Evidence format](docs/evidence/README.md) ·
+[Full product reel (MP4)](docs/assets/nexus-demo-reel.mp4)
 
 ## Why NEXUS
 
